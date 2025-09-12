@@ -50,7 +50,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   // colorpicker
   const [isActive, setIsActive] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [btnColor, setBtnColor] = useState("#C9C9C9");
+  const [btnColor, setBtnColor] = useState("#2c59c9");
   const [btnOpen, setBtnOpen] = useState(false);
   const [color, setColor] = useState("#ffffff");
   const colorPickerRef = useRef<HTMLDivElement | null>(null);
@@ -524,9 +524,66 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
 
           <div style={{ padding: "10px" }}>
             {isDesktopView ? (
-              <div className="preview-window desktop-preview"></div>
+              <div className="preview-window desktop-preview">
+                <div className="browser-window">
+                  <div className="browser-controls">
+                    <div className="traffic-lights">
+                      <div className="traffic-light red"></div>
+                      <div className="traffic-light yellow"></div>
+                      <div className="traffic-light green"></div>
+                    </div>
+                  </div>
+                  <div className="browser-content">
+                    <div 
+                      className="trigger-widget"
+                      style={{
+                        left: triggerHorizontalPosition === 'Left' ? '10px' : 
+                              triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
+                        right: triggerHorizontalPosition === 'Right' ? '10px' : 'auto',
+                        transform: triggerHorizontalPosition === 'Center' ? 'translateX(-50%)' : 'none'
+                      }}
+                    >
+                      <div 
+                        className={`widget-trigger ${triggerButtonShape.toLowerCase()}`}
+                        style={{ backgroundColor: btnColor }}
+                      >
+                        <img 
+                          src={iconOptions.find(icon => icon.id === selectedIcon)?.label || icon1} 
+                          alt="Accessibility Icon" 
+                          className="widget-icon"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ) : (
-              <div className="preview-window mobile-preview"></div>
+              <div className="preview-window mobile-preview">
+                <div className="mobile-browser-window">
+                  <div className="mobile-browser-content">
+                    <div 
+                      className="mobile-trigger-widget"
+                      style={{
+                        left: mobileTriggerHorizontalPosition === 'Left' ? '8px' : 
+                              mobileTriggerHorizontalPosition === 'Right' ? 'auto' : '50%',
+                        right: mobileTriggerHorizontalPosition === 'Right' ? '8px' : 'auto',
+                        transform: mobileTriggerHorizontalPosition === 'Center' ? 'translateX(-50%)' : 'none'
+                      }}
+                    >
+                      <div 
+                        className={`mobile-widget-trigger ${mobileTriggerShape.toLowerCase()}`}
+                        style={{ backgroundColor: btnColor }}
+                      >
+                        <img 
+                          src={iconOptions.find(icon => icon.id === selectedIcon)?.label || icon1} 
+                          alt="Accessibility Icon" 
+                          className="mobile-widget-icon"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>

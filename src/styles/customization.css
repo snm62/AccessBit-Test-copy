@@ -342,7 +342,7 @@
 }
 
 .trigger-icon-section h3 {
-  color: #a855f7;
+  color:rgba(140, 121, 255, 1);
   font-size: 12px;
   font-weight: 400;
   margin-bottom: 20px;
@@ -355,9 +355,8 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: #a855f7;
+  background:rgba(140, 121, 255, 1);
 }
-
 .icon-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -476,19 +475,25 @@
 }
 
 .preview-window.desktop-preview {
-  background: url("../assets/preview-area.svg") no-repeat center center;
-  background-size: cover;
+  background: #2d1b69;
+  border-radius: 4px;
+  height: 130px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .preview-window.mobile-preview {
-  background: url("../assets/preview-area.svg") no-repeat center left;
-  height: 130px;
+  background: #1a1822;
+  border-radius: 4px;
+  height: 132px;
   display: flex;
-  width: 105px;
+  width: 80px;
   justify-content: center;
-  margin-left: 25%;
+  margin-left: 33%;
+  overflow: hidden;
 }
 
+/* Browser Window Styles */
 .browser-window {
   background: #ffffff;
   border-radius: 8px;
@@ -499,21 +504,19 @@
 }
 
 .browser-controls {
-  background: #f5f5f5;
-  padding: 8px 12px;
-  border-bottom: 1px solid #ddd;
-  display: flex;
-  align-items: center;
+  background: #86858D;
+  padding: 5px 6px;
+  border-radius: 8px 8px 0 0;
 }
 
 .traffic-lights {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 .traffic-light {
-  width: 12px;
-  height: 12px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 
@@ -531,12 +534,160 @@
 
 .browser-content {
   height: calc(100% - 40px);
-  background: #f8f9fa;
+  background: #1F1D2E;
   position: relative;
-  border-radius: 0 0 8px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.accessibility-widget {
+/* Accessibility Widget */
+.trigger-widget {
+  position: absolute;
+  bottom: 15px;
+  left: 10px;
+  z-index: 5;
+}
+
+.widget-trigger {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease;
+  border: none;
+}
+
+.widget-trigger:hover {
+  transform: scale(1.1);
+}
+
+.widget-icon {
+  width: 16px;
+  height: 16px;
+  filter: brightness(0) invert(1);
+  /* Makes the icon white */
+}
+
+/* Button Shape Styles */
+.widget-trigger.circle {
+  border-radius: 50%;
+}
+
+.widget-trigger.square {
+  border-radius: 0;
+}
+
+.widget-trigger.rounded {
+  border-radius: 8px;
+}
+
+/* Mobile Browser Window Styles */
+.mobile-browser-window {
+  background: #ffffff;
+  border-radius: 12px;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #333;
+}
+
+.mobile-browser-content {
+  height: 100%;
+  background: #1F1D2E;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.mobile-trigger-widget {
+  position: absolute;
+  bottom: 10px;
+  left: 8px;
+  z-index: 5;
+}
+
+.mobile-widget-trigger {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease;
+  border: none;
+}
+
+.mobile-widget-trigger:hover {
+  transform: scale(1.1);
+}
+
+.mobile-widget-icon {
+  width: 10px;
+  height: 10px;
+  filter: brightness(0) invert(1);
+  /* Makes the icon white */
+}
+
+/* Mobile Button Shape Styles */
+.mobile-widget-trigger.circle {
+  border-radius: 50%;
+}
+
+.mobile-widget-trigger.square {
+  border-radius: 0;
+}
+
+.mobile-widget-trigger.round {
+  border-radius: 6px;
+}
+
+/* Mobile Button Size Styles */
+.mobile-widget-trigger.small {
+  width: 16px;
+  height: 16px;
+}
+
+.mobile-widget-trigger.medium {
+  width: 20px;
+  height: 20px;
+}
+
+.mobile-widget-trigger.large {
+  width: 24px;
+  height: 24px;
+}
+
+/* Adjust icon size based on button size */
+.mobile-widget-trigger.small .mobile-widget-icon {
+  width: 8px;
+  height: 8px;
+}
+
+.mobile-widget-trigger.medium .mobile-widget-icon {
+  width: 10px;
+  height: 10px;
+}
+
+.mobile-widget-trigger.large .mobile-widget-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.trigger-widget {
   position: absolute;
   z-index: 10;
 }
