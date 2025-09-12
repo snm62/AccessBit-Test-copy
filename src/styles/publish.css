@@ -4,6 +4,83 @@
   background: rgba(10, 8, 27, 1);
   color: #ffffff;
   font-family: 'DM Sans', sans-serif;
+  position: relative;
+}
+
+/* Publish Modal */
+.publish-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(5.7px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.publish-modal {
+  background: #262144;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.publish-modal-content {
+  text-align: left;
+}
+
+.publish-modal-content p {
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+.publish-modal-content p:last-of-type {
+  margin-bottom: 32px;
+}
+
+.publish-modal-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.confirm-btn,
+.cancel-btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.confirm-btn {
+  background: rgba(38, 46, 132, 1);
+  color: #ffffff;
+}
+
+.confirm-btn:hover {
+  background: rgba(38, 46, 132, 0.8);
+}
+
+.cancel-btn {
+  background: transparent;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+}
+
+.cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Header */
@@ -86,8 +163,8 @@
 /* Step Navigation */
 .step-navigation {
   display: flex;
-  margin: 0px 30px 0px 27px;
-  padding: 20px 0px;
+  margin: 10px 30px 0px 27px;
+  padding: 0px;
   gap: 100px;
   border-bottom: 1px solid #333;
   font-weight: 400;
@@ -121,6 +198,10 @@
   color: #ffffff;
 }
 
+.step.active {
+  border-bottom: 1px solid #ffffff;
+}
+
 .step:not(.active) .step-name {
   color: rgba(255, 255, 255, 0.7);
 }
@@ -141,11 +222,11 @@
 }
 
 /* Panels */
-.left-panel,
-.right-panel {
+.preview-panel {
   flex: 1;
   border-radius: 8px;
   overflow: hidden;
+  height: 420px;
 }
 
 .panel-header {
@@ -155,8 +236,9 @@
 
 .panel-header h3 {
   color: #ffffff;
-  font-size: 18px;
+  font-size: 16px;
   margin: 0;
+  font-weight: 400;
 }
 
 .preview-window1 {
@@ -201,7 +283,7 @@
 }
 
 .browser-content {
-  height: calc(100% - 40px);
+  height: calc(100% - 15px);
   background: #1F1D2E;
   position: relative;
   display: flex;
@@ -235,8 +317,8 @@
 
 .close-btn {
   position: absolute;
-  top: 15px;
-  right: 7px;
+  top: 0px;
+  left: 0px;
   background: none;
   border: none;
   color: white;
@@ -259,6 +341,7 @@
   margin: 0;
   font-size: 12px;
   font-weight: 600;
+  text-align: center;
 }
 
 .modal-buttons {
@@ -266,17 +349,18 @@
   /* background: #f8f9fa; */
   /* border-bottom: 1px solid #e9ecef; */
   display: flex;
+  justify-content: center;
   gap: 10px;
 }
 
 .modal-btn {
-  padding: 8px 12px;
+  padding: 5px 12px;
   background: hsla(0, 0%, 85%, 0.3);
   color: white;
   border: none;
   border-radius: 30px;
   cursor: pointer;
-  font-size: 9px;
+  font-size: 8px;
   transition: background 0.3s ease;
   border: 0px solid hsla(0, 0%, 85%, 0.3);
   display: flex;
@@ -308,8 +392,8 @@
   display: flex;
   padding: 3px;
   /* background: #f8f9fa; */
-  border-radius: 8px;
-  /* border: 1px solid #e9ecef; */
+  /* border-radius: 8px; */
+  border-bottom: 1px solid #e9ecef;
   margin-bottom: 10px;
   gap: 15px;
 }
@@ -425,7 +509,7 @@
     height: auto;
   }
 
-  .left-panel,
+  .preview-panel,
   .right-panel {
     flex: none;
     height: 50vh;

@@ -8,6 +8,7 @@ type PublishScreenProps = {
 
 const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
   const [showModal, setShowModal] = useState(true);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   const [accessibilityProfiles, setAccessibilityProfiles] = useState({
     seizureSafe: false,
     visionImpaired: false,
@@ -25,8 +26,17 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
   };
 
   const handlePublish = () => {
+    setShowPublishModal(true);
+  };
+
+  const handleConfirmPublish = () => {
     console.log("Publishing with settings:", accessibilityProfiles);
-    // Add publish logic here
+    setShowPublishModal(false);
+    // Add actual publish logic here
+  };
+
+  const handleCancelPublish = () => {
+    setShowPublishModal(false);
   };
 
   const handleReset = () => {
@@ -46,10 +56,30 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
 
   return (
     <div className="publish-screen">
+      {/* Publish Confirmation Modal */}
+      {showPublishModal && (
+        <div className="publish-modal-overlay">
+          <div className="publish-modal">
+            <div className="publish-modal-content">
+              <p>We are installing the script in your site custom code.</p>
+              <p>Click confirm to proceed</p>
+              <div className="publish-modal-buttons">
+                <button className="confirm-btn" onClick={handleConfirmPublish}>
+                  Confirm
+                </button>
+                <button className="cancel-btn" onClick={handleCancelPublish}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="publish-header">
         <div className="app-logo">
-          <span className="app-name">App Name</span>
+          <span className="app-name">ContrastKit</span>
         </div>
         <div className="header-buttons">
           <button className="back-btn" onClick={onBack}>
@@ -76,7 +106,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
       {/* Main Content */}
       <div className="main-content">
         {/* Left Panel - Preview */}
-        <div className="left-panel">
+        <div className="preview-panel">
           <div className="panel-header">
             <h3>Preview</h3>
           </div>
