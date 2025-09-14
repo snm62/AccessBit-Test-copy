@@ -169,9 +169,9 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   ];
 
   const verticalPositionOptions = [
-    { label: "Top", value: "Top" },
-    { label: "Bottom", value: "Bottom" },
+    { label: "Top", value: "Top" },   
     { label: "Middle", value: "Middle" },
+    { label: "Bottom", value: "Bottom" },
   ];
 
   const sizeOptions = [
@@ -206,8 +206,8 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
 
   const mobileVerticalPositionOptions = [
     { label: "Top", value: "Top" },
-    { label: "Bottom", value: "Bottom" },
     { label: "Middle", value: "Middle" },
+    { label: "Bottom", value: "Bottom" },
   ];
 
   const mobileShapeOptions = [
@@ -396,17 +396,17 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                       />
                     </div> */}
 
-                <div className="form-group">
+                {/* <div className="form-group">
                   <label>Interface language</label>
                   <div className="custom-select-container">
                     {renderDropdown("interfaceLanguage", "", interfaceLanguage, languageOptions, setInterfaceLanguage)}
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
 
             <div className="section">
-              <h3>Customizing accessWidget Trigger</h3>
+              <h3>Customizing AccessWidget Trigger</h3>
 
               <div className="trigger-grid">
                 <div className="form-group">
@@ -486,7 +486,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
               </div>
 
               <div className="trigger-icon-section">
-                <h3>Trigger Button icon</h3>
+                <h3>Trigger Button Icon</h3>
                 <div className="icon-grid">
                   {iconOptions.map((icon) => (
                     <div
@@ -502,7 +502,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
             </div>
 
             <div className="section">
-              <h3>Customizing accessWidget for mobile</h3>
+              <h3>Customizing AccessWidget for Mobile</h3>
 
               <div className="mobile-grid">
                 <div className="form-group">

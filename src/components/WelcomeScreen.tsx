@@ -69,8 +69,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAuthorize, onNeedHelp ,
             </p>
           ) : hasUserData ? (
             <p className="welcome-instructions">
-              Scan your Webflow site, review detected scripts, add them to the
-              backend, and publish when you're ready.
+              Click on Next and customize your widget and publish when you are ready.
             </p>
           ) : (
             <p className="welcome-instructions">

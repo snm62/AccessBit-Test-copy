@@ -498,7 +498,7 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 17px;
+  width: 22px;
   height: 16px;
   background: white;
   border-radius: 50%;
@@ -512,6 +512,45 @@
 
 .toggle-switch input[type="checkbox"]:checked+.toggle-label::after {
   transform: translateX(26px);
+}
+
+/* Toggle Labels */
+.toggle-off {
+  position: absolute;
+  top: 50%;
+  left: 26%;
+  transform: translate(-50%, -50%);
+  color: black;
+  font-size: 6px;
+  font-weight: 700;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.toggle-on {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  color: black;
+  font-size: 8px;
+  font-weight: 700;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Hide ON label when toggle is OFF */
+.toggle-switch input[type="checkbox"]:not(:checked) + .toggle-label .toggle-on {
+  opacity: 0.3;
+}
+
+/* Hide OFF label when toggle is ON */
+.toggle-switch input[type="checkbox"]:checked + .toggle-label .toggle-off {
+  opacity: 0;
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-label .toggle-on {
+  opacity: 1;
 }
 
 

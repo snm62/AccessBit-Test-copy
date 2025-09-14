@@ -34,11 +34,13 @@ type CustomizationData = {
 type PublishScreenProps = {
   onBack: () => void;
   customizationData: CustomizationData;
+  isAuthenticated: boolean;
 };
 
-const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData }) => {
+const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData, isAuthenticated }) => {
   const [showModal, setShowModal] = useState(true);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showUnauthorizedModal, setShowUnauthorizedModal] = useState(false);
   const [accessibilityProfiles, setAccessibilityProfiles] = useState({
     seizureSafe: false,
     visionImpaired: false,
@@ -56,7 +58,11 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
   };
 
   const handlePublish = () => {
-    setShowPublishModal(true);
+    if (isAuthenticated) {
+      setShowPublishModal(true);
+    } else {
+      setShowUnauthorizedModal(true);
+    }
   };
 
   const handleConfirmPublish = () => {
@@ -67,6 +73,10 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
 
   const handleCancelPublish = () => {
     setShowPublishModal(false);
+  };
+
+  const handleCloseUnauthorizedModal = () => {
+    setShowUnauthorizedModal(false);
   };
 
   const handleReset = () => {
@@ -99,6 +109,23 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
                 </button>
                 <button className="cancel-btn" onClick={handleCancelPublish}>
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unauthorized Modal */}
+      {showUnauthorizedModal && (
+        <div className="publish-modal-overlay">
+          <div className="publish-modal">
+            <div className="publish-modal-content">
+              <p>You are not authorized to publish.</p>
+              <p>Please authenticate first to continue.</p>
+              <div className="publish-modal-buttons">
+                <button className="confirm-btn" onClick={handleCloseUnauthorizedModal}>
+                  OK
                 </button>
               </div>
             </div>
@@ -184,6 +211,8 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
                               disabled
                             />
                             <label htmlFor="seizureSafe" className="toggle-label">
+                              <span className="toggle-off">OFF</span>
+                              <span className="toggle-on">ON</span>
                             </label>
                           </div>
                           <div className="profile-info">
@@ -202,6 +231,8 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
                               disabled
                             />
                             <label htmlFor="visionImpaired" className="toggle-label">
+                              <span className="toggle-off">OFF</span>
+                              <span className="toggle-on">ON</span>
                             </label>
                           </div>
                           <div className="profile-info">
@@ -220,6 +251,8 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
                               disabled
                             />
                             <label htmlFor="adhdFriendly" className="toggle-label">
+                              <span className="toggle-off">OFF</span>
+                              <span className="toggle-on">ON</span>
                             </label>
                           </div>
                           <div className="profile-info">
@@ -238,6 +271,8 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
                               disabled
                             />
                             <label htmlFor="cognitiveDisability" className="toggle-label">
+                              <span className="toggle-off">OFF</span>
+                              <span className="toggle-on">ON</span>
                             </label>
                           </div>
                           <div className="profile-info">
@@ -256,6 +291,8 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
                               disabled
                             />
                             <label htmlFor="keyboardNavigation" className="toggle-label">
+                              <span className="toggle-off">OFF</span>
+                              <span className="toggle-on">ON</span>
                             </label>
                           </div>
                           <div className="profile-info">
@@ -274,6 +311,8 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
                               disabled
                             />
                             <label htmlFor="blindUsers" className="toggle-label">
+                              <span className="toggle-off">OFF</span>
+                              <span className="toggle-on">ON</span>
                             </label>
                           </div>
                           <div className="profile-info">

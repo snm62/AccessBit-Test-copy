@@ -31,12 +31,7 @@ const App: React.FC = () => {
   // OAuth callback handling is now done by the Cloudflare Worker
   // No need for frontend callback handling when using worker-based OAuth
 
-  // Auto-navigate to customization screen when authenticated
-  useEffect(() => {
-    if (isAuthenticated && currentScreen === 'welcome') {
-      setCurrentScreen('customization');
-    }
-  }, [isAuthenticated, currentScreen]);
+  // Removed auto-navigation - users will manually click "Next" button to proceed
   const [customizationData, setCustomizationData] = useState<CustomizationData>({
     selectedIcon: 'accessibility',
     triggerButtonColor: '#2c59c9',
@@ -105,6 +100,7 @@ const App: React.FC = () => {
         <PublishScreen 
           onBack={handleBackToCustomization}
           customizationData={customizationData}
+          isAuthenticated={isAuthenticated}
         />
       )}
     </div>
