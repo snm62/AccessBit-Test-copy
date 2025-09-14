@@ -1,7 +1,7 @@
 /* Welcome Screen Styles */
 .welcome-screen {
   position: relative;
-  width:800px;
+  width: 800px;
   height: 600px;
   background-color: #0A081B;
   overflow: hidden;
@@ -48,16 +48,17 @@
 
 /* Responsive styles */
 @media (max-width: 768px) {
+
   .welcome-bg-lines-left,
   .welcome-bg-lines-right {
     width: 30%;
     max-width: 200px;
   }
-  
+
   .welcome-title {
     font-size: 2rem;
   }
-  
+
   .welcome-instructions {
     font-size: 1rem;
     padding: 0 20px;
@@ -65,21 +66,22 @@
 }
 
 @media (max-width: 480px) {
+
   .welcome-bg-lines-left,
   .welcome-bg-lines-right {
     width: 35%;
     max-width: 150px;
   }
-  
+
   .welcome-title {
     font-size: 1.5rem;
   }
-  
+
   .welcome-instructions {
     font-size: 0.9rem;
     padding: 0 15px;
   }
-  
+
   .welcome-header {
     padding: 20px 15px;
   }
@@ -87,12 +89,12 @@
 
 /* Header */
 .welcome-header {
-display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    z-index: 10;
-    position: relative;
-    padding-right: 15px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  z-index: 10;
+  position: relative;
+  padding-right: 15px;
 }
 
 .welcome-logo {
@@ -116,7 +118,7 @@ display: flex;
   width: 91px;
   height: 18px;
   display: flex;
-  align-items: center;  
+  align-items: center;
   gap: 2px;
   color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
@@ -153,12 +155,12 @@ display: flex;
 }
 
 .welcome-title {
-font-family: 'DM Sans', sans-serif;
-font-weight: 400;
-font-style: 9pt Regular;
-font-size: 20px;
-line-height: 100%;
-letter-spacing: -3%;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+  font-style: 9pt Regular;
+  font-size: 20px;
+  line-height: 100%;
+  letter-spacing: -3%;
 
 }
 
@@ -173,7 +175,7 @@ letter-spacing: -3%;
 }
 
 .welcome-instructions {
- font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 400;
   font-size: 14px;
   line-height: 1.5;
@@ -190,7 +192,7 @@ letter-spacing: -3%;
   width: 200px;
   height: 28px;
   top: 111%;
-  left:35%;
+  left: 35%;
   opacity: 1;
   gap: 8px;
   padding: 10px 51px;
@@ -208,10 +210,11 @@ letter-spacing: -3%;
   justify-content: center;
 }
 
-.welcome-authorize-btn.scan-project{
-  width:200px;
-  left:35%;
+.welcome-authorize-btn.scan-project {
+  width: 200px;
+  left: 35%;
 }
+
 .welcome-authorize-btn:hover {
   background: #7A6BFF;
   transform: translateY(-2px);

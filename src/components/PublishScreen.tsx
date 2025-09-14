@@ -1,12 +1,42 @@
 import React, { useState } from "react";
 import "../styles/publish.css";
 const whitearrow = new URL("../assets/→.svg", import.meta.url).href;
+const icon1 = new URL("../assets/icon1.svg", import.meta.url).href;
+const icon2 = new URL("../assets/icon2.svg", import.meta.url).href;
+const icon3 = new URL("../assets/icon3.svg", import.meta.url).href;
+const icon4 = new URL("../assets/icon4.svg", import.meta.url).href;
+const icon5 = new URL("../assets/icon5.svg", import.meta.url).href;
+const icon6 = new URL("../assets/icon6.svg", import.meta.url).href;
+const icon7 = new URL("../assets/icon7.svg", import.meta.url).href;
+const icon8 = new URL("../assets/icon8.svg", import.meta.url).href;
+
+// Icon options matching CustomizationScreen
+const iconOptions = [
+  { id: "accessibility", label: icon1, name: "Accessibility" },
+  { id: "person", label: icon2, name: "Person" },
+  { id: "wheelchair", label: icon3, name: "Wheelchair" },
+  { id: "ad", label: icon4, name: "AD" },
+  { id: "eye", label: icon5, name: "Eye" },
+  { id: "ramp", label: icon6, name: "Ramp" },
+  { id: "gear", label: icon7, name: "Gear" },
+  { id: "ad-triple", label: icon8, name: "AD)))" },
+];
+
+type CustomizationData = {
+  selectedIcon: string;
+  triggerButtonColor: string;
+  triggerButtonShape: string;
+  triggerHorizontalPosition: string;
+  triggerVerticalPosition: string;
+  triggerButtonSize: string;
+};
 
 type PublishScreenProps = {
   onBack: () => void;
+  customizationData: CustomizationData;
 };
 
-const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
+const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData }) => {
   const [showModal, setShowModal] = useState(true);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [accessibilityProfiles, setAccessibilityProfiles] = useState({
@@ -79,7 +109,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
       {/* Header */}
       <div className="publish-header">
         <div className="app-logo">
-          <span className="app-name">ContrastKit</span>
+          <span className="app-name"></span>
         </div>
         <div className="header-buttons">
           <button className="back-btn" onClick={onBack}>
@@ -122,7 +152,11 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
               <div className="browser-content">
                 {/* Accessibility Modal */}
                 {showModal && (
-                  <div className="accessibility-modal">
+                  <div
+                    className={`accessibility-modal ${customizationData.triggerHorizontalPosition === 'Left' ? 'position-left' :
+                      customizationData.triggerHorizontalPosition === 'Right' ? 'position-right' : 'position-center'
+                      }`}
+                  >
                     <div className="modal-header">
                       <button className="close-btn" onClick={() => setShowModal(false)}>
                         ×
@@ -130,7 +164,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                       <h2>Accessibility Adjustments</h2>
                       <div className="modal-buttons">
                         <button className="modal-btn">
-                           Reset Settings
+                          Reset Settings
                         </button>
                         <button className="modal-btn">
                           Hide Interface
@@ -147,6 +181,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                               id="seizureSafe"
                               checked={accessibilityProfiles.seizureSafe}
                               onChange={() => handleToggle('seizureSafe')}
+                              disabled
                             />
                             <label htmlFor="seizureSafe" className="toggle-label">
                             </label>
@@ -156,7 +191,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                             <p>Clear flashes & reduces color</p>
                           </div>
                         </div>
-                        
+
                         <div className="profile-item">
                           <div className="toggle-switch">
                             <input
@@ -164,6 +199,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                               id="visionImpaired"
                               checked={accessibilityProfiles.visionImpaired}
                               onChange={() => handleToggle('visionImpaired')}
+                              disabled
                             />
                             <label htmlFor="visionImpaired" className="toggle-label">
                             </label>
@@ -173,7 +209,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                             <p>Enhances website's visuals</p>
                           </div>
                         </div>
-                        
+
                         <div className="profile-item">
                           <div className="toggle-switch">
                             <input
@@ -181,6 +217,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                               id="adhdFriendly"
                               checked={accessibilityProfiles.adhdFriendly}
                               onChange={() => handleToggle('adhdFriendly')}
+                              disabled
                             />
                             <label htmlFor="adhdFriendly" className="toggle-label">
                             </label>
@@ -190,7 +227,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                             <p>ADHD Friendly Profile</p>
                           </div>
                         </div>
-                        
+
                         <div className="profile-item">
                           <div className="toggle-switch">
                             <input
@@ -198,6 +235,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                               id="cognitiveDisability"
                               checked={accessibilityProfiles.cognitiveDisability}
                               onChange={() => handleToggle('cognitiveDisability')}
+                              disabled
                             />
                             <label htmlFor="cognitiveDisability" className="toggle-label">
                             </label>
@@ -207,7 +245,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                             <p>Assists with reading & focusing</p>
                           </div>
                         </div>
-                        
+
                         <div className="profile-item">
                           <div className="toggle-switch">
                             <input
@@ -215,6 +253,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                               id="keyboardNavigation"
                               checked={accessibilityProfiles.keyboardNavigation}
                               onChange={() => handleToggle('keyboardNavigation')}
+                              disabled
                             />
                             <label htmlFor="keyboardNavigation" className="toggle-label">
                             </label>
@@ -224,7 +263,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                             <p>Keyboard Navigation (Motor)</p>
                           </div>
                         </div>
-                        
+
                         <div className="profile-item">
                           <div className="toggle-switch">
                             <input
@@ -232,6 +271,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                               id="blindUsers"
                               checked={accessibilityProfiles.blindUsers}
                               onChange={() => handleToggle('blindUsers')}
+                              disabled
                             />
                             <label htmlFor="blindUsers" className="toggle-label">
                             </label>
@@ -245,11 +285,32 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack }) => {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Accessibility Widget */}
-                <div className="accessibility-widget">
-                  <div className="widget-trigger" onClick={() => setShowModal(!showModal)}>
-                    ♿
+                <div
+                  className="accessibility-widget"
+                  style={{
+                    left: customizationData.triggerHorizontalPosition === 'Left' ? '20px' :
+                      customizationData.triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
+                    right: customizationData.triggerHorizontalPosition === 'Right' ? '20px' : 'auto',
+                    top: customizationData.triggerVerticalPosition === 'Top' ? '20px' :
+                      customizationData.triggerVerticalPosition === 'Middle' ? '50%' : 'auto',
+                    bottom: customizationData.triggerVerticalPosition === 'Bottom' ? '20px' : 'auto',
+                    transform: customizationData.triggerHorizontalPosition === 'Center' ?
+                      (customizationData.triggerVerticalPosition === 'Middle' ? 'translate(-50%, -50%)' : 'translateX(-50%)') :
+                      (customizationData.triggerVerticalPosition === 'Middle' ? 'translateY(-50%)' : 'none')
+                  }}
+                >
+                  <div
+                    className={`widget-trigger ${customizationData.triggerButtonShape.toLowerCase()} ${customizationData.triggerButtonSize.toLowerCase()}`}
+                    style={{ backgroundColor: customizationData.triggerButtonColor }}
+                    onClick={() => setShowModal(!showModal)}
+                  >
+                    <img
+                      src={iconOptions.find(icon => icon.id === customizationData.selectedIcon)?.label || icon1}
+                      alt="Accessibility Icon"
+                      className="widget-icon"
+                    />
                   </div>
                 </div>
               </div>

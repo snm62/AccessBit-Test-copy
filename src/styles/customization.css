@@ -342,7 +342,7 @@
 }
 
 .trigger-icon-section h3 {
-  color:rgba(140, 121, 255, 1);
+  color: rgba(140, 121, 255, 1);
   font-size: 12px;
   font-weight: 400;
   margin-bottom: 20px;
@@ -355,8 +355,9 @@
   content: '';
   flex: 1;
   height: 1px;
-  background:rgba(140, 121, 255, 1);
+  background: rgba(140, 121, 255, 1);
 }
+
 .icon-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -430,7 +431,7 @@
 
 .device-selector {
   display: flex;
-  gap: 10px;
+  gap: 0px;
   background: rgba(10, 8, 27, 1);
   width: 100%;
   height: 56px;
@@ -587,6 +588,38 @@
 
 .widget-trigger.rounded {
   border-radius: 8px;
+}
+
+/* Button Size Styles */
+.widget-trigger.small {
+  width: 24px;
+  height: 24px;
+}
+
+.widget-trigger.medium {
+  width: 30px;
+  height: 30px;
+}
+
+.widget-trigger.large {
+  width: 36px;
+  height: 36px;
+}
+
+/* Adjust icon size based on button size */
+.widget-trigger.small .widget-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.widget-trigger.medium .widget-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.widget-trigger.large .widget-icon {
+  width: 20px;
+  height: 20px;
 }
 
 /* Mobile Browser Window Styles */
@@ -826,4 +859,21 @@
   .step-navigation {
     padding: 15px 20px;
   }
+}
+
+/* Offset Input Styles */
+.offset-input {
+  width: 100%;
+  max-width: 175px;
+  padding: 12px;
+  background: rgba(217, 217, 217, 0.02);
+  border: 1px solid rgb(46 43 69);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.offset-input:focus {
+  outline: none;
+  border-color: rgba(140, 121, 255, 1);
 }

@@ -15,12 +15,23 @@ const icon8 = new URL("../assets/icon8.svg", import.meta.url).href;
 const iconArray = [icon1, icon2, icon3, icon4, icon5, icon6, icon7, icon8];
 const whitearrow = new URL("../assets/→.svg", import.meta.url).href;
 
+type CustomizationData = {
+  selectedIcon: string;
+  triggerButtonColor: string;
+  triggerButtonShape: string;
+  triggerHorizontalPosition: string;
+  triggerVerticalPosition: string;
+  triggerButtonSize: string;
+};
+
 type CustomizationScreenProps = {
   onBack: () => void;
   onNext: () => void;
+  customizationData: CustomizationData;
+  onCustomizationUpdate: (data: Partial<CustomizationData>) => void;
 };
 
-const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNext }) => {
+const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNext, customizationData, onCustomizationUpdate }) => {
   const [isDesktopView, setIsDesktopView] = useState(true);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
@@ -30,18 +41,18 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   const [interfaceFooterContent, setInterfaceFooterContent] = useState("");
   const [interfaceLanguage, setInterfaceLanguage] = useState("German");
   const [interfacePosition, setInterfacePosition] = useState("Left");
-  const [triggerButtonColor, setTriggerButtonColor] = useState("#FFFFFF");
-  const [triggerHorizontalPosition, setTriggerHorizontalPosition] = useState("Left");
   const [triggerVerticalPosition, setTriggerVerticalPosition] = useState("Bottom");
   const [triggerButtonSize, setTriggerButtonSize] = useState("Medium");
-  const [triggerButtonShape, setTriggerButtonShape] = useState("Circle");
+  const [triggerButtonShape, setTriggerButtonShape] = useState(customizationData.triggerButtonShape);
   const [triggerHorizontalOffset, setTriggerHorizontalOffset] = useState("0px");
   const [hideTriggerButton, setHideTriggerButton] = useState("No");
-  const [triggerVerticalOffset, setTriggerVerticalOffset] = useState("0px");
-  const [selectedIcon, setSelectedIcon] = useState("accessibility");
+  const [triggerVerticalOffset, setTriggerVerticalOffset] = useState("3px");
+  const [selectedIcon, setSelectedIcon] = useState(customizationData.selectedIcon);
+  const [triggerHorizontalPosition, setTriggerHorizontalPosition] = useState(customizationData.triggerHorizontalPosition);
+  const [btnColor, setBtnColor] = useState(customizationData.triggerButtonColor);
   const [showOnMobile, setShowOnMobile] = useState("Show");
   const [mobileTriggerHorizontalPosition, setMobileTriggerHorizontalPosition] = useState("Left");
-  const [mobileTriggerVerticalPosition, setMobileTriggerVerticalPosition] = useState("Button");
+  const [mobileTriggerVerticalPosition, setMobileTriggerVerticalPosition] = useState("Bottom");
   const [mobileTriggerSize, setMobileTriggerSize] = useState("Medium");
   const [mobileTriggerShape, setMobileTriggerShape] = useState("Round");
   const [mobileTriggerHorizontalOffset, setMobileTriggerHorizontalOffset] = useState("3");
@@ -50,7 +61,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   // colorpicker
   const [isActive, setIsActive] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [btnColor, setBtnColor] = useState("#2c59c9");
   const [btnOpen, setBtnOpen] = useState(false);
   const [color, setColor] = useState("#ffffff");
   const colorPickerRef = useRef<HTMLDivElement | null>(null);
@@ -85,13 +95,22 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
 
     if (!btnPickerInstance.current && btnPickerRef.current) {
       btnPickerInstance.current = iro.ColorPicker(btnPickerRef.current, { width: 100, color: btnColor, borderWidth: 2, borderColor: "#ccc" });
-      btnPickerInstance.current.on("color:change", (newColor: any) => setBtnColor(newColor.hexString));
+      btnPickerInstance.current.on("color:change", (newColor: any) => handleColorChange(newColor.hexString));
     }
   }, [])
   useEffect(() => {
     // Sync picker color with state when dropdown opens
     if (btnOpen && btnPickerInstance.current) btnPickerInstance.current.color.set(btnColor);
   }, [btnOpen])
+
+  // Sync local state with customizationData when it changes
+  useEffect(() => {
+    setSelectedIcon(customizationData.selectedIcon);
+    setTriggerButtonShape(customizationData.triggerButtonShape);
+    setTriggerHorizontalPosition(customizationData.triggerHorizontalPosition);
+    setTriggerVerticalPosition(customizationData.triggerVerticalPosition);
+    setBtnColor(customizationData.triggerButtonColor);
+  }, [customizationData]);
 
   useEffect(() => {
     // Handle click outside to close dropdowns
@@ -147,7 +166,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   const positionOptions = [
     { label: "Left", value: "Left" },
     { label: "Right", value: "Right" },
-    { label: "Center", value: "Center" },
   ];
 
   const verticalPositionOptions = [
@@ -189,7 +207,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   const mobileVerticalPositionOptions = [
     { label: "Top", value: "Top" },
     { label: "Bottom", value: "Bottom" },
-    { label: "Button", value: "Button" },
+    { label: "Middle", value: "Middle" },
   ];
 
   const mobileShapeOptions = [
@@ -243,6 +261,31 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     onBack();
   };
 
+  const handleIconChange = (iconId: string) => {
+    setSelectedIcon(iconId);
+    onCustomizationUpdate({ selectedIcon: iconId });
+  };
+
+  const handleColorChange = (color: string) => {
+    setBtnColor(color);
+    onCustomizationUpdate({ triggerButtonColor: color });
+  };
+
+  const handleShapeChange = (shape: string) => {
+    setTriggerButtonShape(shape);
+    onCustomizationUpdate({ triggerButtonShape: shape });
+  };
+
+  const handlePositionChange = (position: string) => {
+    setTriggerHorizontalPosition(position);
+    onCustomizationUpdate({ triggerHorizontalPosition: position });
+  };
+
+  const handleVerticalPositionChange = (position: string) => {
+    setTriggerVerticalPosition(position);
+    onCustomizationUpdate({ triggerVerticalPosition: position });
+  };
+
   const renderDropdown = (
     type: string,
     label: string,
@@ -289,7 +332,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     <div className="customization-screen">
       {/* Header */}
       <div className="customization-header">
-        <div className="app-name">ContrastKit</div>
+        <div className="app-name"></div>
         <div className="header-buttons">
           <button className="back-btn" onClick={handleBack}>
             <img src={whitearrow} alt="" style={{ transform: 'rotate(180deg)' }} /> Back
@@ -382,21 +425,24 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                 <div className="form-group">
                   <label>Trigger Vertical Position</label>
                   <div className="custom-select-container">
-                    {renderDropdown("triggerVerticalPosition", "", triggerVerticalPosition, verticalPositionOptions, setTriggerVerticalPosition)}
+                    {renderDropdown("triggerVerticalPosition", "", triggerVerticalPosition, verticalPositionOptions, handleVerticalPositionChange)}
                   </div>
                 </div>
 
                 <div className="form-group">
                   <label>Trigger Button Size</label>
                   <div className="custom-select-container">
-                    {renderDropdown("triggerButtonSize", "", triggerButtonSize, sizeOptions, setTriggerButtonSize)}
+                    {renderDropdown("triggerButtonSize", "", triggerButtonSize, sizeOptions, (size) => {
+                      setTriggerButtonSize(size);
+                      onCustomizationUpdate({ triggerButtonSize: size });
+                    })}
                   </div>
                 </div>
 
                 <div className="form-group">
                   <label>Trigger Button Shape</label>
                   <div className="custom-select-container">
-                    {renderDropdown("triggerButtonShape", "", triggerButtonShape, shapeOptions, setTriggerButtonShape)}
+                    {renderDropdown("triggerButtonShape", "", triggerButtonShape, shapeOptions, handleShapeChange)}
                   </div>
                 </div>
 
@@ -410,22 +456,32 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                 <div className="form-group">
                   <label>Trigger Horizontal Position</label>
                   <div className="custom-select-container">
-                    {renderDropdown("triggerHorizontalPosition", "", triggerHorizontalPosition, positionOptions, setTriggerHorizontalPosition)}
+                    {renderDropdown("triggerHorizontalPosition", "", triggerHorizontalPosition, positionOptions, handlePositionChange)}
                   </div>
                 </div>
 
                 <div className="form-group">
                   <label>Trigger Horizontal Offset</label>
-                  <div className="custom-select-container">
-                    {renderDropdown("triggerHorizontalOffset", "", triggerHorizontalOffset, offsetOptions, setTriggerHorizontalOffset)}
-                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={triggerHorizontalOffset.replace('px', '')}
+                    onChange={(e) => setTriggerHorizontalOffset(e.target.value + 'px')}
+                    className="offset-input"
+                  />
                 </div>
 
                 <div className="form-group">
                   <label>Trigger Vertical Offset</label>
-                  <div className="custom-select-container">
-                    {renderDropdown("triggerVerticalOffset", "", triggerVerticalOffset, offsetOptions, setTriggerVerticalOffset)}
-                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={triggerVerticalOffset.replace('px', '')}
+                    onChange={(e) => setTriggerVerticalOffset(e.target.value + 'px')}
+                    className="offset-input"
+                  />
                 </div>
               </div>
 
@@ -436,7 +492,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                     <div
                       key={icon.id}
                       className={`icon-option ${selectedIcon === icon.id ? 'selected' : ''}`}
-                      onClick={() => setSelectedIcon(icon.id)}
+                      onClick={() => handleIconChange(icon.id)}
                     >
                       <img src={icon.label} alt={icon.name} className="icon-symbol" />
                     </div>
@@ -486,16 +542,26 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
 
                 <div className="form-group">
                   <label>Mobile Trigger Horizontal Offset</label>
-                  <div className="custom-select-container">
-                    {renderDropdown("mobileTriggerHorizontalOffset", "", mobileTriggerHorizontalOffset, mobileOffsetOptions, setMobileTriggerHorizontalOffset)}
-                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    value={mobileTriggerHorizontalOffset}
+                    onChange={(e) => setMobileTriggerHorizontalOffset(e.target.value)}
+                    className="offset-input"
+                  />
                 </div>
 
                 <div className="form-group">
                   <label>Mobile Trigger Vertical Offset</label>
-                  <div className="custom-select-container">
-                    {renderDropdown("mobileTriggerVerticalOffset", "", mobileTriggerVerticalOffset, mobileOffsetOptions, setMobileTriggerVerticalOffset)}
-                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    value={mobileTriggerVerticalOffset}
+                    onChange={(e) => setMobileTriggerVerticalOffset(e.target.value)}
+                    className="offset-input"
+                  />
                 </div>
               </div>
             </div>
@@ -534,26 +600,36 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                     </div>
                   </div>
                   <div className="browser-content">
-                    <div 
-                      className="trigger-widget"
-                      style={{
-                        left: triggerHorizontalPosition === 'Left' ? '10px' : 
-                              triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
-                        right: triggerHorizontalPosition === 'Right' ? '10px' : 'auto',
-                        transform: triggerHorizontalPosition === 'Center' ? 'translateX(-50%)' : 'none'
-                      }}
-                    >
-                      <div 
-                        className={`widget-trigger ${triggerButtonShape.toLowerCase()}`}
-                        style={{ backgroundColor: btnColor }}
+                    {hideTriggerButton === 'No' && (
+                      <div
+                        className="trigger-widget"
+                        style={{
+                          left: triggerHorizontalPosition === 'Left' ?
+                            `calc(10px + ${parseInt(triggerHorizontalOffset)}px)` :
+                            triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
+                          right: triggerHorizontalPosition === 'Right' ?
+                            `calc(10px + ${parseInt(triggerHorizontalOffset)}px)` : 'auto',
+                          top: triggerVerticalPosition === 'Top' ?
+                            `calc(10px + ${parseInt(triggerVerticalOffset)}px)` : 'auto',
+                          bottom: triggerVerticalPosition === 'Bottom' ?
+                            `calc(10px + ${parseInt(triggerVerticalOffset)}px)` : 'auto',
+                          transform: triggerHorizontalPosition === 'Center' ?
+                            (triggerVerticalPosition === 'Middle' ? 'translateX(-50%)' : 'translateX(-50%)') :
+                            (triggerVerticalPosition === 'Middle' ? 'translateY(-50%)' : 'none')
+                        }}
                       >
-                        <img 
-                          src={iconOptions.find(icon => icon.id === selectedIcon)?.label || icon1} 
-                          alt="Accessibility Icon" 
-                          className="widget-icon"
-                        />
+                        <div
+                          className={`widget-trigger ${triggerButtonShape.toLowerCase()} ${triggerButtonSize.toLowerCase()}`}
+                          style={{ backgroundColor: btnColor }}
+                        >
+                          <img
+                            src={iconOptions.find(icon => icon.id === selectedIcon)?.label || icon1}
+                            alt="Accessibility Icon"
+                            className="widget-icon"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -561,26 +637,37 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
               <div className="preview-window mobile-preview">
                 <div className="mobile-browser-window">
                   <div className="mobile-browser-content">
-                    <div 
-                      className="mobile-trigger-widget"
-                      style={{
-                        left: mobileTriggerHorizontalPosition === 'Left' ? '8px' : 
-                              mobileTriggerHorizontalPosition === 'Right' ? 'auto' : '50%',
-                        right: mobileTriggerHorizontalPosition === 'Right' ? '8px' : 'auto',
-                        transform: mobileTriggerHorizontalPosition === 'Center' ? 'translateX(-50%)' : 'none'
-                      }}
-                    >
-                      <div 
-                        className={`mobile-widget-trigger ${mobileTriggerShape.toLowerCase()}`}
-                        style={{ backgroundColor: btnColor }}
+                    {showOnMobile === 'Show' && (
+                      <div
+                        className="mobile-trigger-widget"
+                        style={{
+                          left: mobileTriggerHorizontalPosition === 'Left' ?
+                            `calc(8px + ${parseInt(mobileTriggerHorizontalOffset)}px)` :
+                            mobileTriggerHorizontalPosition === 'Right' ? 'auto' : '50%',
+                          right: mobileTriggerHorizontalPosition === 'Right' ?
+                            `calc(8px + ${parseInt(mobileTriggerHorizontalOffset)}px)` : 'auto',
+                          top: mobileTriggerVerticalPosition === 'Top' ?
+                            `calc(10px + ${parseInt(mobileTriggerVerticalOffset)}px)` :
+                            mobileTriggerVerticalPosition === 'Middle' ? '50%' : 'auto',
+                          bottom: mobileTriggerVerticalPosition === 'Bottom' ?
+                            `calc(10px + ${parseInt(mobileTriggerVerticalOffset)}px)` : 'auto',
+                          transform: mobileTriggerHorizontalPosition === 'Center' ?
+                            (mobileTriggerVerticalPosition === 'Middle' ? 'translateX(-50%)' : 'translateX(-50%)') :
+                            (mobileTriggerVerticalPosition === 'Middle' ? 'translateY(-50%)' : 'none')
+                        }}
                       >
-                        <img 
-                          src={iconOptions.find(icon => icon.id === selectedIcon)?.label || icon1} 
-                          alt="Accessibility Icon" 
-                          className="mobile-widget-icon"
-                        />
+                        <div
+                          className={`mobile-widget-trigger ${mobileTriggerShape.toLowerCase()} ${mobileTriggerSize.toLowerCase()}`}
+                          style={{ backgroundColor: btnColor }}
+                        >
+                          <img
+                            src={iconOptions.find(icon => icon.id === selectedIcon)?.label || icon1}
+                            alt="Accessibility Icon"
+                            className="mobile-widget-icon"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

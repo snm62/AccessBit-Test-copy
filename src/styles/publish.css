@@ -293,18 +293,70 @@
 
 /* Accessibility Modal */
 .accessibility-modal {
-  background: white;
-  border-radius: 8px;
+    background: linear-gradient(90deg, hsla(235, 55%, 33%, 1) 0%, hsla(204, 88%, 56%, 1) 100%);  border-radius: 8px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   width: 231px;
   height: 320px;
   overflow-y: auto;
   position: absolute;
+  border: 2px solid white;
   top: 50%;
-  left: 24%;
-  transform: translate(-50%, -50%);
   z-index: 10;
   scrollbar-width: thin;
+}
+
+.accessibility-modal.position-left {
+  left: 8%;
+  transform: translateY(-50%);
+  animation: slideInFromLeft 0.6s ease-out;
+}
+
+.accessibility-modal.position-right {
+  right: 8%;
+  transform: translateY(-50%);
+  animation: slideInFromRight 0.6s ease-out;
+}
+
+.accessibility-modal.position-center {
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: slideInFromLeft 0.6s ease-out;
+}
+
+@keyframes slideInFromLeft {
+  from {
+    transform: translate(-150%, -50%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(-50%);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translate(150%, -50%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(-50%);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromCenter {
+  from {
+    transform: translate(-50%, -150%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
 }
 
 .modal-header {
@@ -312,6 +364,7 @@
   color: white;
   padding: 20px;
   border-radius: 12px 12px 0 0;
+  padding-bottom: 9px;
   position: relative;
 }
 
@@ -374,6 +427,8 @@
 
 .modal-content {
   padding: 12px;
+  border-radius: 8px 8px 0 0;
+  background: white;
 }
 
 .modal-intro {
@@ -381,6 +436,7 @@
   margin-bottom: 20px;
   font-size: 9px;
   font-weight: 500;
+  margin-top: 0;
 }
 
 .profile-list {
@@ -400,14 +456,14 @@
 
 .profile-info h4 {
   margin: 0 0 5px 0;
-  color: #333;
+  color: hsla(247, 23%, 15%, 1);
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .profile-info p {
   margin: 0;
-  color: #666;
+  color: hsla(247, 23%, 15%, 0.5);
   font-size: 9px;
 }
 
@@ -421,12 +477,15 @@
   opacity: 0;
   width: 0;
   height: 0;
+  display: none;
+  visibility: hidden;
 }
 
 .toggle-label {
   display: block;
   width: 47px;
   height: 20px;
+  top: 15px;
   background: #e5e7eb;
   border-radius: 12px;
   position: relative;
@@ -482,6 +541,26 @@
 
 .widget-trigger:hover {
   transform: scale(1.1);
+}
+
+.widget-icon {
+  width: 16px;
+  height: 16px;
+  filter: brightness(0) invert(1);
+  /* Makes the icon white */
+}
+
+/* Button Shape Styles */
+.widget-trigger.circle {
+  border-radius: 50%;
+}
+
+.widget-trigger.square {
+  border-radius: 0;
+}
+
+.widget-trigger.rounded {
+  border-radius: 8px;
 }
 
 /* Scrollbar Styling */
