@@ -17,11 +17,11 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAuthorize, onNeedHelp ,
   const [isAuthorizing, setIsAuthorizing] = useState(false);
 
   useEffect(() => {
-    // Check for user authentication data in localStorage and authenticated prop
+    // Check for user authentication data in sessionStorage and authenticated prop
     const checkUserAuth = () => {
-      const userinfo = localStorage.getItem("contrastkit-userinfo");
+      const userinfo = sessionStorage.getItem("contrastkit-userinfo");
       const hasData = userinfo && userinfo !== "null" && userinfo !== "undefined";
-      // User has data if either authenticated prop is true OR localStorage has data
+      // User has data if either authenticated prop is true OR sessionStorage has data
       setHasUserData(authenticated || !!hasData);
     };
 

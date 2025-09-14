@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import WelcomeScreen from "./components/WelcomeScreen";
 import CustomizationScreen from "./components/CustomizationScreen";
 import PublishScreen from "./components/PublishScreen";
+import { useAuth } from "./hooks/userAuth";
 
 declare const webflow: {
   getSelectedElement: () => Promise<any>;
@@ -22,7 +23,20 @@ type CustomizationData = {
 
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<AppState>('welcome');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, sessionToken, isAuthLoading, exchangeAndVerifyIdToken, openAuthScreen } = useAuth();
+  
+  // Check if user is authenticated based on session token
+  const isAuthenticated = !!(user.email && sessionToken);
+
+  // OAuth callback handling is now done by the Cloudflare Worker
+  // No need for frontend callback handling when using worker-based OAuth
+
+  // Auto-navigate to customization screen when authenticated
+  useEffect(() => {
+    if (isAuthenticated && currentScreen === 'welcome') {
+      setCurrentScreen('customization');
+    }
+  }, [isAuthenticated, currentScreen]);
   const [customizationData, setCustomizationData] = useState<CustomizationData>({
     selectedIcon: 'accessibility',
     triggerButtonColor: '#2c59c9',
@@ -32,13 +46,17 @@ const App: React.FC = () => {
     triggerButtonSize: 'Medium',
   });
 
-  const handleAuthorize = () => {
+  const handleAuthorize = async () => {
     console.log("Authorize button clicked");
-    // Simulate authorization process
-    setTimeout(() => {
-      setIsAuthenticated(true);
-      setCurrentScreen('customization');
-    }, 1000);
+    try {
+      // Use OAuth flow instead of direct token exchange
+      console.log("Opening OAuth authorization...");
+      await openAuthScreen();
+      console.log("OAuth authorization initiated");
+    } catch (error) {
+      console.error("Authentication failed:", error);
+      alert(`Authentication failed: ${error.message}`);
+    }
   };
 
   const handleNeedHelp = () => {

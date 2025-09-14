@@ -67,8 +67,8 @@ export function useAuth() {
   const { data: authState, isLoading: isAuthLoading } = useQuery<AuthState>({
     queryKey: ["auth"],
     queryFn: async () => {
-      const storedUser = localStorage.getItem("contrastkit-userinfo");
-      const wasExplicitlyLoggedOut = localStorage.getItem(
+      const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+      const wasExplicitlyLoggedOut = sessionStorage.getItem(
         "explicitly_logged_out"
       );
 
@@ -89,7 +89,7 @@ export function useAuth() {
         
         if (decodedToken.exp * 1000 <= Date.now()) {
           // Token expired - clear storage
-          localStorage.removeItem("contrastkit-userinfo");
+          sessionStorage.removeItem("contrastkit-userinfo");
           return { user: { firstName: "", email: "" }, sessionToken: "" };
         }
 
@@ -105,7 +105,7 @@ export function useAuth() {
         return authState;
       } catch (error) {
         // Clear invalid data
-        localStorage.removeItem("contrastkit-userinfo");
+        sessionStorage.removeItem("contrastkit-userinfo");
         return { user: { firstName: "", email: "" }, sessionToken: "" };
       }
     },
@@ -156,13 +156,13 @@ export function useAuth() {
           exp: decodedToken.exp,
         };
 
-                 // Update localStorage
-         localStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
-        localStorage.removeItem("explicitly_logged_out");
+                 // Update sessionStorage
+         sessionStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
+        sessionStorage.removeItem("explicitly_logged_out");
 
         // Store site information after authentication
         if (data.siteInfo) {
-          localStorage.setItem('siteInfo', JSON.stringify(data.siteInfo));
+          sessionStorage.setItem('siteInfo', JSON.stringify(data.siteInfo));
         }
 
         // Directly update the query data instead of invalidating
@@ -215,7 +215,7 @@ export function useAuth() {
         throw new Error('No session token received from server');
       }
 
-      // Store in localStorage
+      // Store in sessionStorage
       const userData = {
         sessionToken: data.sessionToken,
         firstName: data.firstName,
@@ -224,12 +224,12 @@ export function useAuth() {
         exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
       };
 
-             localStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
-      localStorage.removeItem("explicitly_logged_out");
+             sessionStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
+      sessionStorage.removeItem("explicitly_logged_out");
 
       // Store site information after authentication
       if (siteInfo) {
-        localStorage.setItem('siteInfo', JSON.stringify(siteInfo));
+        sessionStorage.setItem('siteInfo', JSON.stringify(siteInfo));
       }
 
       // Update React Query cache
@@ -245,7 +245,7 @@ export function useAuth() {
       return data;
 
     } catch (error) {
-      localStorage.removeItem("contrastkit-userinfo");
+      sessionStorage.removeItem("contrastkit-userinfo");
       throw error;
     }
   };
@@ -253,8 +253,8 @@ export function useAuth() {
   // Function to handle user logout
   const logout = () => {
     // Set logout flag and clear storage
-    localStorage.setItem("explicitly_logged_out", "true");
-    localStorage.removeItem("contrastkit-userinfo");
+    sessionStorage.setItem("explicitly_logged_out", "true");
+    sessionStorage.removeItem("contrastkit-userinfo");
     queryClient.setQueryData(["auth"], {
       user: { firstName: "", email: "" },
       sessionToken: "",
@@ -262,9 +262,12 @@ export function useAuth() {
     queryClient.clear();
   };
 
-  const openAuthScreen = () => {
+  const openAuthScreen = async () => {
+    // Get current site info first
+    const siteInfo = await webflow.getSiteInfo();
+    
     const authWindow = window.open(
-      `${base_url}/api/auth/authorize?state=webflow_designer`,
+      `${base_url}/api/auth/authorize?state=webflow_designer_${siteInfo.siteId}`,
       "_blank",
       "width=600,height=600"
     );
@@ -272,22 +275,53 @@ export function useAuth() {
     if (!authWindow) {
       return;
     }
-
-
-    const onAuth = async () => {
-      try {
-        await exchangeAndVerifyIdToken();
-      } catch (error) {
-        // Clear any partial auth state
-        localStorage.removeItem("contrastkit-userinfo");
-        localStorage.setItem("explicitly_logged_out", "true");
+    
+    // Listen for messages from the OAuth popup
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== new URL(base_url).origin) {
+        return;
+      }
+      
+      if (event.data.type === 'AUTH_SUCCESS') {
+        console.log('Received auth success message:', event.data);
+        
+        // Store the session data from the OAuth popup
+        const userData = {
+          sessionToken: event.data.sessionToken,
+          firstName: event.data.user.firstName,
+          email: event.data.user.email,
+          siteId: event.data.user.siteId,
+          exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+          siteInfo: event.data.siteInfo // Add site info
+        };
+        
+        // Store in sessionStorage (not sessionStorage) for persistence
+        sessionStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
+        sessionStorage.removeItem("explicitly_logged_out");
+        
+        // Update React Query cache
+        queryClient.setQueryData<AuthState>(["auth"], {
+          user: {
+            firstName: event.data.user.firstName,
+            email: event.data.user.email,
+            siteId: event.data.user.siteId
+          },
+          sessionToken: event.data.sessionToken
+        });
+        
+        // Remove the message listener
+        window.removeEventListener('message', handleMessage);
       }
     };
-
+    
+    // Add message listener
+    window.addEventListener('message', handleMessage);
+    
+    // Clean up if window is closed manually
     const checkWindow = setInterval(() => {
       if (authWindow?.closed) {
         clearInterval(checkWindow);
-        onAuth();
+        window.removeEventListener('message', handleMessage);
       }
     }, 1000);
   };
