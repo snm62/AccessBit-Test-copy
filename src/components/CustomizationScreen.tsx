@@ -26,12 +26,11 @@ type CustomizationData = {
 
 type CustomizationScreenProps = {
   onBack: () => void;
-  onNext: () => void;
-  customizationData: CustomizationData;
-  onCustomizationUpdate: (data: Partial<CustomizationData>) => void;
+  onNext: (customizationData: any) => void;
+  existingCustomizationData?: any;
 };
 
-const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNext, customizationData, onCustomizationUpdate }) => {
+const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNext, existingCustomizationData }) => {
   const [isDesktopView, setIsDesktopView] = useState(true);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
@@ -43,13 +42,13 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   const [interfacePosition, setInterfacePosition] = useState("Left");
   const [triggerVerticalPosition, setTriggerVerticalPosition] = useState("Bottom");
   const [triggerButtonSize, setTriggerButtonSize] = useState("Medium");
-  const [triggerButtonShape, setTriggerButtonShape] = useState(customizationData.triggerButtonShape);
+  const [triggerButtonShape, setTriggerButtonShape] = useState("Circle");
   const [triggerHorizontalOffset, setTriggerHorizontalOffset] = useState("0px");
   const [hideTriggerButton, setHideTriggerButton] = useState("No");
   const [triggerVerticalOffset, setTriggerVerticalOffset] = useState("3px");
-  const [selectedIcon, setSelectedIcon] = useState(customizationData.selectedIcon);
-  const [triggerHorizontalPosition, setTriggerHorizontalPosition] = useState(customizationData.triggerHorizontalPosition);
-  const [btnColor, setBtnColor] = useState(customizationData.triggerButtonColor);
+  const [selectedIcon, setSelectedIcon] = useState("accessibility");
+  const [triggerHorizontalPosition, setTriggerHorizontalPosition] = useState("Left");
+  const [btnColor, setBtnColor] = useState("#007bff");
   const [showOnMobile, setShowOnMobile] = useState("Show");
   const [mobileTriggerHorizontalPosition, setMobileTriggerHorizontalPosition] = useState("Left");
   const [mobileTriggerVerticalPosition, setMobileTriggerVerticalPosition] = useState("Bottom");
@@ -69,6 +68,34 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   const btnDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const btnPickerRef = useRef<HTMLDivElement | null>(null);
+
+  // Load existing customization data when component mounts
+  useEffect(() => {
+    console.log("CustomizationScreen mounted, existingCustomizationData:", existingCustomizationData);
+    if (existingCustomizationData) {
+      console.log("Loading existing customization data:", existingCustomizationData);
+      setInterfaceLeadColor(existingCustomizationData.interfaceLeadColor || "#FFFFFF");
+      setAccessibilityStatementLink(existingCustomizationData.accessibilityStatementLink || "");
+      setInterfaceFooterContent(existingCustomizationData.interfaceFooterContent || "");
+      setInterfacePosition(existingCustomizationData.interfacePosition || "Left");
+      setTriggerVerticalPosition(existingCustomizationData.triggerVerticalPosition || "Bottom");
+      setTriggerButtonSize(existingCustomizationData.triggerButtonSize || "Medium");
+      setTriggerButtonShape(existingCustomizationData.triggerButtonShape || "Circle");
+      setTriggerHorizontalOffset(existingCustomizationData.triggerHorizontalOffset || "0px");
+      setHideTriggerButton(existingCustomizationData.hideTriggerButton || "No");
+      setTriggerVerticalOffset(existingCustomizationData.triggerVerticalOffset || "3px");
+      setSelectedIcon(existingCustomizationData.selectedIcon || "accessibility");
+      setTriggerHorizontalPosition(existingCustomizationData.triggerHorizontalPosition || "Left");
+      setBtnColor(existingCustomizationData.triggerButtonColor || "#007bff");
+      setShowOnMobile(existingCustomizationData.showOnMobile || "Show");
+      setMobileTriggerHorizontalPosition(existingCustomizationData.mobileTriggerHorizontalPosition || "Left");
+      setMobileTriggerVerticalPosition(existingCustomizationData.mobileTriggerVerticalPosition || "Bottom");
+      setMobileTriggerSize(existingCustomizationData.mobileTriggerSize || "Medium");
+      setMobileTriggerShape(existingCustomizationData.mobileTriggerShape || "Round");
+      setMobileTriggerHorizontalOffset(existingCustomizationData.mobileTriggerHorizontalOffset || "3");
+      setMobileTriggerVerticalOffset(existingCustomizationData.mobileTriggerVerticalOffset || "3");
+    }
+  }, [existingCustomizationData]);
 
   useEffect(() => {
     if (!pickerInstance.current && colorPickerRef.current) {
@@ -103,14 +130,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     if (btnOpen && btnPickerInstance.current) btnPickerInstance.current.color.set(btnColor);
   }, [btnOpen])
 
-  // Sync local state with customizationData when it changes
-  useEffect(() => {
-    setSelectedIcon(customizationData.selectedIcon);
-    setTriggerButtonShape(customizationData.triggerButtonShape);
-    setTriggerHorizontalPosition(customizationData.triggerHorizontalPosition);
-    setTriggerVerticalPosition(customizationData.triggerVerticalPosition);
-    setBtnColor(customizationData.triggerButtonColor);
-  }, [customizationData]);
 
   useEffect(() => {
     // Handle click outside to close dropdowns
@@ -254,7 +273,41 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   }, [openDropdown]);
 
   const handleNext = () => {
-    onNext();
+    const customizationData = {
+      interfaceLeadColor,
+      accessibilityStatementLink,
+      interfaceFooterContent,
+      interfacePosition,
+      triggerButtonColor: btnColor,
+      triggerHorizontalPosition,
+      triggerVerticalPosition,
+      triggerButtonSize,
+      triggerButtonShape,
+      triggerHorizontalOffset,
+      hideTriggerButton,
+      triggerVerticalOffset,
+      selectedIcon,
+      selectedIconName: iconOptions.find(icon => icon.id === selectedIcon)?.name || "Accessibility",
+      showOnMobile,
+      mobileTriggerHorizontalPosition,
+      mobileTriggerVerticalPosition,
+      mobileTriggerSize,
+      mobileTriggerShape,
+      mobileTriggerHorizontalOffset,
+      mobileTriggerVerticalOffset,
+    };
+    
+    // Debug: Log the customization data being passed
+    console.log("CustomizationScreen - Data being passed to next screen:");
+    console.log("Button color:", btnColor);
+    console.log("Button shape:", triggerButtonShape);
+    console.log("Button position:", triggerHorizontalPosition);
+    console.log("Selected icon ID:", selectedIcon);
+    console.log("Selected icon name:", iconOptions.find(icon => icon.id === selectedIcon)?.name);
+    console.log("Selected icon URL:", iconOptions.find(icon => icon.id === selectedIcon)?.label);
+    console.log("Full customization data:", customizationData);
+    
+    onNext(customizationData);
   };
 
   const handleBack = () => {
@@ -262,28 +315,25 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   };
 
   const handleIconChange = (iconId: string) => {
+    console.log('Icon changed to:', iconId);
+    console.log('Icon name:', iconOptions.find(icon => icon.id === iconId)?.name);
     setSelectedIcon(iconId);
-    onCustomizationUpdate({ selectedIcon: iconId });
   };
 
   const handleColorChange = (color: string) => {
     setBtnColor(color);
-    onCustomizationUpdate({ triggerButtonColor: color });
   };
 
   const handleShapeChange = (shape: string) => {
     setTriggerButtonShape(shape);
-    onCustomizationUpdate({ triggerButtonShape: shape });
   };
 
   const handlePositionChange = (position: string) => {
     setTriggerHorizontalPosition(position);
-    onCustomizationUpdate({ triggerHorizontalPosition: position });
   };
 
   const handleVerticalPositionChange = (position: string) => {
     setTriggerVerticalPosition(position);
-    onCustomizationUpdate({ triggerVerticalPosition: position });
   };
 
   const renderDropdown = (
@@ -432,10 +482,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                 <div className="form-group">
                   <label>Trigger Button Size</label>
                   <div className="custom-select-container">
-                    {renderDropdown("triggerButtonSize", "", triggerButtonSize, sizeOptions, (size) => {
-                      setTriggerButtonSize(size);
-                      onCustomizationUpdate({ triggerButtonSize: size });
-                    })}
+                    {renderDropdown("triggerButtonSize", "", triggerButtonSize, sizeOptions, setTriggerButtonSize)}
                   </div>
                 </div>
 
