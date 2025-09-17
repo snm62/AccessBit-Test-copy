@@ -5,29 +5,8 @@ import { WebflowAPI } from "../types/webflowtypes";
 
 const base_url = "https://accessibility-widget.web-8fb.workers.dev";
 
-// Create webflow instance - this would normally come from Webflow's SDK
-const webflow: WebflowAPI = {
-  getSiteInfo: async () => {
-    // This would be implemented with actual Webflow API calls
-    return {
-      siteId: "mock-site-id",
-      siteName: "Mock Site",
-      shortName: "mock",
-      url: "https://mock-site.webflow.io"
-    };
-  },
-  getIdToken: async () => {
-    // This would return the actual ID token from Webflow
-    return "mock-id-token";
-  },
-  publishSite: async () => {
-    // This would publish the site
-    return {
-      customDomains: [],
-      publishToWebflowSubdomain: true
-    };
-  }
-};
+// Use the real Webflow API from the global scope
+declare const webflow: WebflowAPI;
 
 interface AuthState {
   user: User;
@@ -355,6 +334,137 @@ export function useAuth() {
     }
   };
 
+  // Function to make authenticated API requests with bearer token
+  const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
+    // Try to get session token from authState first, then from sessionStorage as fallback
+    let sessionToken = authState?.sessionToken;
+    
+    if (!sessionToken) {
+      // Fallback: get from sessionStorage
+      const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        sessionToken = userData.sessionToken;
+      }
+    }
+    
+    if (!sessionToken) {
+      throw new Error('No session token available. Please authenticate first.');
+    }
+
+    console.log('Making authenticated request with token:', sessionToken.substring(0, 20) + '...');
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`,
+      ...options.headers,
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API request failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
+    }
+
+    return response.json();
+  };
+
+  // Function to publish accessibility settings and customizations
+  const publishSettings = async (customizationData: any, accessibilityProfiles: any) => {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[PUBLISH] ${requestId} Starting publish request`);
+    
+    try {
+      // Check if user is authenticated - use fallback to sessionStorage
+      let sessionToken = authState?.sessionToken;
+      let userEmail = authState?.user?.email;
+      
+      if (!sessionToken || !userEmail) {
+        // Fallback: get from sessionStorage
+        const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          sessionToken = userData.sessionToken;
+          userEmail = userData.email;
+        }
+      }
+      
+      if (!sessionToken || !userEmail) {
+        throw new Error('User must be authenticated before publishing. Please authorize first.');
+      }
+
+      console.log(`[PUBLISH] ${requestId} Publishing with user: ${userEmail} and token: ${sessionToken.substring(0, 20)}...`);
+
+      const siteInfo = await webflow.getSiteInfo();
+      if (!siteInfo?.siteId) {
+        throw new Error('No site information available');
+      }
+
+      const publishData = {
+        customization: customizationData,
+        accessibilityProfiles: accessibilityProfiles,
+        publishedAt: new Date().toISOString(),
+      };
+
+      console.log(`[PUBLISH] ${requestId} Making authenticated request to publish endpoint`);
+
+      const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/publish`, {
+        method: 'POST',
+        body: JSON.stringify(publishData),
+      });
+
+      console.log(`[PUBLISH] ${requestId} Publish successful:`, result);
+      return result;
+    } catch (error) {
+      console.error(`[PUBLISH] ${requestId} Publish failed:`, error);
+      throw error;
+    }
+  };
+
+  // Function to connect custom domain to site
+  const connectCustomDomain = async (domain: string) => {
+    try {
+      const siteInfo = await webflow.getSiteInfo();
+      if (!siteInfo?.siteId) {
+        throw new Error('No site information available');
+      }
+
+      const domainData = {
+        siteId: siteInfo.siteId,
+        customDomain: domain,
+        connectedAt: new Date().toISOString(),
+      };
+
+      const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/domain`, {
+        method: 'POST',
+        body: JSON.stringify(domainData),
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Domain connection failed:', error);
+      throw error;
+    }
+  };
+
+  // Function to get published accessibility settings
+  const getPublishedSettings = async () => {
+    try {
+      const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/settings`, {
+        method: 'GET',
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Failed to get published settings:', error);
+      throw error;
+    }
+  };
+
   return {
     user: authState?.user || { firstName: "", email: "" },
     sessionToken: authState?.sessionToken || "",
@@ -363,5 +473,9 @@ export function useAuth() {
     logout,
     openAuthScreen,
     isAuthenticatedForCurrentSite,
+    makeAuthenticatedRequest,
+    publishSettings,
+    connectCustomDomain,
+    getPublishedSettings,
   };
 }

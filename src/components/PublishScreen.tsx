@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useAuth } from "../hooks/userAuth";
 import "../styles/publish.css";
 const whitearrow = new URL("../assets/→.svg", import.meta.url).href;
 const icon1 = new URL("../assets/icon1.svg", import.meta.url).href;
@@ -33,14 +34,16 @@ type CustomizationData = {
 
 type PublishScreenProps = {
   onBack: () => void;
-  customizationData: CustomizationData;
-  isAuthenticated: boolean;
+  customizationData?: any;
 };
 
-const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData, isAuthenticated }) => {
+const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData }) => {
+  const { publishSettings, user, sessionToken } = useAuth();
   const [showModal, setShowModal] = useState(true);
   const [showPublishModal, setShowPublishModal] = useState(false);
-  const [showUnauthorizedModal, setShowUnauthorizedModal] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishSuccess, setPublishSuccess] = useState(false);
   const [accessibilityProfiles, setAccessibilityProfiles] = useState({
     seizureSafe: false,
     visionImpaired: false,
@@ -58,26 +61,61 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
   };
 
   const handlePublish = () => {
-    if (isAuthenticated) {
-      setShowPublishModal(true);
-    } else {
-      setShowUnauthorizedModal(true);
+    // Check if user is authenticated
+    if (!user.email || !sessionToken) {
+      setPublishError('You must be authenticated to publish. Please authorize first.');
+      return;
     }
+    setShowPublishModal(true);
   };
 
-  const handleConfirmPublish = () => {
-    console.log("Publishing with settings:", accessibilityProfiles);
-    setShowPublishModal(false);
-    // Add actual publish logic here
+  const handleConfirmPublish = async () => {
+    setIsPublishing(true);
+    setPublishError(null);
+    
+    try {
+      console.log("Starting publish process...");
+      console.log("Customization data received:", customizationData);
+      console.log("Accessibility profiles: (disabled - not sending)");
+      
+      // Debug: Check if customizationData has the expected values
+      if (customizationData) {
+        console.log("PublishScreen - Customization data details:");
+        console.log("- Button color:", customizationData.triggerButtonColor);
+        console.log("- Button shape:", customizationData.triggerButtonShape);
+        console.log("- Button position:", customizationData.triggerHorizontalPosition);
+        console.log("- Selected icon ID:", customizationData.selectedIcon);
+        console.log("- Selected icon name:", customizationData.selectedIconName);
+        console.log("- Selected icon URL:", iconOptions.find(icon => icon.id === customizationData.selectedIcon)?.label);
+      } else {
+        console.warn("No customization data received!");
+      }
+      
+      const result = await publishSettings(customizationData, {});
+      
+      console.log("Publish result:", result);
+      console.log("Publish successful - data should be in KV store now");
+      setShowPublishModal(false);
+      setPublishSuccess(true);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setPublishSuccess(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error("Publish failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to publish settings";
+      setPublishError(errorMessage);
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   const handleCancelPublish = () => {
     setShowPublishModal(false);
   };
 
-  const handleCloseUnauthorizedModal = () => {
-    setShowUnauthorizedModal(false);
-  };
 
   const handleReset = () => {
     setAccessibilityProfiles({
@@ -104,10 +142,18 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
               <p>We are installing the script in your site custom code.</p>
               <p>Click confirm to proceed</p>
               <div className="publish-modal-buttons">
-                <button className="confirm-btn" onClick={handleConfirmPublish}>
-                  Confirm
+                <button 
+                  className="confirm-btn" 
+                  onClick={handleConfirmPublish}
+                  disabled={isPublishing}
+                >
+                  {isPublishing ? "Publishing..." : "Confirm"}
                 </button>
-                <button className="cancel-btn" onClick={handleCancelPublish}>
+                <button 
+                  className="cancel-btn" 
+                  onClick={handleCancelPublish}
+                  disabled={isPublishing}
+                >
                   Cancel
                 </button>
               </div>
@@ -116,22 +162,6 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
         </div>
       )}
 
-      {/* Unauthorized Modal */}
-      {showUnauthorizedModal && (
-        <div className="publish-modal-overlay">
-          <div className="publish-modal">
-            <div className="publish-modal-content">
-              <p>You are not authorized to publish.</p>
-              <p>Please authenticate first to continue.</p>
-              <div className="publish-modal-buttons">
-                <button className="confirm-btn" onClick={handleCloseUnauthorizedModal}>
-                  OK
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Header */}
       <div className="publish-header">
@@ -147,6 +177,34 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
           </button>
         </div>
       </div>
+
+      {/* Success Message */}
+      {publishSuccess && (
+        <div className="success-banner" style={{ 
+          backgroundColor: '#e8f5e8', 
+          color: '#2e7d32', 
+          padding: '10px 20px', 
+          margin: '10px 0',
+          borderRadius: '4px',
+          border: '1px solid #c8e6c9'
+        }}>
+          ✅ Accessibility settings published successfully!
+        </div>
+      )}
+
+      {/* Error Message */}
+      {publishError && (
+        <div className="error-banner" style={{ 
+          backgroundColor: '#ffebee', 
+          color: '#c62828', 
+          padding: '10px 20px', 
+          margin: '10px 0',
+          borderRadius: '4px',
+          border: '1px solid #ffcdd2'
+        }}>
+          {publishError}
+        </div>
+      )}
 
       {/* Step Navigation */}
       <div className="step-navigation">
@@ -180,8 +238,8 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
                 {/* Accessibility Modal */}
                 {showModal && (
                   <div
-                    className={`accessibility-modal ${customizationData.triggerHorizontalPosition === 'Left' ? 'position-left' :
-                      customizationData.triggerHorizontalPosition === 'Right' ? 'position-right' : 'position-center'
+                    className={`accessibility-modal ${customizationData?.triggerHorizontalPosition === 'Left' ? 'position-left' :
+                      customizationData?.triggerHorizontalPosition === 'Right' ? 'position-right' : 'position-center'
                       }`}
                   >
                     <div className="modal-header">
@@ -329,24 +387,24 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
                 <div
                   className="accessibility-widget"
                   style={{
-                    left: customizationData.triggerHorizontalPosition === 'Left' ? '20px' :
-                      customizationData.triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
-                    right: customizationData.triggerHorizontalPosition === 'Right' ? '20px' : 'auto',
-                    top: customizationData.triggerVerticalPosition === 'Top' ? '20px' :
-                      customizationData.triggerVerticalPosition === 'Middle' ? '50%' : 'auto',
-                    bottom: customizationData.triggerVerticalPosition === 'Bottom' ? '20px' : 'auto',
-                    transform: customizationData.triggerHorizontalPosition === 'Center' ?
-                      (customizationData.triggerVerticalPosition === 'Middle' ? 'translate(-50%, -50%)' : 'translateX(-50%)') :
-                      (customizationData.triggerVerticalPosition === 'Middle' ? 'translateY(-50%)' : 'none')
+                    left: customizationData?.triggerHorizontalPosition === 'Left' ? '20px' :
+                      customizationData?.triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
+                    right: customizationData?.triggerHorizontalPosition === 'Right' ? '20px' : 'auto',
+                    top: customizationData?.triggerVerticalPosition === 'Top' ? '20px' :
+                      customizationData?.triggerVerticalPosition === 'Middle' ? '50%' : 'auto',
+                    bottom: customizationData?.triggerVerticalPosition === 'Bottom' ? '20px' : 'auto',
+                    transform: customizationData?.triggerHorizontalPosition === 'Center' ?
+                      (customizationData?.triggerVerticalPosition === 'Middle' ? 'translate(-50%, -50%)' : 'translateX(-50%)') :
+                      (customizationData?.triggerVerticalPosition === 'Middle' ? 'translateY(-50%)' : 'none')
                   }}
                 >
                   <div
-                    className={`widget-trigger ${customizationData.triggerButtonShape.toLowerCase()} ${customizationData.triggerButtonSize.toLowerCase()}`}
-                    style={{ backgroundColor: customizationData.triggerButtonColor }}
+                    className={`widget-trigger ${customizationData?.triggerButtonShape?.toLowerCase() || 'circle'} ${customizationData?.triggerButtonSize?.toLowerCase() || 'medium'}`}
+                    style={{ backgroundColor: customizationData?.triggerButtonColor || '#007bff' }}
                     onClick={() => setShowModal(!showModal)}
                   >
                     <img
-                      src={iconOptions.find(icon => icon.id === customizationData.selectedIcon)?.label || icon1}
+                      src={iconOptions.find(icon => icon.id === customizationData?.selectedIcon)?.label || icon1}
                       alt="Accessibility Icon"
                       className="widget-icon"
                     />

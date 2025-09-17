@@ -4,25 +4,13 @@ import CustomizationScreen from "./components/CustomizationScreen";
 import PublishScreen from "./components/PublishScreen";
 import { useAuth } from "./hooks/userAuth";
 
-declare const webflow: {
-  getSelectedElement: () => Promise<any>;
-  // Add more method signatures if you need them later
-};
+// Webflow API is available globally in the Webflow Designer environment
 
 type AppState = 'welcome' | 'customization' | 'publish';
 
-type CustomizationData = {
-  selectedIcon: string;
-  triggerButtonColor: string;
-  triggerButtonShape: string;
-  triggerHorizontalPosition: string;
-  triggerVerticalPosition: string;
-  triggerButtonSize: string;
-  // Add other customization properties as needed
-};
-
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<AppState>('welcome');
+  const [customizationData, setCustomizationData] = useState<any>(null);
   const { user, sessionToken, isAuthLoading, exchangeAndVerifyIdToken, openAuthScreen } = useAuth();
   
   // Check if user is authenticated based on session token
@@ -31,15 +19,12 @@ const App: React.FC = () => {
   // OAuth callback handling is now done by the Cloudflare Worker
   // No need for frontend callback handling when using worker-based OAuth
 
-  // Removed auto-navigation - users will manually click "Next" button to proceed
-  const [customizationData, setCustomizationData] = useState<CustomizationData>({
-    selectedIcon: 'accessibility',
-    triggerButtonColor: '#2c59c9',
-    triggerButtonShape: 'Circle',
-    triggerHorizontalPosition: 'Left',
-    triggerVerticalPosition: 'Bottom',
-    triggerButtonSize: 'Medium',
-  });
+  // Auto-navigate to customization screen when authenticated
+  useEffect(() => {
+    if (isAuthenticated && currentScreen === 'welcome') {
+      setCurrentScreen('customization');
+    }
+  }, [isAuthenticated, currentScreen]);
 
   const handleAuthorize = async () => {
     console.log("Authorize button clicked");
@@ -69,15 +54,14 @@ const App: React.FC = () => {
   };
 
   const handleBackToCustomization = () => {
+    console.log("App: Going back to customization, current customizationData:", customizationData);
     setCurrentScreen('customization');
   };
 
-  const handleNextToPublish = () => {
+  const handleNextToPublish = (data: any) => {
+    console.log("App: Received customization data from CustomizationScreen:", data);
+    setCustomizationData(data);
     setCurrentScreen('publish');
-  };
-
-  const handleCustomizationUpdate = (data: Partial<CustomizationData>) => {
-    setCustomizationData(prev => ({ ...prev, ...data }));
   };
 
   return (
@@ -93,14 +77,12 @@ const App: React.FC = () => {
         <CustomizationScreen 
           onBack={handleBackToWelcome}
           onNext={handleNextToPublish}
-          customizationData={customizationData}
-          onCustomizationUpdate={handleCustomizationUpdate}
+          existingCustomizationData={customizationData}
         />
       ) : (
         <PublishScreen 
-          onBack={handleBackToCustomization}
-          customizationData={customizationData}
-          isAuthenticated={isAuthenticated}
+          onBack={handleBackToCustomization} 
+          customizationData={customizationData || {}}
         />
       )}
     </div>
