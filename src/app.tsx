@@ -11,7 +11,8 @@ type AppState = 'welcome' | 'customization' | 'publish';
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<AppState>('welcome');
   const [customizationData, setCustomizationData] = useState<any>(null);
-  const { user, sessionToken, isAuthLoading, exchangeAndVerifyIdToken, openAuthScreen } = useAuth();
+  const [isLoadingExistingData, setIsLoadingExistingData] = useState(false);
+  const { user, sessionToken, isAuthLoading, exchangeAndVerifyIdToken, openAuthScreen, getPublishedSettings } = useAuth();
   
   // Check if user is authenticated based on session token
   const isAuthenticated = !!(user.email && sessionToken);
@@ -19,10 +20,40 @@ const App: React.FC = () => {
   // OAuth callback handling is now done by the Cloudflare Worker
   // No need for frontend callback handling when using worker-based OAuth
 
-  // Auto-navigate to customization screen when authenticated
+  // Load existing customization data when authenticated
+  const loadExistingCustomizationData = async () => {
+    if (!isAuthenticated) return;
+    
+    setIsLoadingExistingData(true);
+    try {
+      console.log("App: Loading existing customization data...");
+      const existingSettings = await getPublishedSettings();
+      console.log("App: Existing settings loaded:", existingSettings);
+      
+      if (existingSettings && existingSettings.customization) {
+        setCustomizationData(existingSettings.customization);
+        console.log("App: Customization data set:", existingSettings.customization);
+        console.log("✅ App: Successfully loaded existing customization data");
+      } else {
+        console.log("App: No existing customization data found - using defaults");
+      }
+    } catch (error) {
+      console.error("App: Failed to load existing customization data:", error);
+      // Don't show error to user, just continue with empty data
+    } finally {
+      setIsLoadingExistingData(false);
+    }
+  };
+
+  // Auto-navigate to customization screen when authenticated and load existing data
   useEffect(() => {
     if (isAuthenticated && currentScreen === 'welcome') {
-      setCurrentScreen('customization');
+      loadExistingCustomizationData().then(() => {
+        setCurrentScreen('customization');
+      });
+    } else if (!isAuthenticated && currentScreen !== 'welcome') {
+      // If not authenticated, go back to welcome screen
+      setCurrentScreen('welcome');
     }
   }, [isAuthenticated, currentScreen]);
 
@@ -64,6 +95,7 @@ const App: React.FC = () => {
     setCurrentScreen('publish');
   };
 
+
   return (
     <div>
       {currentScreen === 'welcome' ? (
@@ -78,6 +110,7 @@ const App: React.FC = () => {
           onBack={handleBackToWelcome}
           onNext={handleNextToPublish}
           existingCustomizationData={customizationData}
+          isLoadingExistingData={isLoadingExistingData}
         />
       ) : (
         <PublishScreen 

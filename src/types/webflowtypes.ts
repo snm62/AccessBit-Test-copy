@@ -6,7 +6,7 @@ export interface WebflowAPI {
     shortName: string;
     url:string;
   }>;
-    getIdToken: () => Promise<string>;
+  getIdToken: () => Promise<string>;
   publishSite: (options?: { 
     customDomains?: string[];
     publishToWebflowSubdomain?: boolean;
@@ -17,4 +17,13 @@ export interface WebflowAPI {
       lastPublished: string;
     }>;
     publishToWebflowSubdomain: boolean;
-  }>}
+  }>;
+  setCustomCode: (options: {
+    location: 'head' | 'footer';
+    code: string;
+  }) => Promise<void>;
+  upsertPageCustomCode: (options: {
+    location: 'head' | 'footer';
+    code: string;
+  }) => Promise<void>;
+}
