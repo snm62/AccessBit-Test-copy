@@ -45,17 +45,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Auto-navigate to customization screen when authenticated and load existing data
-  useEffect(() => {
-    if (isAuthenticated && currentScreen === 'welcome') {
-      loadExistingCustomizationData().then(() => {
-        setCurrentScreen('customization');
-      });
-    } else if (!isAuthenticated && currentScreen !== 'welcome') {
-      // If not authenticated, go back to welcome screen
-      setCurrentScreen('welcome');
-    }
-  }, [isAuthenticated, currentScreen]);
 
   const handleAuthorize = async () => {
     console.log("Authorize button clicked");

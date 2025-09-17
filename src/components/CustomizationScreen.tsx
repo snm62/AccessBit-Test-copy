@@ -5,14 +5,6 @@ const previewarea = new URL("../assets/preview-area.svg", import.meta.url).href;
 const mobile = new URL("../assets/mobile.svg", import.meta.url).href;
 const monitor = new URL("../assets/monitor.svg", import.meta.url).href;
 const icon1 = new URL("../assets/icon1.svg", import.meta.url).href;
-const icon2 = new URL("../assets/icon2.svg", import.meta.url).href;
-const icon3 = new URL("../assets/icon3.svg", import.meta.url).href;
-const icon4 = new URL("../assets/icon4.svg", import.meta.url).href;
-const icon5 = new URL("../assets/icon5.svg", import.meta.url).href;
-const icon6 = new URL("../assets/icon6.svg", import.meta.url).href;
-const icon7 = new URL("../assets/icon7.svg", import.meta.url).href;
-const icon8 = new URL("../assets/icon8.svg", import.meta.url).href;
-const iconArray = [icon1, icon2, icon3, icon4, icon5, icon6, icon7, icon8];
 const whitearrow = new URL("../assets/→.svg", import.meta.url).href;
 
 type CustomizationData = {
@@ -47,7 +39,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   const [triggerHorizontalOffset, setTriggerHorizontalOffset] = useState("0px");
   const [hideTriggerButton, setHideTriggerButton] = useState("No");
   const [triggerVerticalOffset, setTriggerVerticalOffset] = useState("3px");
-  const [selectedIcon, setSelectedIcon] = useState("accessibility");
   const [triggerHorizontalPosition, setTriggerHorizontalPosition] = useState("Left");
   const [btnColor, setBtnColor] = useState("#007bff");
   const [showOnMobile, setShowOnMobile] = useState("Show");
@@ -85,7 +76,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
       setTriggerHorizontalOffset(existingCustomizationData.triggerHorizontalOffset || "0px");
       setHideTriggerButton(existingCustomizationData.hideTriggerButton || "No");
       setTriggerVerticalOffset(existingCustomizationData.triggerVerticalOffset || "3px");
-      setSelectedIcon(existingCustomizationData.selectedIcon || "accessibility");
       setTriggerHorizontalPosition(existingCustomizationData.triggerHorizontalPosition || "Left");
       setBtnColor(existingCustomizationData.triggerButtonColor || "#007bff");
       setShowOnMobile(existingCustomizationData.showOnMobile || "Show");
@@ -245,17 +235,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     { label: "5", value: "5" },
   ];
 
-  // Icon options
-  const iconOptions = [
-    { id: "accessibility", label: icon1, name: "Accessibility" },
-    { id: "person", label: icon2, name: "Person" },
-    { id: "wheelchair", label: icon3, name: "Wheelchair" },
-    { id: "ad", label: icon4, name: "AD" },
-    { id: "eye", label: icon5, name: "Eye" },
-    { id: "ramp", label: icon6, name: "Ramp" },
-    { id: "gear", label: icon7, name: "Gear" },
-    { id: "ad-triple", label: icon8, name: "AD)))" },
-  ];
 
   const getLabel = (opts: any[], val: string) =>
     (opts.find((o) => o.value === val) || {}).label || val;
@@ -287,8 +266,8 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
       triggerHorizontalOffset,
       hideTriggerButton,
       triggerVerticalOffset,
-      selectedIcon,
-      selectedIconName: iconOptions.find(icon => icon.id === selectedIcon)?.name || "Accessibility",
+      selectedIcon: "accessibility",
+      selectedIconName: "Accessibility",
       showOnMobile,
       mobileTriggerHorizontalPosition,
       mobileTriggerVerticalPosition,
@@ -303,9 +282,9 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     console.log("Button color:", btnColor);
     console.log("Button shape:", triggerButtonShape);
     console.log("Button position:", triggerHorizontalPosition);
-    console.log("Selected icon ID:", selectedIcon);
-    console.log("Selected icon name:", iconOptions.find(icon => icon.id === selectedIcon)?.name);
-    console.log("Selected icon URL:", iconOptions.find(icon => icon.id === selectedIcon)?.label);
+    console.log("Selected icon ID:", "accessibility");
+    console.log("Selected icon name:", "Accessibility");
+    console.log("Selected icon URL:", icon1);
     console.log("Full customization data:", customizationData);
     
     onNext(customizationData);
@@ -316,11 +295,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   };
 
 
-  const handleIconChange = (iconId: string) => {
-    console.log('Icon changed to:', iconId);
-    console.log('Icon name:', iconOptions.find(icon => icon.id === iconId)?.name);
-    setSelectedIcon(iconId);
-  };
 
   const handleColorChange = (color: string) => {
     setBtnColor(color);
@@ -475,12 +449,12 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                       />
                     </div> */}
 
-                {/* <div className="form-group">
+                <div className="form-group">
                   <label>Interface language</label>
                   <div className="custom-select-container">
                     {renderDropdown("interfaceLanguage", "", interfaceLanguage, languageOptions, setInterfaceLanguage)}
                   </div>
-                </div> */}
+                </div>
               </div>
             </div>
 
@@ -561,20 +535,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                 </div>
               </div>
 
-              <div className="trigger-icon-section">
-                <h3>Trigger Button Icon</h3>
-                <div className="icon-grid">
-                  {iconOptions.map((icon) => (
-                    <div
-                      key={icon.id}
-                      className={`icon-option ${selectedIcon === icon.id ? 'selected' : ''}`}
-                      onClick={() => handleIconChange(icon.id)}
-                    >
-                      <img src={icon.label} alt={icon.name} className="icon-symbol" />
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
 
             <div className="section">
@@ -691,7 +651,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                             `calc(10px + ${parseInt(triggerVerticalOffset)}px)` : 'auto',
                           transform: triggerHorizontalPosition === 'Center' ?
                             (triggerVerticalPosition === 'Middle' ? 'translateX(-50%)' : 'translateX(-50%)') :
-                            (triggerVerticalPosition === 'Middle' ? 'translateY(-50%)' : 'none')
+                            (triggerVerticalPosition === 'Middle' ? 'translateY(-20%)' : 'none')
                         }}
                       >
                         <div
@@ -699,7 +659,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                           style={{ backgroundColor: btnColor }}
                         >
                           <img
-                            src={iconOptions.find(icon => icon.id === selectedIcon)?.label || icon1}
+                            src={icon1}
                             alt="Accessibility Icon"
                             className="widget-icon"
                           />
@@ -737,7 +697,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                           style={{ backgroundColor: btnColor }}
                         >
                           <img
-                            src={iconOptions.find(icon => icon.id === selectedIcon)?.label || icon1}
+                            src={icon1}
                             alt="Accessibility Icon"
                             className="mobile-widget-icon"
                           />

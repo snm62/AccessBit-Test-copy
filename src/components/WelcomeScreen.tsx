@@ -32,7 +32,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAuthorize, onNeedHelp ,
     }, 2000); // 2 second delay
 
     return () => clearTimeout(timer);
-  }, []); // Remove authenticated from dependencies to prevent re-running
+  }, [authenticated]); // Add authenticated back to dependencies to react to auth changes
 
   // Separate useEffect to handle authentication changes
   useEffect(() => {
@@ -41,6 +41,28 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAuthorize, onNeedHelp ,
       setIsAuthorizing(false);
     }
   }, [authenticated]);
+
+  // Monitor sessionStorage changes for OAuth completion
+  useEffect(() => {
+    const checkSessionStorage = () => {
+      const userinfo = sessionStorage.getItem("contrastkit-userinfo");
+      const hasData = userinfo && userinfo !== "null" && userinfo !== "undefined";
+      
+      if (hasData && isAuthorizing) {
+        // OAuth completed successfully
+        setHasUserData(true);
+        setIsAuthorizing(false);
+      }
+    };
+
+    // Check immediately
+    checkSessionStorage();
+
+    // Set up interval to check for changes
+    const interval = setInterval(checkSessionStorage, 1000);
+
+    return () => clearInterval(interval);
+  }, [isAuthorizing]);
 
   const handleAuthorizeClick = () => {
     setIsAuthorizing(true);
@@ -73,7 +95,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAuthorize, onNeedHelp ,
             </p>
           ) : (
             <p className="welcome-instructions">
-              Your accessibility widget has been installed! Click "Authorize" to customize your widget settings and get started.
+              The authorization process appears to be incomplete. To continue with the next step, please ensure that all necessary authorization steps have been successfully carried out.
             </p>
           )}
           {isCheckingAuth ? (

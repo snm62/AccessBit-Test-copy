@@ -302,7 +302,7 @@
   color: #ffffff;
   cursor: pointer;
   transition: background-color 0.3s ease;
-  border-bottom: 1px solid #333;
+  /* border-bottom: 1px solid #333; */
 }
 
 .custom-select .options li:last-child {
@@ -310,7 +310,7 @@
 }
 
 .custom-select .options li:hover {
-  background-color: #333;
+  background-color: #342a5e;
 }
 
 /* Interface Grid Layout */
