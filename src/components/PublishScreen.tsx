@@ -38,12 +38,12 @@ type PublishScreenProps = {
 };
 
 const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData }) => {
-  const { publishSettings, user, sessionToken } = useAuth();
+  const { publishSettings, user, sessionToken, registerAccessibilityScript, applyAccessibilityScript, injectScriptToWebflow } = useAuth();
   const [showModal, setShowModal] = useState(true);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
-  const [publishSuccess, setPublishSuccess] = useState(false);
+  const [publishSuccess, setPublishSuccess] = useState<string | false>(false);
   const [accessibilityProfiles, setAccessibilityProfiles] = useState({
     seizureSafe: false,
     visionImpaired: false,
@@ -91,12 +91,50 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
         console.warn("No customization data received!");
       }
       
-      const result = await publishSettings(customizationData, {});
+      // Step 1: Publish settings to KV store
+      console.log("Step 1: Publishing settings to KV store...");
+      const publishResult = await publishSettings(customizationData, accessibilityProfiles);
+      console.log("Publish result:", publishResult);
       
-      console.log("Publish result:", result);
-      console.log("Publish successful - data should be in KV store now");
+      // Step 2: Register accessibility script
+      console.log("Step 2: Registering accessibility script...");
+      const registerResult = await registerAccessibilityScript();
+      console.log("Script registration result:", registerResult);
+      
+      // Step 3: Apply script to site (store instruction)
+      console.log("Step 3: Applying script to site...");
+      const applyResult = await applyAccessibilityScript({
+        targetType: 'site',
+        scriptId: registerResult.result?.id || 'accessibility-widget',
+        location: 'header',
+        version: '1.0.0'
+      });
+      console.log("Script application result:", applyResult);
+      
+      // Step 4: Actually inject the script into Webflow head
+      if (applyResult.result?.scriptUrl) {
+        try {
+          console.log("Step 4: Injecting script into Webflow head...");
+          const injectionResult = await injectScriptToWebflow(applyResult.result.scriptUrl);
+          console.log("Script injection result:", injectionResult);
+          
+          if (injectionResult.manualStep) {
+            console.log("Manual step required for script injection");
+            setPublishSuccess(`Settings published! Please manually add this script to your site's custom code section: ${injectionResult.customCode}`);
+          } else {
+            console.log("Script injected successfully into Webflow head!");
+            setPublishSuccess('Settings published and script injected into Webflow head!');
+          }
+        } catch (scriptError) {
+          console.warn('Script injection failed:', scriptError);
+          setPublishSuccess('Settings published! Script ready for manual injection.');
+        }
+      } else {
+        setPublishSuccess('Settings published! Script ready for manual injection.');
+      }
+      
+      console.log("All steps completed successfully!");
       setShowPublishModal(false);
-      setPublishSuccess(true);
       
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -188,7 +226,7 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
           borderRadius: '4px',
           border: '1px solid #c8e6c9'
         }}>
-          ✅ Accessibility settings published successfully!
+          ✅ {typeof publishSuccess === 'string' ? publishSuccess : 'Accessibility settings published successfully!'}
         </div>
       )}
 

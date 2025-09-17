@@ -28,9 +28,10 @@ type CustomizationScreenProps = {
   onBack: () => void;
   onNext: (customizationData: any) => void;
   existingCustomizationData?: any;
+  isLoadingExistingData?: boolean;
 };
 
-const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNext, existingCustomizationData }) => {
+const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNext, existingCustomizationData, isLoadingExistingData = false }) => {
   const [isDesktopView, setIsDesktopView] = useState(true);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
@@ -314,6 +315,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     onBack();
   };
 
+
   const handleIconChange = (iconId: string) => {
     console.log('Icon changed to:', iconId);
     console.log('Icon name:', iconOptions.find(icon => icon.id === iconId)?.name);
@@ -380,6 +382,33 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
 
   return (
     <div className="customization-screen">
+      {/* Loading indicator for existing data */}
+      {isLoadingExistingData && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            textAlign: 'center'
+          }}>
+            <div style={{ marginBottom: '10px' }}>Loading your existing settings...</div>
+            <div style={{ fontSize: '14px', color: '#666' }}>Please wait while we fetch your customization data</div>
+          </div>
+        </div>
+      )}
+      
       {/* Header */}
       <div className="customization-header">
         <div className="app-name"></div>

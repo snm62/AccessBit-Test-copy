@@ -73,7 +73,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAuthorize, onNeedHelp ,
             </p>
           ) : (
             <p className="welcome-instructions">
-              The authorization process appears to be incomplete. To continue with the next step, please ensure that all necessary authorization steps have been successfully carried out.
+              Your accessibility widget has been installed! Click "Authorize" to customize your widget settings and get started.
             </p>
           )}
           {isCheckingAuth ? (

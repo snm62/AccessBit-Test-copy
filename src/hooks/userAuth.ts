@@ -264,6 +264,12 @@ export function useAuth() {
       if (event.data.type === 'AUTH_SUCCESS') {
         console.log('Received auth success message:', event.data);
         
+        // IMPORTANT: Clear all old session data first to prevent cross-site contamination
+        console.log('Clearing old session data before storing new data...');
+        sessionStorage.removeItem("contrastkit-userinfo");
+        sessionStorage.removeItem("explicitly_logged_out");
+        sessionStorage.removeItem("siteInfo");
+        
         // Store the session data from the OAuth popup
         const userData = {
           sessionToken: event.data.sessionToken,
@@ -274,11 +280,15 @@ export function useAuth() {
           siteInfo: event.data.siteInfo // Add site info
         };
         
-        // Store in sessionStorage (not sessionStorage) for persistence
+        console.log('Storing new session data for site:', event.data.user.siteId);
+        console.log('New user data:', userData);
+        
+        // Store in sessionStorage for persistence
         sessionStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
         sessionStorage.removeItem("explicitly_logged_out");
         
-        // Update React Query cache
+        // Clear React Query cache and update with new data
+        queryClient.clear();
         queryClient.setQueryData<AuthState>(["auth"], {
           user: {
             firstName: event.data.user.firstName,
@@ -352,6 +362,8 @@ export function useAuth() {
       throw new Error('No session token available. Please authenticate first.');
     }
 
+    console.log('=== AUTHENTICATED REQUEST DEBUG ===');
+    console.log('URL:', url);
     console.log('Making authenticated request with token:', sessionToken.substring(0, 20) + '...');
 
     const headers = {
@@ -360,13 +372,31 @@ export function useAuth() {
       ...options.headers,
     };
 
+    console.log('Request headers:', headers);
+
     const response = await fetch(url, {
       ...options,
       headers,
     });
 
+    console.log('Response status:', response.status);
+    console.log('Response headers:', {
+      'content-type': response.headers.get('content-type'),
+      'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
+      'access-control-allow-methods': response.headers.get('access-control-allow-methods'),
+      'access-control-allow-headers': response.headers.get('access-control-allow-headers')
+    });
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('Error response:', errorData);
+      console.error('Full error details:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: url,
+        headers: headers,
+        errorData: errorData
+      });
       throw new Error(`API request failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
     }
 
@@ -378,22 +408,53 @@ export function useAuth() {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     console.log(`[PUBLISH] ${requestId} Starting publish request`);
     
+    // IMMEDIATE AUTH CHECK
+    console.log(`[PUBLISH] ${requestId} IMMEDIATE AUTH CHECK:`, {
+      hasAuthState: !!authState,
+      hasSessionToken: !!authState?.sessionToken,
+      hasUser: !!authState?.user,
+      userEmail: authState?.user?.email,
+      sessionStorageKeys: Object.keys(sessionStorage)
+    });
+    
     try {
+      // DEBUG: Check authentication state
+      console.log(`[PUBLISH] ${requestId} Auth state:`, {
+        hasAuthState: !!authState,
+        hasSessionToken: !!authState?.sessionToken,
+        hasUser: !!authState?.user,
+        userEmail: authState?.user?.email
+      });
+      
       // Check if user is authenticated - use fallback to sessionStorage
       let sessionToken = authState?.sessionToken;
       let userEmail = authState?.user?.email;
       
       if (!sessionToken || !userEmail) {
+        console.log(`[PUBLISH] ${requestId} No auth state, checking sessionStorage...`);
         // Fallback: get from sessionStorage
         const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+        console.log(`[PUBLISH] ${requestId} Stored user from sessionStorage:`, storedUser);
+        
         if (storedUser) {
           const userData = JSON.parse(storedUser);
           sessionToken = userData.sessionToken;
           userEmail = userData.email;
+          console.log(`[PUBLISH] ${requestId} Retrieved from sessionStorage:`, {
+            hasToken: !!sessionToken,
+            hasEmail: !!userEmail,
+            tokenPreview: sessionToken ? sessionToken.substring(0, 20) + '...' : 'none'
+          });
         }
       }
       
       if (!sessionToken || !userEmail) {
+        console.error(`[PUBLISH] ${requestId} Authentication failed:`, {
+          hasToken: !!sessionToken,
+          hasEmail: !!userEmail,
+          authState: authState,
+          sessionStorageKeys: Object.keys(sessionStorage)
+        });
         throw new Error('User must be authenticated before publishing. Please authorize first.');
       }
 
@@ -404,15 +465,47 @@ export function useAuth() {
         throw new Error('No site information available');
       }
 
+      // Ensure customization data has the correct structure for the widget
       const publishData = {
-        customization: customizationData,
+        customization: {
+          // Trigger button customization
+          triggerButtonColor: customizationData?.triggerButtonColor || '#007bff',
+          triggerButtonShape: customizationData?.triggerButtonShape || 'Circle',
+          triggerButtonSize: customizationData?.triggerButtonSize || 'Medium',
+          triggerHorizontalPosition: customizationData?.triggerHorizontalPosition || 'Right',
+          triggerVerticalPosition: customizationData?.triggerVerticalPosition || 'Bottom',
+          triggerHorizontalOffset: customizationData?.triggerHorizontalOffset || '0px',
+          triggerVerticalOffset: customizationData?.triggerVerticalOffset || '3px',
+          hideTriggerButton: customizationData?.hideTriggerButton || 'No',
+          
+          // Interface customization
+          interfaceLeadColor: customizationData?.interfaceLeadColor || '#FFFFFF',
+          interfacePosition: customizationData?.interfacePosition || 'Left',
+          interfaceFooterContent: customizationData?.interfaceFooterContent || '',
+          accessibilityStatementLink: customizationData?.accessibilityStatementLink || '',
+          
+          // Icon customization
+          selectedIcon: customizationData?.selectedIcon || 'accessibility',
+          selectedIconName: customizationData?.selectedIconName || 'Accessibility',
+          
+          // Mobile customization
+          showOnMobile: customizationData?.showOnMobile || 'Show',
+          mobileTriggerHorizontalPosition: customizationData?.mobileTriggerHorizontalPosition || 'Left',
+          mobileTriggerVerticalPosition: customizationData?.mobileTriggerVerticalPosition || 'Bottom',
+          mobileTriggerSize: customizationData?.mobileTriggerSize || 'Medium',
+          mobileTriggerShape: customizationData?.mobileTriggerShape || 'Round',
+          mobileTriggerHorizontalOffset: customizationData?.mobileTriggerHorizontalOffset || '3',
+          mobileTriggerVerticalOffset: customizationData?.mobileTriggerVerticalOffset || '3'
+        },
         accessibilityProfiles: accessibilityProfiles,
+        customDomain: null,
         publishedAt: new Date().toISOString(),
       };
 
       console.log(`[PUBLISH] ${requestId} Making authenticated request to publish endpoint`);
+      console.log(`[PUBLISH] ${requestId} Publish data being sent:`, JSON.stringify(publishData, null, 2));
 
-      const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/publish`, {
+      const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/publish?siteId=${siteInfo.siteId}`, {
         method: 'POST',
         body: JSON.stringify(publishData),
       });
@@ -454,13 +547,215 @@ export function useAuth() {
   // Function to get published accessibility settings
   const getPublishedSettings = async () => {
     try {
-      const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/settings`, {
+      // Get siteId from Webflow
+      const siteInfo = await webflow.getSiteInfo();
+      if (!siteInfo?.siteId) {
+        throw new Error('No site information available');
+      }
+
+      const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/settings?siteId=${siteInfo.siteId}`, {
         method: 'GET',
       });
 
       return result;
     } catch (error) {
       console.error('Failed to get published settings:', error);
+      throw error;
+    }
+  };
+
+  // Function to register accessibility script
+  const registerAccessibilityScript = async () => {
+    try {
+      // Get siteId from Webflow
+      const siteInfo = await webflow.getSiteInfo();
+      if (!siteInfo?.siteId) {
+        throw new Error('No site information available');
+      }
+
+      const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/register-script?siteId=${siteInfo.siteId}`, {
+        method: 'POST',
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Failed to register accessibility script:', error);
+      throw error;
+    }
+  };
+
+  // Function to apply accessibility script
+  const applyAccessibilityScript = async (params: {
+    targetType: 'site' | 'page';
+    scriptId: string;
+    location: 'header' | 'footer';
+    version: string;
+  }) => {
+    try {
+      // Get siteId from Webflow
+      const siteInfo = await webflow.getSiteInfo();
+      if (!siteInfo?.siteId) {
+        throw new Error('No site information available');
+      }
+
+      const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/apply-script?siteId=${siteInfo.siteId}`, {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Failed to apply accessibility script:', error);
+      throw error;
+    }
+  };
+
+  // Inject script directly into Webflow using Designer Extension API
+  const injectScriptToWebflow = async (scriptUrl: string) => {
+    try {
+      console.log('=== SCRIPT INJECTION DEBUG ===');
+      console.log('Script URL:', scriptUrl);
+      console.log('webflow object available:', typeof webflow !== 'undefined');
+      
+      // Get site info
+      const siteInfo = await webflow.getSiteInfo();
+      console.log('Site info:', siteInfo);
+      
+      // Get access token
+      const idToken = await webflow.getIdToken();
+      console.log('ID token available:', !!idToken);
+      
+      // Log all available methods to find the correct one
+      const availableMethods = typeof webflow !== 'undefined' ? Object.keys(webflow) : [];
+      console.log('All available webflow methods:', availableMethods);
+      
+      // Log the webflow object structure for debugging
+      console.log('Full webflow object:', webflow);
+      
+      // Test if webflow object has the expected structure
+      console.log('webflow.getSiteInfo type:', typeof webflow.getSiteInfo);
+      console.log('webflow.getIdToken type:', typeof webflow.getIdToken);
+      console.log('webflow.setCustomCode type:', typeof (webflow as any).setCustomCode);
+      console.log('webflow.upsertPageCustomCode type:', typeof (webflow as any).upsertPageCustomCode);
+      
+      // Try the correct Webflow Designer Extension API method for "Code added by Apps"
+      const customCode = `<script src="${scriptUrl}" async></script>`;
+      console.log('Custom code to inject:', customCode);
+      
+      // Method 1: Try setCustomCode (most likely to work for "Code added by Apps")
+      if (typeof webflow !== 'undefined' && (webflow as any).setCustomCode) {
+        try {
+          console.log('Trying setCustomCode method...');
+          console.log('setCustomCode function:', (webflow as any).setCustomCode);
+          
+          const result = await (webflow as any).setCustomCode({
+            location: 'head',
+            code: customCode
+          });
+          
+          console.log('setCustomCode result:', result);
+          console.log('Script injected successfully using setCustomCode!');
+          return { success: true, message: 'Script injected using setCustomCode - should appear in "Code added by Apps"' };
+        } catch (error) {
+          console.log('setCustomCode failed:', error);
+          console.log('setCustomCode error details:', error.message, error.stack);
+        }
+      } else {
+        console.log('setCustomCode method not available on webflow object');
+      }
+      
+      // Method 2: Try upsertPageCustomCode
+      if (typeof webflow !== 'undefined' && (webflow as any).upsertPageCustomCode) {
+        try {
+          console.log('Trying upsertPageCustomCode method...');
+          const result = await (webflow as any).upsertPageCustomCode({
+            location: 'head',
+            code: customCode
+          });
+          
+          console.log('upsertPageCustomCode result:', result);
+          console.log('Script injected successfully using upsertPageCustomCode!');
+          return { success: true, message: 'Script injected using upsertPageCustomCode - should appear in "Code added by Apps"' };
+        } catch (error) {
+          console.log('upsertPageCustomCode failed:', error);
+        }
+      }
+      
+      // Method 3: Try other potential methods
+      const otherMethods = [
+        'setPageCustomCode',
+        'addCustomCode',
+        'injectCustomCode',
+        'setHeadCode',
+        'setFooterCode',
+        'addHeadCode',
+        'addFooterCode',
+        'setSiteCustomCode',
+        'upsertSiteCustomCode'
+      ];
+      
+      for (const methodName of otherMethods) {
+        if (typeof webflow !== 'undefined' && (webflow as any)[methodName]) {
+          try {
+            console.log(`Trying ${methodName} method...`);
+            const result = await (webflow as any)[methodName]({
+              location: 'head',
+              code: customCode
+            });
+            
+            console.log(`${methodName} result:`, result);
+            console.log(`Script injected successfully using ${methodName}!`);
+            return { success: true, message: `Script injected using ${methodName} - should appear in "Code added by Apps"` };
+          } catch (error) {
+            console.log(`${methodName} failed:`, error);
+          }
+        }
+      }
+      
+      // If no Designer Extension API methods work, fall back to REST API approach
+      console.log('No Designer Extension API methods found. Using REST API approach...');
+      
+      try {
+        // Step 1: Register the script
+        console.log('Step 1: Registering script...');
+        const registerResult = await registerAccessibilityScript();
+        console.log('Script registration result:', registerResult);
+        
+        // Step 2: Apply the script
+        console.log('Step 2: Applying script...');
+        const scriptId = registerResult.result?.id;
+        const version = registerResult.result?.version || '1.0.0';
+        
+        if (scriptId) {
+          const applyResult = await applyAccessibilityScript({
+            targetType: 'site',
+            scriptId: scriptId,
+            location: 'header',
+            version: version
+          });
+          
+          console.log('Script applied successfully:', applyResult);
+          return { 
+            success: true, 
+            message: 'Script applied via REST API - will appear in Custom Code section, not "Code added by Apps"',
+            note: 'Script is applied but may not appear in "Code added by Apps" section'
+          };
+        }
+      } catch (error) {
+        console.log('REST API approach failed:', error);
+      }
+      
+      // Final fallback
+      console.log('All injection methods failed. Providing manual instructions.');
+      return { 
+        success: true, 
+        message: 'Script registered successfully. Please manually add the script to your site\'s custom code section.',
+        manualStep: true,
+        scriptUrl: scriptUrl,
+        customCode: customCode
+      };
+    } catch (error) {
+      console.error('Failed to inject script:', error);
       throw error;
     }
   };
@@ -477,5 +772,8 @@ export function useAuth() {
     publishSettings,
     connectCustomDomain,
     getPublishedSettings,
+    registerAccessibilityScript,
+    applyAccessibilityScript,
+    injectScriptToWebflow,
   };
 }
