@@ -14,6 +14,7 @@ type CustomizationData = {
   triggerHorizontalPosition: string;
   triggerVerticalPosition: string;
   triggerButtonSize: string;
+  interfaceLanguage: string;
 };
 
 type CustomizationScreenProps = {
@@ -22,7 +23,6 @@ type CustomizationScreenProps = {
   existingCustomizationData?: any;
   isLoadingExistingData?: boolean;
 };
-
 const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNext, existingCustomizationData, isLoadingExistingData = false }) => {
   const [isDesktopView, setIsDesktopView] = useState(true);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -31,7 +31,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   const [interfaceLeadColor, setInterfaceLeadColor] = useState("#FFFFFF");
   const [accessibilityStatementLink, setAccessibilityStatementLink] = useState("");
   const [interfaceFooterContent, setInterfaceFooterContent] = useState("");
-  const [interfaceLanguage, setInterfaceLanguage] = useState("German");
+  const [interfaceLanguage, setInterfaceLanguage] = useState("English");
   const [interfacePosition, setInterfacePosition] = useState("Left");
   const [triggerVerticalPosition, setTriggerVerticalPosition] = useState("Bottom");
   const [triggerButtonSize, setTriggerButtonSize] = useState("Medium");
@@ -45,7 +45,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   const [mobileTriggerHorizontalPosition, setMobileTriggerHorizontalPosition] = useState("Left");
   const [mobileTriggerVerticalPosition, setMobileTriggerVerticalPosition] = useState("Bottom");
   const [mobileTriggerSize, setMobileTriggerSize] = useState("Medium");
-  const [mobileTriggerShape, setMobileTriggerShape] = useState("Round");
+  const [mobileTriggerShape, setMobileTriggerShape] = useState("Rounded");
   const [mobileTriggerHorizontalOffset, setMobileTriggerHorizontalOffset] = useState("3");
   const [mobileTriggerVerticalOffset, setMobileTriggerVerticalOffset] = useState("3");
 
@@ -60,6 +60,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   const btnDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const btnPickerRef = useRef<HTMLDivElement | null>(null);
+  
 
   // Load existing customization data when component mounts
   useEffect(() => {
@@ -82,12 +83,14 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
       setMobileTriggerHorizontalPosition(existingCustomizationData.mobileTriggerHorizontalPosition || "Left");
       setMobileTriggerVerticalPosition(existingCustomizationData.mobileTriggerVerticalPosition || "Bottom");
       setMobileTriggerSize(existingCustomizationData.mobileTriggerSize || "Medium");
-      setMobileTriggerShape(existingCustomizationData.mobileTriggerShape || "Round");
+      setMobileTriggerShape(existingCustomizationData.mobileTriggerShape || "Rounded");
       setMobileTriggerHorizontalOffset(existingCustomizationData.mobileTriggerHorizontalOffset || "3");
       setMobileTriggerVerticalOffset(existingCustomizationData.mobileTriggerVerticalOffset || "3");
+      setInterfaceLanguage(existingCustomizationData.interfaceLanguage || "English");
     }
   }, [existingCustomizationData]);
 
+ 
   useEffect(() => {
     if (!pickerInstance.current && colorPickerRef.current) {
       pickerInstance.current = iro.ColorPicker(colorPickerRef.current, {
@@ -120,7 +123,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     // Sync picker color with state when dropdown opens
     if (btnOpen && btnPickerInstance.current) btnPickerInstance.current.color.set(btnColor);
   }, [btnOpen])
-
 
   useEffect(() => {
     // Handle click outside to close dropdowns
@@ -221,7 +223,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   ];
 
   const mobileShapeOptions = [
-    { label: "Round", value: "Round" },
+    { label: "Rounded", value: "Rounded" },
     { label: "Square", value: "Square" },
     { label: "Circle", value: "Circle" },
   ];
@@ -252,42 +254,125 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdown]);
 
-  const handleNext = () => {
-    const customizationData = {
-      interfaceLeadColor,
-      accessibilityStatementLink,
-      interfaceFooterContent,
-      interfacePosition,
-      triggerButtonColor: btnColor,
-      triggerHorizontalPosition,
-      triggerVerticalPosition,
-      triggerButtonSize,
-      triggerButtonShape,
-      triggerHorizontalOffset,
-      hideTriggerButton,
-      triggerVerticalOffset,
-      selectedIcon: "accessibility",
-      selectedIconName: "Accessibility",
-      showOnMobile,
-      mobileTriggerHorizontalPosition,
-      mobileTriggerVerticalPosition,
-      mobileTriggerSize,
-      mobileTriggerShape,
-      mobileTriggerHorizontalOffset,
-      mobileTriggerVerticalOffset,
-    };
+  const handleNext = async () => {
+    try {
+      const customizationData = {
+        // Map your state variables to the customization object
+        triggerButtonColor: btnColor,
+        triggerButtonShape: triggerButtonShape,
+        triggerButtonSize: triggerButtonSize,
+        triggerHorizontalPosition: triggerHorizontalPosition,
+        triggerVerticalPosition: triggerVerticalPosition,
+        triggerHorizontalOffset: triggerHorizontalOffset,
+        triggerVerticalOffset: triggerVerticalOffset,
+        hideTriggerButton: hideTriggerButton,
+        interfaceLeadColor: interfaceLeadColor,
+        interfacePosition: interfacePosition,
+        interfaceLanguage: interfaceLanguage,
+        selectedIcon: 'accessibility', // Default icon
+        selectedIconName: 'Accessibility', // Default icon name
+        showOnMobile: showOnMobile,
+        mobileTriggerButtonColor: btnColor, // Use same color as desktop
+        mobileTriggerShape: mobileTriggerShape,
+        mobileTriggerSize: mobileTriggerSize,
+        mobileTriggerHorizontalPosition: mobileTriggerHorizontalPosition,
+        mobileTriggerVerticalPosition: mobileTriggerVerticalPosition,
+        mobileTriggerHorizontalOffset: mobileTriggerHorizontalOffset,
+        mobileTriggerVerticalOffset: mobileTriggerVerticalOffset,
+        accessibilityStatementLink: accessibilityStatementLink,
+        interfaceFooterContent: interfaceFooterContent
+      };
+      
+      // Navigate to next page - PublishScreen will handle the saving
+      console.log('CustomizationScreen: Passing data to PublishScreen:', customizationData);
+      onNext(customizationData);
+    } catch (error) {
+      console.error('Error preparing customization data:', error);
+      alert('An error occurred while preparing data. Please try again.');
+    }
+  };
+
+  // Helper function for site ID
+  const getCurrentSiteId = async () => {
+    console.log('🔍 CustomizationScreen: Getting site ID...');
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSiteId = urlParams.get('siteId');
     
-    // Debug: Log the customization data being passed
-    console.log("CustomizationScreen - Data being passed to next screen:");
-    console.log("Button color:", btnColor);
-    console.log("Button shape:", triggerButtonShape);
-    console.log("Button position:", triggerHorizontalPosition);
-    console.log("Selected icon ID:", "accessibility");
-    console.log("Selected icon name:", "Accessibility");
-    console.log("Selected icon URL:", icon1);
-    console.log("Full customization data:", customizationData);
+    // Check the correct sessionStorage key used by the auth system
+    const contrastkitUserInfo = sessionStorage.getItem('contrastkit-userinfo');
+    let sessionSiteId = null;
+    if (contrastkitUserInfo) {
+      try {
+        const userData = JSON.parse(contrastkitUserInfo);
+        sessionSiteId = userData.siteId;
+        console.log('🔍 CustomizationScreen: Found siteId in contrastkit-userinfo:', sessionSiteId);
+      } catch (error) {
+        console.log('🔍 CustomizationScreen: Error parsing contrastkit-userinfo:', error);
+      }
+    }
     
-    onNext(customizationData);
+    // Also check the old keys for backward compatibility
+    const oldSessionSiteId = sessionStorage.getItem('accessibility_site_id');
+    const localSiteId = localStorage.getItem('accessibility_site_id');
+    
+    console.log('🔍 CustomizationScreen: URL siteId:', urlSiteId);
+    console.log('🔍 CustomizationScreen: Session siteId (contrastkit):', sessionSiteId);
+    console.log('🔍 CustomizationScreen: Session siteId (old):', oldSessionSiteId);
+    console.log('🔍 CustomizationScreen: Local siteId:', localSiteId);
+    
+    // If we have a URL siteId, use it (this comes from domain lookup)
+    if (urlSiteId) {
+      console.log('🔍 CustomizationScreen: Using URL siteId (from domain lookup):', urlSiteId);
+      return urlSiteId;
+    }
+    
+    // If no URL siteId, try to get it from domain lookup
+    if (sessionSiteId) {
+      try {
+        console.log('🔍 CustomizationScreen: Attempting domain lookup for siteId consistency...');
+        const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/domain-lookup?domain=${window.location.hostname}`);
+        if (response.ok) {
+          const domainData = await response.json();
+          if (domainData.siteId) {
+            console.log('🔍 CustomizationScreen: Domain lookup found siteId:', domainData.siteId);
+            return domainData.siteId;
+          }
+        }
+      } catch (error) {
+        console.log('🔍 CustomizationScreen: Domain lookup failed:', error);
+      }
+    }
+    
+    // Fallback to sessionStorage
+    const siteId = sessionSiteId || oldSessionSiteId || localSiteId;
+    console.log('🔍 CustomizationScreen: Final siteId (fallback):', siteId);
+    return siteId;
+  };
+
+
+  // Load customization data function
+  const loadCustomizationData = async (siteId: string) => {
+    try {
+      console.log('🌐 CustomizationScreen: Making API request to:', `https://accessibility-widget.web-8fb.workers.dev/api/accessibility/config?siteId=${siteId}`);
+      const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/config?siteId=${siteId}`);
+      
+      console.log('📡 CustomizationScreen: API response status:', response.status);
+      console.log('📡 CustomizationScreen: API response ok:', response.ok);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 CustomizationScreen: Full API response data:', data);
+        console.log('📊 CustomizationScreen: Customization data:', data.customization);
+        return data.customization;
+      } else {
+        const errorText = await response.text();
+        console.error('❌ CustomizationScreen: Failed to load customization data:', response.status, errorText);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ CustomizationScreen: Error loading customization data:', error);
+      return null;
+    }
   };
 
   const handleBack = () => {
@@ -449,12 +534,13 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                       />
                     </div> */}
 
-                <div className="form-group">
+                {/*<div className="form-group">
                   <label>Interface language</label>
                   <div className="custom-select-container">
                     {renderDropdown("interfaceLanguage", "", interfaceLanguage, languageOptions, setInterfaceLanguage)}
                   </div>
-                </div>
+                </div>*/}
+                
               </div>
             </div>
 
@@ -714,5 +800,4 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     </div>
   );
 };
-
 export default CustomizationScreen;

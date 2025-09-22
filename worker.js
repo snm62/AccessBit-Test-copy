@@ -63,6 +63,51 @@ if (url.pathname === '/api/accessibility/domain-lookup' && request.method === 'G
   return handleDomainLookup(request, env);
 }
     
+// Add this to your worker.js inside the main request handler
+if (url.pathname === '/api/accessibility/save-config' && request.method === 'POST') {
+    try {
+        const { siteId, customization } = await request.json();
+        
+        if (!siteId || !customization) {
+            return new Response(JSON.stringify({ error: 'Missing siteId or customization data' }), {
+                status: 400,
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                }
+            });
+        }
+        
+        // Save to KV store
+        await env.ACCESSIBILITY_AUTH.put(`Accessibility-Settings:${siteId}`, JSON.stringify({
+            customization: customization,
+            updatedAt: new Date().toISOString()
+        }));
+        
+        return new Response(JSON.stringify({ success: true }), {
+            status: 200,
+            headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        });
+        
+    } catch (error) {
+        return new Response(JSON.stringify({ error: 'Failed to save configuration' }), {
+            status: 500,
+            headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        });
+    }
+}
     // Default response
     return new Response('Accessibility Widget API', { 
       status: 200,
@@ -86,33 +131,27 @@ function handleCORS() {
     }
   });
 }
-
 // Handle OAuth Authorization
 async function handleOAuthAuthorize(request, env) {
   const url = new URL(request.url);
   const incomingState = url.searchParams.get("state");
   const siteId = url.searchParams.get("siteId");
-  
   // Determine flow type and extract site ID
   const isDesigner = incomingState && incomingState.startsWith("webflow_designer");
-  
   const scopes = [
     "sites:read",
-    "sites:write", 
+    "sites:write",
     "custom_code:read",
     "custom_code:write",
     "authorized_user:read"
   ];
-  
   // Use your worker's redirect URI for both flows
   const redirectUri = "https://accessibility-widget.web-8fb.workers.dev/api/auth/callback";
-  
   const authUrl = new URL('https://webflow.com/oauth/authorize');
   authUrl.searchParams.set('client_id', env.WEBFLOW_CLIENT_ID);
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('scope', scopes.join(' '));
-  
   // Set state parameter with site ID for App Interface
   if (isDesigner) {
     const currentSiteId = siteId || (incomingState.includes('_') ? incomingState.split('_')[1] : null);
@@ -125,7 +164,6 @@ async function handleOAuthAuthorize(request, env) {
     // For Apps & Integrations flow, try to get site info from referrer
     const referrer = request.headers.get('referer') || '';
     let siteInfo = '';
-    
     if (referrer.includes('.design.webflow.com')) {
       const match = referrer.match(/([^.]+)\.design\.webflow\.com/);
       if (match) {
@@ -133,10 +171,8 @@ async function handleOAuthAuthorize(request, env) {
         console.log('Apps & Integrations: Including site info in state:', siteInfo);
       }
     }
-    
     authUrl.searchParams.set('state', `accessibility_widget${siteInfo}`);
   }
-  
   return new Response(null, {
     status: 302,
     headers: {
@@ -145,7 +181,7 @@ async function handleOAuthAuthorize(request, env) {
   });
 }
 
-// Handle OAuth Callback
+
 async function handleOAuthCallback(request, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
@@ -258,22 +294,46 @@ async function handleOAuthCallback(request, env) {
       throw new Error('No Webflow sites found');
     }
     
-    // Generate JWT session token FIRST
-    const userId = userData.id || userData.email || `user_${Date.now()}`;
-    const sessionToken = await createSessionToken({...userData, id: userId}, env);
-    
-    // Handle different redirect scenarios
+    // Determine the current site FIRST
+    let currentSite;
     if (isDesigner) {
-      // App Interface flow - only store data for the current site
+      // App Interface flow - get site from state parameter
       const siteIdFromState = state.includes('_') ? state.split('_')[1] : null;
-      
-      // Find the specific site or use the first one
-      let currentSite;
       if (siteIdFromState) {
         currentSite = sites.find(site => site.id === siteIdFromState) || sites[0];
       } else {
         currentSite = sites[0];
       }
+    } else {
+      // Apps & Integrations flow - determine site from state or referrer
+      if (appsIntegrationsSiteInfo) {
+        const foundSite = sites.find(site => site.shortName === appsIntegrationsSiteInfo);
+        currentSite = foundSite || sites[0];
+      } else {
+        // Fallback: try to get site info from referrer
+        const referrer = request.headers.get('referer') || '';
+        if (referrer.includes('.design.webflow.com')) {
+          const match = referrer.match(/([^.]+)\.design\.webflow\.com/);
+          if (match) {
+            const shortName = match[1];
+            const foundSite = sites.find(site => site.shortName === shortName);
+            currentSite = foundSite || sites[0];
+          } else {
+            currentSite = sites[0];
+          }
+        } else {
+          currentSite = sites[0];
+        }
+      }
+    }
+    
+    // Generate JWT session token with the determined site
+    const userId = userData.id || userData.email || `user_${Date.now()}`;
+    const sessionToken = await createSessionToken({...userData, id: userId}, env, currentSite.id);
+    
+    // Handle different redirect scenarios
+    if (isDesigner) {
+      // App Interface flow - only store data for the current site
       
       // Store user authentication data in KV (REQUIRED for verifyAuth)
       const userId = userData.id || userData.email || `user_${Date.now()}`;
@@ -344,50 +404,15 @@ async function handleOAuthCallback(request, env) {
       });
     }
     
-    // Apps & Integrations flow - store data for the correct site only
-    console.log('Apps & Integrations: Determining correct site for data storage...');
+    // Apps & Integrations flow - use the currentSite that was already determined
+    console.log('Apps & Integrations: Using determined site for data storage...');
+    console.log('Apps & Integrations: Storing data for site:', currentSite.id, currentSite.name || currentSite.shortName);
     
-    let targetSite = sites[0]; // Default to first site
-    
-    // First, try to use site info from state parameter (most reliable)
-    if (appsIntegrationsSiteInfo) {
-      console.log('Apps & Integrations: Using site info from state parameter:', appsIntegrationsSiteInfo);
-      
-      // Find the site with matching shortName
-      const foundSite = sites.find(site => site.shortName === appsIntegrationsSiteInfo);
-      if (foundSite) {
-        targetSite = foundSite;
-        console.log('Apps & Integrations: Found matching site from state:', foundSite.id, foundSite.name || foundSite.shortName);
-      } else {
-        console.log('Apps & Integrations: No matching site found for state shortName:', appsIntegrationsSiteInfo);
-      }
-    } else {
-      // Fallback: try to get site info from referrer
-      const referrer = request.headers.get('referer') || '';
-      console.log('Apps & Integrations: No state site info, trying referrer:', referrer);
-      
-      if (referrer.includes('.design.webflow.com')) {
-        const match = referrer.match(/([^.]+)\.design\.webflow\.com/);
-        if (match) {
-          const shortName = match[1];
-          console.log('Apps & Integrations: Found shortName from referrer:', shortName);
-          
-          const foundSite = sites.find(site => site.shortName === shortName);
-          if (foundSite) {
-            targetSite = foundSite;
-            console.log('Apps & Integrations: Found matching site from referrer:', foundSite.id, foundSite.name || foundSite.shortName);
-          }
-        }
-      }
-    }
-    
-    console.log('Apps & Integrations: Storing data for site:', targetSite.id, targetSite.name || targetSite.shortName);
-    
-    // Store data only for the target site with correct key structure
-    await env.ACCESSIBILITY_AUTH.put(`Accessibility-Settings:${targetSite.id}`, JSON.stringify({
+    // Store data only for the current site with correct key structure
+    await env.ACCESSIBILITY_AUTH.put(`Accessibility-Settings:${currentSite.id}`, JSON.stringify({
       accessToken: tokenData.access_token,
-      siteName: targetSite.name || targetSite.shortName || 'Unknown Site',
-      siteId: targetSite.id,
+      siteName: currentSite.name || currentSite.shortName || 'Unknown Site',
+      siteId: currentSite.id,
       user: userData,
       installedAt: new Date().toISOString(),
       customization: {},
@@ -398,19 +423,19 @@ async function handleOAuthCallback(request, env) {
     
     // Also store the Webflow subdomain mapping for this site
     try {
-      if (targetSite.shortName) {
-        const webflowSubdomain = `${targetSite.shortName}.webflow.io`;
+      if (currentSite.shortName) {
+        const webflowSubdomain = `${currentSite.shortName}.webflow.io`;
         const domainKey = `domain:${webflowSubdomain}`;
         
         await env.ACCESSIBILITY_AUTH.put(domainKey, JSON.stringify({
-          siteId: targetSite.id,
+          siteId: currentSite.id,
           domain: webflowSubdomain,
           isPrimary: true,
           isWebflowSubdomain: true,
           connectedAt: new Date().toISOString()
         }), { expirationTtl: 86400 * 30 }); // 30 days
         
-        console.log('Apps & Integrations: Stored Webflow subdomain mapping:', webflowSubdomain, '->', targetSite.id);
+        console.log('Apps & Integrations: Stored Webflow subdomain mapping:', webflowSubdomain, '->', currentSite.id);
       }
     } catch (domainError) {
       console.warn('Apps & Integrations: Failed to store subdomain mapping:', domainError);
@@ -439,20 +464,20 @@ async function handleOAuthCallback(request, env) {
               email: '${userData.email}',
               exp: Date.now() + (24 * 60 * 60 * 1000),
               siteInfo: {
-                siteId: '${targetSite.id}',
-                siteName: '${targetSite.name || targetSite.shortName || 'Unknown Site'}',
-                shortName: '${targetSite.shortName}',
-                url: '${targetSite.url || `https://${targetSite.shortName}.webflow.io`}'
+                siteId: '${currentSite.id}',
+                siteName: '${currentSite.name || currentSite.shortName || 'Unknown Site'}',
+                shortName: '${currentSite.shortName}',
+                url: '${currentSite.url || `https://${currentSite.shortName}.webflow.io`}'
               }
             }));
             
             // Also store siteId directly for easy access by the widget
-            sessionStorage.setItem('accessibility_site_id', '${targetSite.id}');
-            console.log('Apps & Integrations: Stored siteId in sessionStorage:', '${targetSite.id}');
+            sessionStorage.setItem('accessibility_site_id', '${currentSite.id}');
+            console.log('Apps & Integrations: Stored siteId in sessionStorage:', '${currentSite.id}');
             
             // Redirect to the correct site after a short delay
             setTimeout(() => {
-              window.location.href = 'https://${targetSite.shortName}.design.webflow.com?app=${env.WEBFLOW_CLIENT_ID}';
+              window.location.href = 'https://${currentSite.shortName}.design.webflow.com?app=${env.WEBFLOW_CLIENT_ID}';
             }, 2000);
           </script>
         </body>
@@ -471,6 +496,8 @@ async function handleOAuthCallback(request, env) {
     });
   }
 }
+
+
 
 // Handle publish accessibility settings
 async function handlePublishSettings(request, env) {
@@ -530,7 +557,8 @@ async function handlePublishSettings(request, env) {
       customization, 
       accessibilityProfiles, 
       customDomain, 
-      publishedAt
+      publishedAt,
+      interfaceLanguage
     } = body;
     
         // Debug authResult
@@ -538,31 +566,48 @@ async function handlePublishSettings(request, env) {
     console.log(`[PUBLISH] ${requestId} User data from auth:`, authResult.userData);
     console.log(`[PUBLISH] ${requestId} Site name from auth:`, authResult.siteName);
     
+    const existingData = await env.ACCESSIBILITY_AUTH.get(`Accessibility-Settings:${siteId}`);
+    let existingSettings = {};
+    
+    if (existingData) {
+      try {
+        const parsed = JSON.parse(existingData);
+        existingSettings = parsed;
+        console.log(`[PUBLISH] ${requestId} Found existing settings, preserving some fields`);
+      } catch (error) {
+        console.warn(`[PUBLISH] ${requestId} Failed to parse existing data:`, error);
+      }
+    }
     // Create the data to store in KV
     const dataToStore = {
       // Authorization data
       accessToken: authResult.accessToken,
       user: {
-        email: authResult.userData?.email || 'unknown@example.com',
-        firstName: authResult.userData?.firstName || 'Unknown',
-        id: authResult.userData?.id || 'unknown'
+        email: authResult.userData?.email || existingSettings.user?.email || 'unknown@example.com',
+        firstName: authResult.userData?.firstName || existingSettings.user?.firstName || 'Unknown',
+        id: authResult.userData?.id || existingSettings.user?.id || 'unknown'
       },
       
       // Site info
       siteId: siteId,
-      siteName: authResult.siteName || 'Unknown Site',
+      siteName: authResult.siteName || existingSettings.siteName || 'Unknown Site',
       
-      // Customization data from frontend
-      customization: customization || {},
-      accessibilityProfiles: accessibilityProfiles || [],
-      customDomain: customDomain || null,
+      customization: {
+        ...existingSettings.customization, // Preserve existing customization
+        ...customization, // Override with new customization
+        interfaceLanguage: interfaceLanguage || customization?.interfaceLanguage || existingSettings.customization?.interfaceLanguage || 'English'
+      },
+
+      accessibilityProfiles: accessibilityProfiles || existingSettings.accessibilityProfiles || [],
+      customDomain: customDomain || existingSettings.customDomain || null,
    
       
       // Metadata
       publishedAt: publishedAt || new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
-      widgetVersion: '1.0.0'
+      widgetVersion: '1.0.0',
+      installedAt: existingSettings.installedAt || new Date().toISOString()
     };
     
     // Store the data in KV
@@ -844,7 +889,7 @@ async function handleTokenAuth(request, env) {
     
     // Create session token
     console.log('Creating session token...');
-    const sessionToken = await createSessionToken(userData, env);
+    const sessionToken = await createSessionToken(userData, env,siteId);
     console.log('Session token created successfully');
     
     // Store user authentication
@@ -981,27 +1026,10 @@ async function handleRegisterScript(request, env) {
       });
     }
     
-    // Get siteId from URL parameter (preferred) or from auth result
-    const url = new URL(request.url);
-    const urlSiteId = url.searchParams.get('siteId');
-    const siteId = urlSiteId || authResult.siteId;
-    
-    console.log('Authentication successful, using siteId:', siteId, `(from ${urlSiteId ? 'URL parameter' : 'auth result'})`);
-    
-    if (!siteId) {
-      console.log('No siteId available for script registration');
-      return new Response(JSON.stringify({ error: 'No siteId provided' }), {
-        status: 400,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    }
-    
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@9a686db/accessibility-widget.js';
+    console.log('Authentication successful, siteId:', authResult.siteId);
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@5dc1e75/accessibility-widget.js';
     // Check if script is already registered - CORRECTED: Use exact match
-    const existingScriptsResponse = await fetch(`https://api.webflow.com/v2/sites/${siteId}/registered_scripts`, {
+    const existingScriptsResponse = await fetch(`https://api.webflow.com/v2/sites/${authResult.siteId}/registered_scripts`, {
       headers: {
         'Authorization': `Bearer ${authResult.accessToken}`,
         'accept-version': '2.0.0'
@@ -1154,7 +1182,7 @@ async function handleApplyScript(request, env) {
     
         // Filter out duplicates - remove any existing accessibility widget scripts
     // Filter out duplicates - remove ALL accessibility widget scripts and any with same ID
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@9a686db/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@5dc1e75/accessibility-widget.js';
 
     const existingAccessibilityScript = existingScripts.find(script => 
       script.scriptUrl === scriptUrl
@@ -1291,7 +1319,7 @@ async function verifyAuth(request, env) {
 }
 
 // Create JWT session token
-async function createSessionToken(user, env) {
+async function createSessionToken(user, env,siteId=null) {
   const header = {
     alg: 'HS256',
     typ: 'JWT'
@@ -1299,7 +1327,9 @@ async function createSessionToken(user, env) {
   
   const payload = {
     user: user,
-    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+    siteId:siteId,
+    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60)
+     // 24 hours
   };
   
   const encodedHeader = base64UrlEncode(JSON.stringify(header));

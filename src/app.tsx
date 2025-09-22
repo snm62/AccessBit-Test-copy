@@ -45,7 +45,7 @@ const App: React.FC = () => {
     }
   };
 
-
+ 
   const handleAuthorize = async () => {
     console.log("Authorize button clicked");
     try {
@@ -58,7 +58,12 @@ const App: React.FC = () => {
       alert(`Authentication failed: ${error.message}`);
     }
   };
-
+useEffect(() => {
+    if (isAuthenticated && !isAuthLoading) {
+      loadExistingCustomizationData();
+    }
+    
+  }, [isAuthenticated, isAuthLoading]);
   const handleNeedHelp = () => {
     console.log("Need help button clicked");
     // Add your help logic here

@@ -423,7 +423,8 @@ export function useAuth() {
         hasAuthState: !!authState,
         hasSessionToken: !!authState?.sessionToken,
         hasUser: !!authState?.user,
-        userEmail: authState?.user?.email
+        userEmail: authState?.user?.email,
+        sessionStorageKeys: Object.keys(sessionStorage)
       });
       
       // Check if user is authenticated - use fallback to sessionStorage
@@ -556,7 +557,7 @@ export function useAuth() {
       const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/settings?siteId=${siteInfo.siteId}`, {
         method: 'GET',
       });
-
+      console.log("settings data from server",result);
       return result;
     } catch (error) {
       console.error('Failed to get published settings:', error);

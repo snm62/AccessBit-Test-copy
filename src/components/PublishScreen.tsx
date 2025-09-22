@@ -66,89 +66,83 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
       setPublishError('You must be authenticated to publish. Please authorize first.');
       return;
     }
+    setPublishSuccess(false);
+  setPublishError(null);
     setShowPublishModal(true);
   };
-
-  const handleConfirmPublish = async () => {
-    setIsPublishing(true);
-    setPublishError(null);
+const handleConfirmPublish = async () => {
+  console.log("=== PUBLISH START ===");
+  console.log("Current states - Success:", publishSuccess, "Error:", publishError);
+  
+  setIsPublishing(true);
+  setPublishError(null);
+  setPublishSuccess(false);
+  
+  try {
+    console.log("Starting publish process...");
+    console.log("Customization data received:", customizationData);
     
-    try {
-      console.log("Starting publish process...");
-      console.log("Customization data received:", customizationData);
-      console.log("Accessibility profiles: (disabled - not sending)");
-      
-      // Debug: Check if customizationData has the expected values
-      if (customizationData) {
-        console.log("PublishScreen - Customization data details:");
-        console.log("- Button color:", customizationData.triggerButtonColor);
-        console.log("- Button shape:", customizationData.triggerButtonShape);
-        console.log("- Button position:", customizationData.triggerHorizontalPosition);
-        console.log("- Selected icon ID:", customizationData.selectedIcon);
-        console.log("- Selected icon name:", customizationData.selectedIconName);
-        console.log("- Selected icon URL:", iconOptions.find(icon => icon.id === customizationData.selectedIcon)?.label);
-      } else {
-        console.warn("No customization data received!");
-      }
-      
-      // Step 1: Publish settings to KV store
-      console.log("Step 1: Publishing settings to KV store...");
-      const publishResult = await publishSettings(customizationData, accessibilityProfiles);
-      console.log("Publish result:", publishResult);
-      
-      // Step 2: Register accessibility script
-      console.log("Step 2: Registering accessibility script...");
-      const registerResult = await registerAccessibilityScript();
-      console.log("Script registration result:", registerResult);
-      
-      // Step 3: Apply script to site (store instruction)
-      console.log("Step 3: Applying script to site...");
-      const applyResult = await applyAccessibilityScript({
-        targetType: 'site',
-        scriptId: registerResult.result?.id || 'accessibility-widget',
-        location: 'header',
-        version: '1.0.0'
-      });
-      console.log("Script application result:", applyResult);
-      
-      // Step 4: Actually inject the script into Webflow head
-      if (applyResult.result?.scriptUrl) {
-        try {
-          console.log("Step 4: Injecting script into Webflow head...");
-          const injectionResult = await injectScriptToWebflow(applyResult.result.scriptUrl);
-          console.log("Script injection result:", injectionResult);
-          
-          if (injectionResult.manualStep) {
-            console.log("Manual step required for script injection");
-            setPublishSuccess(`Settings published! Please manually add this script to your site's custom code section: ${injectionResult.customCode}`);
-          } else {
-            console.log("Script injected successfully into Webflow head!");
-            setPublishSuccess('Settings published and script injected into Webflow head!');
-          }
-        } catch (scriptError) {
-          console.warn('Script injection failed:', scriptError);
-          setPublishSuccess('Settings published! Script ready for manual injection.');
+    // Step 1: Publish settings to KV store
+    console.log("Step 1: Publishing settings to KV store...");
+    const publishResult = await publishSettings(customizationData, accessibilityProfiles);
+    console.log("Publish result:", publishResult);
+
+    // Step 2: Handle script registration
+    console.log("Step 2: Handling script registration...");
+    const registerResult = await registerAccessibilityScript();
+    console.log("Script registration result:", registerResult);
+    
+    // Determine success message based on result
+    let successMessage = '';
+    
+    if (registerResult.success) {
+      if (!registerResult.skipApplyScript) {
+        const applyData = {
+          targetType: 'site' as const,
+          scriptId: registerResult.result?.id,
+          location: 'header' as const,
+          version: '1.0.0'
+        };
+        const applyResult = await applyAccessibilityScript(applyData);
+        console.log("Script application result:", applyResult);
+        
+        if (applyResult.success) {
+          successMessage = 'Settings published! Script has been registered and applied to your site.';
+        } else {
+          setPublishError('Settings published, but failed to apply script. Please try again.');
+          return;
         }
       } else {
-        setPublishSuccess('Settings published! Script ready for manual injection.');
+        successMessage = 'Settings published! Script is already active on your site.';
       }
-      
-      console.log("All steps completed successfully!");
-      setShowPublishModal(false);
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setPublishSuccess(false);
-      }, 3000);
-      
-    } catch (error) {
-      console.error("Publish failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to publish settings";
-      setPublishError(errorMessage);
-    } finally {
-      setIsPublishing(false);
+    } else {
+      setPublishError('Settings published, but failed to register script. Please try again.');
+      return;
     }
-  };
+    
+    console.log("Setting success message:", successMessage);
+    
+    // Set success message immediately
+    setPublishSuccess(successMessage);
+    console.log("Success message set:", successMessage);
+    
+    setShowPublishModal(false);
+    
+    // Clear success message after 8 seconds
+    setTimeout(() => {
+      console.log("Clearing success message");
+      setPublishSuccess(false);
+    }, 8000);
+    
+  } catch (error) {
+    console.error("Publish failed:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to publish settings";
+    setPublishError(errorMessage);
+  } finally {
+    setIsPublishing(false);
+    console.log("=== PUBLISH END ===");
+  }
+};
 
   const handleCancelPublish = () => {
     setShowPublishModal(false);
@@ -229,6 +223,8 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
           ✅ {typeof publishSuccess === 'string' ? publishSuccess : 'Accessibility settings published successfully!'}
         </div>
       )}
+
+      
 
       {/* Error Message */}
       {publishError && (
