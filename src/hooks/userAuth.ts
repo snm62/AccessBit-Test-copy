@@ -2,10 +2,11 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { jwtDecode } from "jwt-decode";
 import { User, DecodedToken } from "../types/types";
 import { WebflowAPI } from "../types/webflowtypes";
-
+import { getAuthData,setAuthData,removeAuthStorageItem,setSiteInfo,clearAuthData,setContrastKitAuthData } from "../util/authStorage";
+import { getAuthStorageItem } from "../util/authStorage";
 const base_url = "https://accessibility-widget.web-8fb.workers.dev";
 
-// Use the real Webflow API from the global scope
+// Use the real Webflow API from the global scope,
 declare const webflow: WebflowAPI;
 
 interface AuthState {
@@ -39,6 +40,7 @@ interface AuthState {
  * - logout: Clear authentication state
  */
 export function useAuth() {
+  console.log("🔐 AUTH: useAuth hook called");
   const queryClient = useQueryClient();
   const isExchangingToken = { current: false };
 
@@ -246,7 +248,7 @@ export function useAuth() {
     const siteInfo = await webflow.getSiteInfo();
     
     const authWindow = window.open(
-      `${base_url}/api/auth/authorize?state=webflow_designer_${siteInfo.siteId}`,
+      `${base_url}/api/auth/authorize?state=webflow_designer_${siteInfo.siteId}&siteId=${siteInfo.siteId}`,
       "_blank",
       "width=600,height=600"
     );
@@ -346,15 +348,30 @@ export function useAuth() {
 
   // Function to make authenticated API requests with bearer token
   const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
-    // Try to get session token from authState first, then from sessionStorage as fallback
-    let sessionToken = authState?.sessionToken;
+    // Try to get session token with retry mechanism
+    let sessionToken = null;
+    let attempts = 0;
+    const maxAttempts = 3;
     
-    if (!sessionToken) {
-      // Fallback: get from sessionStorage
-      const storedUser = sessionStorage.getItem("contrastkit-userinfo");
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        sessionToken = userData.sessionToken;
+    while (!sessionToken && attempts < maxAttempts) {
+      attempts++;
+      console.log(`[AUTH_REQUEST] Attempt ${attempts} to get session token...`);
+      
+      // Try to get session token from authState first, then from sessionStorage as fallback
+      sessionToken = authState?.sessionToken;
+      
+      if (!sessionToken) {
+        // Fallback: get from sessionStorage
+        const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          sessionToken = userData.sessionToken;
+        }
+      }
+      
+      if (!sessionToken && attempts < maxAttempts) {
+        console.log(`[AUTH_REQUEST] No session token found, waiting 200ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
     
@@ -450,13 +467,36 @@ export function useAuth() {
       }
       
       if (!sessionToken || !userEmail) {
-        console.error(`[PUBLISH] ${requestId} Authentication failed:`, {
+        console.log(`[PUBLISH] ${requestId} No session token found, triggering OAuth flow...`);
+        console.log(`[PUBLISH] ${requestId} Authentication state:`, {
           hasToken: !!sessionToken,
           hasEmail: !!userEmail,
           authState: authState,
           sessionStorageKeys: Object.keys(sessionStorage)
         });
-        throw new Error('User must be authenticated before publishing. Please authorize first.');
+        
+        // Trigger OAuth flow automatically
+        console.log(`[PUBLISH] ${requestId} Starting OAuth flow for authentication...`);
+        await openAuthScreen();
+        
+        // After OAuth, try to get the session token again
+        const newAuthState = queryClient.getQueryData<AuthState>(["auth"]);
+        const newStoredUser = sessionStorage.getItem("contrastkit-userinfo");
+        
+        if (newAuthState?.sessionToken && newAuthState?.user?.email) {
+          sessionToken = newAuthState.sessionToken;
+          userEmail = newAuthState.user.email;
+          console.log(`[PUBLISH] ${requestId} Got session token from auth state after OAuth`);
+        } else if (newStoredUser) {
+          const userData = JSON.parse(newStoredUser);
+          sessionToken = userData.sessionToken;
+          userEmail = userData.email;
+          console.log(`[PUBLISH] ${requestId} Got session token from sessionStorage after OAuth`);
+        }
+        
+        if (!sessionToken || !userEmail) {
+          throw new Error('Authentication failed. Please try again.');
+        }
       }
 
       console.log(`[PUBLISH] ${requestId} Publishing with user: ${userEmail} and token: ${sessionToken.substring(0, 20)}...`);
@@ -518,6 +558,188 @@ export function useAuth() {
       throw error;
     }
   };
+
+ // Function to attempt automatic token refresh on app load
+  const attemptAutoRefresh = async (): Promise<boolean> => {
+    try {
+      console.log("[AUTO_REFRESH] Starting automatic token refresh...");
+      
+      // Check if user was explicitly logged out
+      const wasExplicitlyLoggedOut = getAuthStorageItem("explicitly_logged_out");
+      if (wasExplicitlyLoggedOut) {
+        console.log("[AUTO_REFRESH] User was explicitly logged out, skipping refresh");
+        return false;
+      }
+      
+      // Check if there's existing auth data that might be expired or invalid
+      const authData = getAuthData();
+      if (authData && authData.sessionToken) {
+        try {
+          const decodedToken = jwtDecode(authData.sessionToken) as DecodedToken;
+          // If token is not expired, don't need to refresh
+          if (decodedToken.exp * 1000 > Date.now()) {
+            console.log("[AUTO_REFRESH] Valid token found, no refresh needed");
+            return true; // Already have valid token
+          } else {
+            console.log("[AUTO_REFRESH] Token expired, attempting refresh");
+          }
+        } catch (error) {
+          console.log("[AUTO_REFRESH] Invalid token data, attempting refresh");
+        }
+      } else {
+        console.log("[AUTO_REFRESH] No existing auth data, attempting silent auth");
+      }
+
+      // Attempt silent auth to refresh token with timeout
+      console.log("[AUTO_REFRESH] Attempting silent authentication...");
+      const silentAuthPromise = attemptSilentAuth();
+      const timeoutPromise = new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+          console.log("[AUTO_REFRESH] Silent auth timeout reached");
+          resolve(false);
+        }, 3000); // 3 second timeout for silent auth
+      });
+      
+      const result = await Promise.race([silentAuthPromise, timeoutPromise]);
+      console.log("[AUTO_REFRESH] Result:", result);
+      return result;
+    } catch (error) {
+      console.error("[AUTO_REFRESH] Error during auto refresh:", error);
+      return false;
+    }
+  };
+
+  // Function to attempt silent authorization without user interaction
+  const attemptSilentAuth = async (): Promise<boolean> => {
+    try {
+      console.log("[SILENT_AUTH] Starting silent authentication...");
+      
+      // Attempt to get ID token silently (works if user is already authenticated with Webflow)
+      console.log("[SILENT_AUTH] Getting ID token from Webflow...");
+      const idToken = await webflow.getIdToken();
+      if (!idToken) {
+        console.log("[SILENT_AUTH] No ID token available from Webflow");
+        return false;
+      }
+      console.log("[SILENT_AUTH] ID token obtained successfully");
+      
+      // Get site info from Webflow
+      console.log("[SILENT_AUTH] Getting site info from Webflow...");
+      const siteInfo = await webflow.getSiteInfo();
+      if (!siteInfo || !siteInfo.siteId) {
+        console.log("[SILENT_AUTH] No site info available from Webflow");
+        return false;
+      }
+      console.log("[SILENT_AUTH] Site info obtained:", siteInfo.siteId);
+      
+      console.log("[SILENT_AUTH] Making token exchange request...");
+      
+      // Check what's currently in sessionStorage
+      const currentStoredData = sessionStorage.getItem('contrastkit-userinfo');
+      const currentStoredData2 = sessionStorage.getItem('consentbit-userinfo');
+      console.log("[SILENT_AUTH] Current sessionStorage (contrastkit):", currentStoredData);
+      console.log("[SILENT_AUTH] Current sessionStorage (consentbit):", currentStoredData2);
+      
+      // Try the token endpoint first (it might work now)
+      console.log("[SILENT_AUTH] Trying token endpoint: /api/auth/token");
+      const response = await fetch(`${base_url}/api/auth/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          idToken,
+          siteId: siteInfo.siteId
+        }),
+      });
+      
+      console.log("[SILENT_AUTH] Response status:", response.status);
+      if (response.ok) {
+        console.log("[SILENT_AUTH] Success with token endpoint!");
+        const data = await response.json();
+        console.log("[SILENT_AUTH] Response data:", data);
+        console.log("[SILENT_AUTH] Full response data:", JSON.stringify(data, null, 2));
+        
+        if (data.sessionToken) {
+          const userData = {
+            sessionToken: data.sessionToken,
+            firstName: data.firstName,
+            email: data.email,
+            siteId: siteInfo.siteId,
+            exp: Date.now() + (24 * 60 * 60 * 1000)
+          };
+          console.log("[SILENT_AUTH] Storing authentication data...");
+          console.log("[SILENT_AUTH] User data to store:", JSON.stringify(userData, null, 2));
+          setAuthData(userData);
+          setContrastKitAuthData(userData);
+          removeAuthStorageItem("explicitly_logged_out");
+          if (siteInfo) {
+            setSiteInfo(siteInfo);
+          }
+          queryClient.setQueryData<AuthState>(["auth"], {
+            user: { firstName: data.firstName, email: data.email, siteId: siteInfo.siteId },
+            sessionToken: data.sessionToken
+          });
+          
+          // Verify the data was stored
+          const storedData = sessionStorage.getItem('contrastkit-userinfo');
+          console.log("[SILENT_AUTH] Stored data in sessionStorage:", storedData);
+          const storedData2 = sessionStorage.getItem('consentbit-userinfo');
+          console.log("[SILENT_AUTH] Stored data in sessionStorage (consentbit):", storedData2);
+          
+          console.log("[SILENT_AUTH] Silent authentication completed successfully");
+          return true;
+        } else {
+          console.log("[SILENT_AUTH] No session token in response:", data);
+          return false;
+        }
+      }
+      
+      const data = await response.json();
+      console.log("[SILENT_AUTH] Token exchange failed:", data);
+      console.log("[SILENT_AUTH] Error details:", JSON.stringify(data, null, 2));
+      console.log("[SILENT_AUTH] This means the backend cannot verify the Webflow ID token");
+      console.log("[SILENT_AUTH] The user needs to go through OAuth flow first");
+      return false;
+      console.log("[SILENT_AUTH] Token exchange successful");
+      
+      // Store in both ContrastKit and legacy format for compatibility
+      const userData = {
+        sessionToken: data.sessionToken,
+        firstName: data.firstName,
+        email: data.email,
+        siteId: siteInfo.siteId,
+        exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
+      };
+      
+      console.log("[SILENT_AUTH] Storing authentication data...");
+      setAuthData(userData); // This stores in both keys
+      setContrastKitAuthData(userData); // Also store specifically for ContrastKit
+      removeAuthStorageItem("explicitly_logged_out");
+      
+      // Store site information after authentication
+      if (siteInfo) {
+        setSiteInfo(siteInfo);
+      }
+      
+      // Update React Query cache
+      queryClient.setQueryData<AuthState>(["auth"], {
+        user: {
+          firstName: data.firstName,
+          email: data.email,
+          siteId: siteInfo.siteId
+        },
+        sessionToken: data.sessionToken
+      });
+      
+      console.log("[SILENT_AUTH] Silent authentication completed successfully");
+      return true;
+    } catch (error) {
+      console.error("[SILENT_AUTH] Silent auth failed with error:", error);
+      return false;
+    }
+  };
+
 
   // Function to connect custom domain to site
   const connectCustomDomain = async (domain: string) => {
@@ -761,6 +983,10 @@ export function useAuth() {
     }
   };
 
+  console.log("🔐 AUTH: Returning functions from useAuth hook");
+  console.log("🔐 AUTH: attemptAutoRefresh type:", typeof attemptAutoRefresh);
+  console.log("🔐 AUTH: attemptSilentAuth type:", typeof attemptSilentAuth);
+  
   return {
     user: authState?.user || { firstName: "", email: "" },
     sessionToken: authState?.sessionToken || "",
@@ -776,5 +1002,7 @@ export function useAuth() {
     registerAccessibilityScript,
     applyAccessibilityScript,
     injectScriptToWebflow,
+    attemptSilentAuth,
+    attemptAutoRefresh
   };
 }

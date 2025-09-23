@@ -82,7 +82,7 @@ constructor() {
 
             // Fetch customization data from API
 
-            console.log('Accessibility Widget: Fetching customization data...');
+            //console.log('Accessibility Widget: Fetching customization data...');
 
             const customizationData = await this.fetchCustomizationData();
 
@@ -95,6 +95,9 @@ constructor() {
             } else {
 
                 console.log('Accessibility Widget: No customization data found, using defaults');
+                
+                // Show the icon with default styling
+                this.showIcon();
 
             }
 
@@ -1155,7 +1158,8 @@ if (window.innerWidth <= 768) {
 
             link.rel = 'stylesheet';
 
-            link.href = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@3101746/accessibility-widget.css';
+            // link.href = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@0e86d68/accessibility-widget.css';
+            // External CSS removed to prevent conflicts with internal styles
             link.onload = () => {
                 
                 console.log('Accessibility Widget: CSS loaded successfully');
@@ -1184,7 +1188,7 @@ if (window.innerWidth <= 768) {
 
 /* REMOVED the conflicting accessibility-icon rule that was forcing 50% border-radius */
 
-/* Force icon shape overrides - must come first and be very specific */
+/* Icon Shape Rules - Consolidated with Maximum Specificity */
 .accessibility-icon[data-shape="circle"] {
     border-radius: 50% !important;
     -webkit-border-radius: 50% !important;
@@ -1195,6 +1199,10 @@ if (window.innerWidth <= 768) {
     border-radius: 25px !important;
     -webkit-border-radius: 25px !important;
     -moz-border-radius: 25px !important;
+    border-top-left-radius: 25px !important;
+    border-top-right-radius: 25px !important;
+    border-bottom-left-radius: 25px !important;
+    border-bottom-right-radius: 25px !important;
 }
 
 .accessibility-icon[data-shape="square"] {
@@ -1203,23 +1211,356 @@ if (window.innerWidth <= 768) {
     -moz-border-radius: 0px !important;
 }
 
+/* Ensure panel always appears on top of icon */
+.accessibility-panel {
+    z-index: 100001 !important;
+    position: fixed !important;
+}
+
+.accessibility-icon {
+    z-index: 99998 !important;
+}
+
+/* Maximum Specificity Overrides - Force Shape Application */
+.accessibility-icon[data-shape="rounded"],
+.accessibility-icon.rounded,
+.accessibility-icon[data-shape="rounded"].rounded {
+    border-radius: 25px !important;
+    -webkit-border-radius: 25px !important;
+    -moz-border-radius: 25px !important;
+    border-top-left-radius: 25px !important;
+    border-top-right-radius: 25px !important;
+    border-bottom-left-radius: 25px !important;
+    border-bottom-right-radius: 25px !important;
+}
+
+.accessibility-icon[data-shape="circle"],
+.accessibility-icon.circle {
+    border-radius: 50% !important;
+    -webkit-border-radius: 50% !important;
+    -moz-border-radius: 50% !important;
+}
+
+.accessibility-icon[data-shape="square"],
+.accessibility-icon.square {
+    border-radius: 0px !important;
+    -webkit-border-radius: 0px !important;
+    -moz-border-radius: 0px !important;
+}
+
+/* Force rounded shape with absolute maximum specificity */
+.accessibility-icon.rounded {
+    border-radius: 25px !important;
+    -webkit-border-radius: 25px !important;
+    -moz-border-radius: 25px !important;
+}
+
+/* Additional force for rounded shape */
+.accessibility-icon[data-shape="rounded"] {
+    border-radius: 25px !important;
+    -webkit-border-radius: 25px !important;
+    -moz-border-radius: 25px !important;
+}
+
+/* Mobile Responsive Styles - Consolidated */
+@media (max-width: 768px) {
+    .accessibility-panel {
+        font-size: 12px !important;
+        width: 80vw !important;
+        max-width: 380px !important;
+        padding: 14px !important;
+    }
+    
+    .accessibility-panel h2 {
+        font-size: 14px !important;
+    }
+    
+    .accessibility-panel h3 {
+        font-size: 12px !important;
+    }
+    
+    .accessibility-panel .action-btn {
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+    }
+    
+    .accessibility-panel .scaling-btn {
+        font-size: 11px !important;
+        padding: 4px 8px !important;
+    }
+    
+    .accessibility-panel .profile-info h4 {
+        font-size: 14px !important;
+    }
+    
+    .accessibility-panel .profile-info p {
+        font-size: 12px !important;
+    }
+    
+    /* Ensure rounded shape works on mobile */
+    .accessibility-icon[data-shape="rounded"] {
+        border-radius: 25px !important;
+        -webkit-border-radius: 25px !important;
+        -moz-border-radius: 25px !important;
+    }
+}
+
+/* Medium Mobile Screens (414px and similar) */
+@media (max-width: 450px) and (min-width: 401px) {
+    .accessibility-panel {
+        font-size: 10px !important;
+        padding: 10px !important;
+        width: 85vw !important;
+        max-width: 320px !important;
+        max-height: 75vh !important;
+        overflow-y: auto !important;
+    }
+    
+    .accessibility-panel h2 {
+        font-size: 12px !important;
+        margin-bottom: 7px !important;
+    }
+    
+    .accessibility-panel h3 {
+        font-size: 10px !important;
+        margin-bottom: 5px !important;
+    }
+    
+    .accessibility-panel .action-btn {
+        font-size: 9px !important;
+        padding: 5px 8px !important;
+        min-height: 26px !important;
+    }
+    
+    .accessibility-panel .scaling-btn {
+        font-size: 8px !important;
+        padding: 3px 5px !important;
+        min-height: 22px !important;
+    }
+    
+    .accessibility-panel .profile-info h4 {
+        font-size: 11px !important;
+    }
+    
+    .accessibility-panel .profile-info p {
+        font-size: 9px !important;
+    }
+    
+    /* Medium toggles for medium mobile screens */
+    .toggle-switch {
+        width: 18px !important;
+        height: 11px !important;
+    }
+    
+    .toggle-switch .slider {
+        width: 18px !important;
+        height: 11px !important;
+    }
+    
+    .toggle-switch .slider:before {
+        width: 7px !important;
+        height: 7px !important;
+        left: 2px !important;
+        bottom: 2px !important;
+    }
+    
+    .toggle-switch input:checked + .slider:before {
+        transform: translateX(7px) !important;
+    }
+    
+    /* Medium profile items for medium mobile screens */
+    .profile-item {
+        padding: 3px !important;
+        margin-bottom: 3px !important;
+    }
+    
+    .profile-item h4 {
+        font-size: 9px !important;
+        margin-bottom: 2px !important;
+    }
+    
+    .profile-item p {
+        font-size: 8px !important;
+        margin-bottom: 2px !important;
+    }
+    
+    /* Medium close button for medium mobile screens */
+    .close-btn {
+        font-size: 16px !important;
+        padding: 6px !important;
+    }
+    
+    /* Ensure rounded shape works on medium mobile */
+    .accessibility-icon[data-shape="rounded"] {
+        border-radius: 25px !important;
+        -webkit-border-radius: 25px !important;
+        -moz-border-radius: 25px !important;
+    }
+}
+
+/* Small Mobile Screens (375px and below) */
+@media (max-width: 400px) {
+    .accessibility-panel {
+        font-size: 9px !important;
+        padding: 8px !important;
+        width: 90vw !important;
+        max-width: 300px !important;
+        max-height: 80vh !important;
+        overflow-y: auto !important;
+    }
+    
+    .accessibility-panel h2 {
+        font-size: 11px !important;
+        margin-bottom: 6px !important;
+    }
+    
+    .accessibility-panel h3 {
+        font-size: 9px !important;
+        margin-bottom: 4px !important;
+    }
+    
+    .accessibility-panel .action-btn {
+        font-size: 8px !important;
+        padding: 4px 6px !important;
+        min-height: 24px !important;
+    }
+    
+    .accessibility-panel .scaling-btn {
+        font-size: 7px !important;
+        padding: 2px 4px !important;
+        min-height: 20px !important;
+    }
+    
+    .accessibility-panel .profile-info h4 {
+        font-size: 10px !important;
+    }
+    
+    .accessibility-panel .profile-info p {
+        font-size: 8px !important;
+    }
+    
+    /* Smaller toggles for small screens */
+    .toggle-switch {
+        width: 16px !important;
+        height: 10px !important;
+    }
+    
+    .toggle-switch .slider {
+        width: 16px !important;
+        height: 10px !important;
+    }
+    
+    .toggle-switch .slider:before {
+        width: 6px !important;
+        height: 6px !important;
+        left: 2px !important;
+        bottom: 2px !important;
+    }
+    
+    .toggle-switch input:checked + .slider:before {
+        transform: translateX(6px) !important;
+    }
+    
+    /* Smaller profile items for small screens */
+    .profile-item {
+        padding: 2px !important;
+        margin-bottom: 2px !important;
+    }
+    
+    .profile-item h4 {
+        font-size: 8px !important;
+        margin-bottom: 1px !important;
+    }
+    
+    .profile-item p {
+        font-size: 7px !important;
+        margin-bottom: 1px !important;
+    }
+    
+    /* Smaller close button for small screens */
+    .close-btn {
+        font-size: 14px !important;
+        padding: 4px !important;
+    }
+    
+    /* Ensure rounded shape works on small mobile */
+    .accessibility-icon[data-shape="rounded"] {
+        border-radius: 25px !important;
+        -webkit-border-radius: 25px !important;
+        -moz-border-radius: 25px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .accessibility-panel {
+        font-size: 11px !important; /* Override external 8px */
+    }
+    
+    .accessibility-panel h2 {
+        font-size: 13px !important; /* Override external 9px */
+    }
+    
+    .accessibility-panel h3 {
+        font-size: 11px !important; /* Override external 8px */
+    }
+    
+    /* Override external button size conflicts */
+    .accessibility-panel .action-btn {
+        font-size: 11px !important;
+        padding: 6px 10px !important;
+    }
+    
+    .accessibility-panel .scaling-btn {
+        font-size: 10px !important;
+        padding: 3px 6px !important;
+    }
+    
+    .accessibility-panel .profile-info h4 {
+        font-size: 13px !important;
+    }
+    
+    .accessibility-panel .profile-info p {
+        font-size: 11px !important;
+    }
+    
+    /* Ensure rounded shape works on small mobile */
+    .accessibility-icon[data-shape="rounded"] {
+        border-radius: 25px !important;
+        -webkit-border-radius: 25px !important;
+        -moz-border-radius: 25px !important;
+    }
+}
+
+/* Override external panel positioning conflicts */
+.accessibility-panel {
+    /* Let JavaScript control positioning, not external CSS */
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+}
+
 /* ===== MOBILE RESPONSIVE - PANEL CLOSE TO ICON ===== */
 
-/* Large Tablets (iPad Air, iPad Pro, Surface Pro, etc.) - Position panel very close to icon */
+/* Large Tablets (iPad Air, iPad Pro, Surface Pro, etc.) - Responsive sizing */
 @media (max-width: 1366px) and (min-width: 1025px) {
     .accessibility-panel {
         width: 65vw !important;
         max-width: 450px !important;
-        left: 0.5vw !important;
-        right: auto !important;
-        top: 50% !important;
-        transform: translateY(-50%) !important;
         font-size: 15px !important;
         padding: 18px !important;
         max-height: 85vh !important;
         overflow-y: auto !important;
         position: fixed !important;
-        z-index: 9999 !important;
+        z-index: 100001 !important;
+    }
+    
+    /* Ensure rounded shape works on large tablets */
+    .accessibility-icon[data-shape="rounded"] {
+        border-radius: 25px !important;
+        -webkit-border-radius: 25px !important;
+        -moz-border-radius: 25px !important;
     }
     
     .accessibility-icon {
@@ -1261,21 +1602,24 @@ if (window.innerWidth <= 768) {
     }
 }
 
-/* Tablet/iPad starting from 820px - Position panel very close to icon */
+/* Tablet/iPad starting from 820px - Responsive sizing */
 @media (max-width: 1024px) and (min-width: 820px) {
     .accessibility-panel {
         width: 75vw !important;
         max-width: 380px !important;
-        left: 1vw !important;
-        right: auto !important;
-        top: 50% !important;
-        transform: translateY(-50%) !important;
         font-size: 14px !important;
         padding: 16px !important;
         max-height: 80vh !important;
         overflow-y: auto !important;
         position: fixed !important;
-        z-index: 9999 !important;
+        z-index: 100001 !important;
+    }
+    
+    /* Ensure rounded shape works on tablets */
+    .accessibility-icon[data-shape="rounded"] {
+        border-radius: 25px !important;
+        -webkit-border-radius: 25px !important;
+        -moz-border-radius: 25px !important;
     }
     
     .accessibility-icon {
@@ -1288,21 +1632,24 @@ if (window.innerWidth <= 768) {
     }
 }
 
-/* iPad Mini and Tablet - Wider panel positioned close to icon */
+/* iPad Mini and Tablet - Responsive sizing */
 @media (max-width: 819px) and (min-width: 769px) {
     .accessibility-panel {
         width: 85vw !important;
         max-width: 450px !important;
-        left: 5vw !important;
-        right: auto !important;
-        top: 50% !important;
-        transform: translateY(-50%) !important;
         font-size: 14px !important;
         padding: 16px !important;
         max-height: 80vh !important;
         overflow-y: auto !important;
         position: fixed !important;
-        z-index: 9999 !important;
+        z-index: 100001 !important;
+    }
+    
+    /* Ensure rounded shape works on iPad Mini */
+    .accessibility-icon[data-shape="rounded"] {
+        border-radius: 25px !important;
+        -webkit-border-radius: 25px !important;
+        -moz-border-radius: 25px !important;
     }
     
     .accessibility-icon {
@@ -1344,21 +1691,17 @@ if (window.innerWidth <= 768) {
     }
 }
 
-/* Mobile Landscape - Wider panel with MUCH smaller text and toggles */
+/* Mobile Landscape - Wider panel with reasonable text and toggles */
 @media (max-width: 768px) and (min-width: 481px) {
     .accessibility-panel {
         width: 80vw !important;
         max-width: 380px !important;
-        left: 10vw !important;
-        right: auto !important;
-        top: 50% !important;
-        transform: translateY(-50%) !important;
-        font-size: 10px !important;
-        padding: 10px !important;
+        font-size: 13px !important;
+        padding: 14px !important;
         max-height: 75vh !important;
         overflow-y: auto !important;
         position: fixed !important;
-        z-index: 9999 !important;
+        z-index: 100001 !important;
     }
     
     .accessibility-icon {
@@ -1370,15 +1713,15 @@ if (window.innerWidth <= 768) {
         font-size: 18px !important;
     }
     
-    /* Much smaller text and toggles for mobile landscape */
+    /* Reasonable text and toggles for mobile landscape */
     .accessibility-panel h2 {
-        font-size: 12px !important;
-        margin-bottom: 8px !important;
+        font-size: 15px !important;
+        margin-bottom: 10px !important;
     }
     
     .accessibility-panel h3 {
-        font-size: 11px !important;
-        margin-bottom: 6px !important;
+        font-size: 13px !important;
+        margin-bottom: 8px !important;
     }
     
     .profile-item {
@@ -1436,14 +1779,13 @@ if (window.innerWidth <= 768) {
     }
 }
 
-/* Mobile Portrait - EXTREMELY small text and toggles */
+/* Mobile Portrait - Reasonable text and toggles */
 @media (max-width: 480px) {
     .accessibility-panel {
         width: 75vw !important;
         max-width: 320px !important;
-        left: 12.5vw !important;
-        font-size: 8px !important;
-        padding: 8px !important;
+        font-size: 11px !important;
+        padding: 12px !important;
         max-height: 70vh !important;
     }
     
@@ -1456,15 +1798,15 @@ if (window.innerWidth <= 768) {
         font-size: 16px !important;
     }
     
-    /* EXTREMELY small text and toggles for mobile portrait */
+    /* Reasonable text and toggles for mobile portrait */
     .accessibility-panel h2 {
-        font-size: 9px !important;
-        margin-bottom: 4px !important;
+        font-size: 13px !important;
+        margin-bottom: 8px !important;
     }
     
     .accessibility-panel h3 {
-        font-size: 8px !important;
-        margin-bottom: 3px !important;
+        font-size: 11px !important;
+        margin-bottom: 6px !important;
     }
     
     .profile-item {
@@ -1524,39 +1866,7 @@ if (window.innerWidth <= 768) {
 
 /* ===== FORCE ROUNDED SHAPES - MAXIMUM AGGRESSIVE ===== */
 
-/* Force shape styles with absolute maximum specificity */
-.accessibility-icon[data-shape="circle"],
-.accessibility-icon.circle {
-    border-radius: 50% !important;
-    -webkit-border-radius: 50% !important;
-    -moz-border-radius: 50% !important;
-    border-top-left-radius: 50% !important;
-    border-top-right-radius: 50% !important;
-    border-bottom-left-radius: 50% !important;
-    border-bottom-right-radius: 50% !important;
-}
-
-.accessibility-icon[data-shape="rounded"],
-.accessibility-icon.rounded {
-    border-radius: 25px !important;
-    -webkit-border-radius: 25px !important;
-    -moz-border-radius: 25px !important;
-    border-top-left-radius: 25px !important;
-    border-top-right-radius: 25px !important;
-    border-bottom-left-radius: 25px !important;
-    border-bottom-right-radius: 25px !important;
-}
-
-.accessibility-icon[data-shape="square"],
-.accessibility-icon.square {
-    border-radius: 0px !important;
-    -webkit-border-radius: 0px !important;
-    -moz-border-radius: 0px !important;
-    border-top-left-radius: 0px !important;
-    border-top-right-radius: 0px !important;
-    border-bottom-left-radius: 0px !important;
-    border-bottom-right-radius: 0px !important;
-}
+/* Removed conflicting shape styles */
 
 /* DEBUG: Add visual indicators for shape testing */
 .accessibility-icon[data-shape="circle"]::after {
@@ -1592,108 +1902,36 @@ if (window.innerWidth <= 768) {
     z-index: 9999 !important;
 }
 
-/* Force on ALL screen sizes */
-@media screen {
-    .accessibility-icon[data-shape="circle"] {
-        border-radius: 50% !important;
-        -webkit-border-radius: 50% !important;
-        -moz-border-radius: 50% !important;
-    }
-    
-    .accessibility-icon[data-shape="rounded"] {
-        border-radius: 25px !important;
-        -webkit-border-radius: 25px !important;
-        -moz-border-radius: 25px !important;
-    }
-    
-    .accessibility-icon[data-shape="square"] {
-        border-radius: 0px !important;
-        -webkit-border-radius: 0px !important;
-        -moz-border-radius: 0px !important;
-    }
+/* Removed conflicting media query rules */
+
+/* Removed ultimate override rules */
+
+/* Removed simple clean override rules */
 }
 
-/* ULTIMATE OVERRIDE - Override any calc() or CSS variable conflicts */
-.accessibility-icon[data-shape="circle"] {
-    border-radius: 50% !important;
-    border-top-left-radius: 50% !important;
-    border-top-right-radius: 50% !important;
-    border-bottom-left-radius: 50% !important;
-    border-bottom-right-radius: 50% !important;
-}
-
-.accessibility-icon[data-shape="rounded"] {
-    border-radius: 25px !important;
-    border-top-left-radius: 25px !important;
-    border-top-right-radius: 25px !important;
-    border-bottom-left-radius: 25px !important;
-    border-bottom-right-radius: 25px !important;
-}
-
-.accessibility-icon[data-shape="square"] {
-    border-radius: 0px !important;
-    border-top-left-radius: 0px !important;
-    border-top-right-radius: 0px !important;
-    border-bottom-left-radius: 0px !important;
-    border-bottom-right-radius: 0px !important;
-}
-
-/* SIMPLE CLEAN OVERRIDE - Remove all calc() conflicts */
-.accessibility-icon[data-shape="circle"] {
-    border-radius: 50% !important;
-}
-
-.accessibility-icon[data-shape="rounded"] {
-    border-radius: 25px !important;
-    border-top-left-radius: 25px !important;
-    border-top-right-radius: 25px !important;
-    border-bottom-left-radius: 25px !important;
-    border-bottom-right-radius: 25px !important;
-}
-
-.accessibility-icon[data-shape="square"] {
-    border-radius: 0px !important;
-}
-
-/* FORCE OVERRIDE - Override any percentage-based rules */
-.accessibility-icon[data-shape="rounded"] {
-    border-radius: 25px !important;
-    -webkit-border-radius: 25px !important;
-    -moz-border-radius: 25px !important;
-}
-
-/* NUCLEAR OPTION - Override ALL possible conflicting rules */
-.accessibility-icon[data-shape="rounded"],
-.accessibility-icon[data-shape="rounded"]:host,
-:host(.vision-impaired) .accessibility-icon[data-shape="rounded"],
-:host(.vision-impaired) .accessibility-icon[data-shape="rounded"] *,
-.accessibility-icon.rounded,
-.accessibility-icon.rounded:host,
-:host(.vision-impaired) .accessibility-icon.rounded,
-:host(.vision-impaired) .accessibility-icon.rounded * {
-    border-radius: 25px !important;
-    -webkit-border-radius: 25px !important;
-    -moz-border-radius: 25px !important;
-    border-top-left-radius: 25px !important;
-    border-top-right-radius: 25px !important;
-    border-bottom-left-radius: 25px !important;
-    border-bottom-right-radius: 25px !important;
-}
+/* Removed all conflicting shape override rules */
 
 /* ===== FORCE MOBILE STYLES - MAXIMUM AGGRESSIVE ===== */
 
 /* Force mobile styles with absolute maximum specificity */
 @media (max-width: 768px) {
     .accessibility-panel {
-        font-size: 8px !important;
+        font-size: 12px !important;
     }
     
     .accessibility-panel h2 {
-        font-size: 9px !important;
+        font-size: 14px !important;
     }
     
     .accessibility-panel h3 {
-        font-size: 8px !important;
+        font-size: 12px !important;
+    }
+    
+    /* Ensure rounded shape works on mobile */
+    .accessibility-icon[data-shape="rounded"] {
+        border-radius: 25px !important;
+        -webkit-border-radius: 25px !important;
+        -moz-border-radius: 25px !important;
     }
     
     .profile-item h4 {
@@ -1740,7 +1978,7 @@ if (window.innerWidth <= 768) {
 .accessibility-panel {
     display: none !important;
     position: fixed !important;
-    z-index: 9999 !important;
+    z-index: 100001 !important;
 }
 
 .accessibility-panel.show {
@@ -1787,7 +2025,7 @@ if (window.innerWidth <= 768) {
 
             pointer-events: none;
 
-            z-index: 99999;
+            z-index: 99998;
 
         `;
 
@@ -1836,6 +2074,11 @@ if (window.innerWidth <= 768) {
         icon.innerHTML = '<i class="fas fa-universal-access" aria-hidden="true"></i><span id="accessibility-icon-description" class="sr-only">Click to open accessibility settings panel</span>';
 
         icon.style.pointerEvents = 'auto';
+        
+        // Initially hide the icon until customization data is loaded
+        icon.style.display = 'none';
+        icon.style.visibility = 'hidden';
+        icon.style.opacity = '0';
 
         shadowRoot.appendChild(icon);
 
@@ -2032,7 +2275,7 @@ if (window.innerWidth <= 768) {
         /* Force panel positioning */
         .accessibility-panel {
             position: fixed !important;
-            z-index: 9999 !important;
+            z-index: 100001 !important;
             display: none !important; /* Hidden by default */
         }
         
@@ -2056,7 +2299,6 @@ if (window.innerWidth <= 768) {
             .accessibility-panel {
                 width: 95vw !important;
                 max-width: 350px !important;
-                left: 2.5vw !important;
             }
         }
             /* Accessibility Widget Styles - Shadow DOM */
@@ -2075,7 +2317,7 @@ if (window.innerWidth <= 768) {
 
                 pointer-events: none;
 
-                z-index: 99999;
+                z-index: 99998;
 
                 isolation: isolate;
 
@@ -2097,7 +2339,7 @@ if (window.innerWidth <= 768) {
 
                 transform: none !important;
 
-                z-index: 99999 !important;
+                z-index: 99998 !important;
 
             }
 
@@ -2126,6 +2368,8 @@ if (window.innerWidth <= 768) {
                 transition: all 0.3s ease;
 
                 pointer-events: auto;
+
+                z-index: 99998;
 
             }
 
@@ -2274,7 +2518,7 @@ if (window.innerWidth <= 768) {
 
             .accessibility-panel {
 
-                position: fixed !important;
+                position: fixed;
 
                 width: 500px !important;
 
@@ -2300,29 +2544,9 @@ if (window.innerWidth <= 768) {
 
                 pointer-events: auto;
 
-            }
+                /* Make panel a containing block for modal */
+                position: relative;
 
-            /* Add this after the .accessibility-panel rule */
-.accessibility-panel {
-    position: fixed !important;
-    width: 500px !important;
-    height: 700px !important;
-    background: #ffffff !important;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
-    z-index: 100000 !important;
-    transition: left 0.3s ease;
-    overflow-y: auto;
-    overflow-x: hidden;
-    font-family: 'DM Sans', sans-serif !important;
-    border-radius: 8px !important;
-    margin: 0 20px;
-    pointer-events: auto;
-    /* ADD THESE LINES: */
-    display: none !important; /* Hidden by default */
-    left: auto !important;
-    right: auto !important;
-    top: auto !important;
-    bottom: auto !important;
 }
 
             .accessibility-panel.active {
@@ -2458,9 +2682,7 @@ if (window.innerWidth <= 768) {
 
                 font-size: 20px;
 
-                padding: 5px;
-
-                transition: transform 0.2s ease;
+                padding: 8px;
 
                 position: absolute;
 
@@ -2470,22 +2692,20 @@ if (window.innerWidth <= 768) {
 
                 z-index: 1005;
 
+                background: transparent;
+
+                border: none;
+
+                color: white;
+
             }
 
 
 
             .close-btn:hover {
 
-                transform: scale(1.1);
+                color: white;
 
-            }
-
-            /* Desktop only - Make close button bigger */
-            @media (min-width: 769px) {
-                .close-btn {
-                    font-size: 24px !important;
-                    padding: 8px !important;
-                }
             }
 
 
@@ -3378,7 +3598,7 @@ if (window.innerWidth <= 768) {
 
                 position: fixed !important;
 
-                z-index: 99999 !important;
+                z-index: 99998 !important;
 
             }
 
@@ -4240,22 +4460,20 @@ if (window.innerWidth <= 768) {
 
             }
 
-            /* Big Black Cursor */
-body.big-black-cursor {
-    cursor: url('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjgwMHB4IiB3aWR0aD0iODAwcHgiIHZlcnNpb249IjEuMSIgaWQ9IkNhcGFfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgdmlld0JveD0iMCAwIDE2LjQ5OSAxNi40OTkiIHhtbDpzcGFjZT0icHJlc2VydmUiIGZpbGw9IiMwMDAwMDAiPjxnIGlkPSJTVkdSZXBvX2JnQ2FycmllciIgc3Ryb2tlLXdpZHRoPSIwIi8+PGcgaWQ9IlNWR1JlcG9fdHJhY2VyQ2FycmllciIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGcgaWQ9IlNWR1JlcG9faWNvbkNhcnJpZXIiPjxnPjxwYXRoIHN0eWxlPSJmaWxsOiMwMDAwMDA7IiBkPSJNMTQuNTExLDQuMDM3Yy0wLjAxOC0wLjA0NS0wLjA0LTAuMDgyLTAuMDcyLTAuMTE1Yy0wLjA1LTAuMDQ3LTAuMTE1LTAuMDgtMC4xODgtMC4wODJMMC4zMzUsMC4wMDIgQzAuMjQzLTAuMDEsMC4xNTQsMC4wMjcsMC4wOSwwLjA5QzAuMDI0LDAuMTU2LTAuMDA3LDAuMjQsMC4wMDMsMC4zMzRsNC42MzQsMTQuMTdjMC4wMTMsMC4xMTksMC4wODksMC4yMTcsMC4yLDAuMjU4IHMwLjIzNSwwLjAxLDAuMzE4LTAuMDc2bDEuMTExLTUuNjExbDcuMzM0LDcuMzMyYzAuMTIxLDAuMTIzLDAuMzEyLDAuMTIzLDAuNDMxLDBsMi4zNzgtMi4zNzVjMC4xMTktMC4xMjEsMC4xMTktM [... truncated] ...'), auto !important;
+            /* Big Black Cursor - Proper Arrow Headed - MAXIMUM SPECIFICITY */
+body.big-black-cursor,
+html body.big-black-cursor,
+body.big-black-cursor *,
+html body.big-black-cursor * {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M0 0 L0 40 L12 28 L20 36 L24 32 L16 24 L40 24" fill="black" stroke="white" stroke-width="2"/></svg>') 0 0, auto !important;
 }
 
-body.big-black-cursor * {
-    cursor: url('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjgwMHB4IiB3aWR0aD0iODAwcHgiIHZlcnNpb249IjEuMSIgaWQ9IkNhcGFfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgdmlld0JveD0iMCAwIDE2LjQ5OSAxNi40OTkiIHhtbDpzcGFjZT0icHJlc2VydmUiIGZpbGw9IiMwMDAwMDAiPjxnIGlkPSJTVkdSZXBvX2JnQ2FycmllciIgc3Ryb2tlLXdpZHRoPSIwIi8+PGcgaWQ9IlNWR1JlcG9fdHJhY2VyQ2FycmllciIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGcgaWQ9IlNWR1JlcG9faWNvbkNhcnJpZXIiPjxnPjxwYXRoIHN0eWxlPSJmaWxsOiMwMDAwMDA7IiBkPSJNMTQuNTExLDQuMDM3Yy0wLjAxOC0wLjA0NS0wLjA0LTAuMDgyLTAuMDcyLTAuMTE1Yy0wLjA1LTAuMDQ3LTAuMTE1LTAuMDgtMC4xODgtMC4wODJMMC4zMzUsMC4wMDIgQzAuMjQzLTAuMDEsMC4xNTQsMC4wMjcsMC4wOSwwLjA5QzAuMDI0LDAuMTU2LTAuMDA3LDAuMjQsMC4wMDMsMC4zMzRsNC42MzQsMTQuMTdjMC4wMTMsMC4xMTksMC4wODksMC4yMTcsMC4yLDAuMjU4IHMwLjIzNSwwLjAxLDAuMzE4LTAuMDc2bDEuMTExLTUuNjExbDcuMzM0LDcuMzMyYzAuMTIxLDAuMTIzLDAuMzEyLDAuMTIzLDAuNDMxLDBsMi4zNzgtMi4zNzVjMC4xMTktMC4xMjEsMC4xMTktM [... truncated] ...'), auto !important;
-}
-
-/* Big White Cursor */
-body.big-white-cursor {
-    cursor: url('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjgwMHB4IiB3aWR0aD0iODAwcHgiIHZlcnNpb249IjEuMSIgaWQ9IkNhcGFfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgdmlld0JveD0iMCAwIDE2LjQ5OSAxNi40OTkiIHhtbDpzcGFjZT0icHJlc2VydmUiIGZpbGw9IiNmZmZmZmYiPjxnIGlkPSJTVkdSZXBvX2JnQ2FycmllciIgc3Ryb2tlLXdpZHRoPSIwIi8+PGcgaWQ9IlNWR1JlcG9fdHJhY2VyQ2FycmllciIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGcgaWQ9IlNWR1JlcG9faWNvbkNhcnJpZXIiPjxnPjxwYXRoIHN0eWxlPSJmaWxsOiNmZmZmZmY7IiBkPSJNMTQuNTExLDQuMDM3Yy0wLjAxOC0wLjA0NS0wLjA0LTAuMDgyLTAuMDcyLTAuMTE1Yy0wLjA1LTAuMDQ3LTAuMTE1LTAuMDgtMC4xODgtMC4wODJMMC4zMzUsMC4wMDIgQzAuMjQzLTAuMDEsMC4xNTQsMC4wMjcsMC4wOSwwLjA5QzAuMDI0LDAuMTU2LTAuMDA3LDAuMjQsMC4wMDMsMC4zMzRsNC42MzQsMTQuMTdjMC4wMTMsMC4xMTksMC4wODksMC4yMTcsMC4yLDAuMjU4IHMwLjIzNSwwLjAxLDAuMzE4LTAuMDc2bDEuMTExLTUuNjExbDcuMzM0LDcuMzMyYzAuMTIxLDAuMTIzLDAuMzEyLDAuMTIzLDAuNDMxLDBsMi4zNzgtMi4zNzVjMC4xMTktMC4xMjEsMC4xMTktM [... truncated] ...'), auto !important;
-}
-
-body.big-white-cursor * {
-    cursor: url('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjgwMHB4IiB3aWR0aD0iODAwcHgiIHZlcnNpb249IjEuMSIgaWQ9IkNhcGFfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgdmlld0JveD0iMCAwIDE2LjQ5OSAxNi40OTkiIHhtbDpzcGFjZT0icHJlc2VydmUiIGZpbGw9IiNmZmZmZmYiPjxnIGlkPSJTVkdSZXBvX2JnQ2FycmllciIgc3Ryb2tlLXdpZHRoPSIwIi8+PGcgaWQ9IlNWR1JlcG9fdHJhY2VyQ2FycmllciIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGcgaWQ9IlNWR1JlcG9faWNvbkNhcnJpZXIiPjxnPjxwYXRoIHN0eWxlPSJmaWxsOiNmZmZmZmY7IiBkPSJNMTQuNTExLDQuMDM3Yy0wLjAxOC0wLjA0NS0wLjA0LTAuMDgyLTAuMDcyLTAuMTE1Yy0wLjA1LTAuMDQ3LTAuMTE1LTAuMDgtMC4xODgtMC4wODJMMC4zMzUsMC4wMDIgQzAuMjQzLTAuMDEsMC4xNTQsMC4wMjcsMC4wOSwwLjA5QzAuMDI0LDAuMTU2LTAuMDA3LDAuMjQsMC4wMDMsMC4zMzRsNC42MzQsMTQuMTdjMC4wMTMsMC4xMTksMC4wODksMC4yMTcsMC4yLDAuMjU4IHMwLjIzNSwwLjAxLDAuMzE4LTAuMDc2bDEuMTExLTUuNjExbDcuMzM0LDcuMzMyYzAuMTIxLDAuMTIzLDAuMzEyLDAuMTIzLDAuNDMxLDBsMi4zNzgtMi4zNzVjMC4xMTktMC4xMjEsMC4xMTktM [... truncated] ...'), auto !important;
+/* Big White Cursor - Proper Arrow Headed - MAXIMUM SPECIFICITY */
+body.big-white-cursor,
+html body.big-white-cursor,
+body.big-white-cursor *,
+html body.big-white-cursor * {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M0 0 L0 40 L12 28 L20 36 L24 32 L16 24 L40 24" fill="white" stroke="black" stroke-width="2"/></svg>') 0 0, auto !important;
 }
             /* Hide Interface Modal Styles */
             .hide-interface-modal {
@@ -4268,13 +4486,26 @@ body.big-white-cursor * {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                z-index: 10000;
+                z-index: 100001;
+                /* Cover the entire panel including all scrollable content */
+                width: 100%;
+                height: 100%;
+                min-height: 100%;
+                /* Ensure overlay covers full scrollable area */
+                max-height: none;
+                overflow: hidden;
             }
 
             .hide-interface-modal .modal-content {
                 background: white;
                 border-radius: 12px;
                 box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+                /* Position the modal dialog in the center of viewable area */
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                /* Ensure it stays within the panel bounds */
                 max-width: 400px;
                 width: 90%;
                 max-height: 80%;
@@ -8979,26 +9210,50 @@ body.big-white-cursor * {
 
                 case 'font-sizing':
 
-                    // Font sizing is handled by toggleFontSizingControls() method
-
+                    // Check if font sizing was actually used before applying
+                    const wasFontSizingUsed = localStorage.getItem('font-sizing-used') === 'true';
+                    if (!wasFontSizingUsed && this.fontSize === 100) {
+                        console.log('[CK] Font sizing was saved but never used, not applying');
+                        // Don't apply the feature, just return
+                        return;
+                    }
+                    this.toggleFontSizingControls(true);
                     break;
 
                 case 'content-scaling':
 
-                    // Content scaling is handled by toggleContentScalingControls() method
-
+                    // Check if content scaling was actually used before applying
+                    const wasContentScalingUsed = localStorage.getItem('content-scaling-used') === 'true';
+                    if (!wasContentScalingUsed && this.contentScale === 100) {
+                        console.log('[CK] Content scaling was saved but never used, not applying');
+                        // Don't apply the feature, just return
+                        return;
+                    }
+                    this.toggleContentScalingControls(true);
                     break;
 
                 case 'adjust-line-height':
 
-                    // Line height is handled by toggleLineHeightControls() method
-
+                    // Check if line height was actually used before applying
+                    const wasLineHeightUsed = localStorage.getItem('line-height-used') === 'true';
+                    if (!wasLineHeightUsed && this.lineHeight === 100) {
+                        console.log('[CK] Line height was saved but never used, not applying');
+                        // Don't apply the feature, just return
+                        return;
+                    }
+                    this.toggleLineHeightControls(true);
                     break;
 
                 case 'adjust-letter-spacing':
 
-                    // Letter spacing is handled by toggleLetterSpacingControls() method
-
+                    // Check if letter spacing was actually used before applying
+                    const wasLetterSpacingUsed = localStorage.getItem('letter-spacing-used') === 'true';
+                    if (!wasLetterSpacingUsed && this.letterSpacing === 100) {
+                        console.log('[CK] Letter spacing was saved but never used, not applying');
+                        // Don't apply the feature, just return
+                        return;
+                    }
+                    this.toggleLetterSpacingControls(true);
                     break;
 
                 case 'highlight-titles':
@@ -10569,6 +10824,9 @@ body.big-white-cursor * {
 
         this.settings['content-scale'] = this.contentScale; // Save to settings
 
+        // Mark that content scaling was actually used
+        localStorage.setItem('content-scaling-used', 'true');
+
         this.updateContentScale();
 
         this.updateContentScaleDisplay();
@@ -10584,6 +10842,9 @@ body.big-white-cursor * {
         this.contentScale = Math.max(this.contentScale - 5, 50); // 5% decrement, minimum 50%
 
         this.settings['content-scale'] = this.contentScale; // Save to settings
+
+        // Mark that content scaling was actually used
+        localStorage.setItem('content-scaling-used', 'true');
 
         this.updateContentScale();
 
@@ -10751,6 +11012,17 @@ body.big-white-cursor * {
 
         
 
+        if (enabled) {
+            // Check if content scaling was actually used (not just toggled on)
+            const wasContentScalingUsed = localStorage.getItem('content-scaling-used') === 'true';
+            
+            if (!wasContentScalingUsed && this.contentScale === 100) {
+                // If toggled on but never used, don't save the state and return
+                console.log('[CK] Content scaling toggled on but never used, not saving state');
+                return;
+            }
+        }
+
         // Save the toggle state
 
         this.settings['content-scaling'] = enabled;
@@ -10760,6 +11032,7 @@ body.big-white-cursor * {
         
 
         if (enabled) {
+
             // Always show the current percentage, even if it's 100%
             this.updateContentScaleDisplay();
 
@@ -10811,6 +11084,17 @@ body.big-white-cursor * {
 
         
 
+        if (enabled) {
+            // Check if font sizing was actually used (not just toggled on)
+            const wasFontSizingUsed = localStorage.getItem('font-sizing-used') === 'true';
+            
+            if (!wasFontSizingUsed && this.fontSize === 100) {
+                // If toggled on but never used, don't save the state and return
+                console.log('[CK] Font sizing toggled on but never used, not saving state');
+                return;
+            }
+        }
+
         // Save the toggle state
 
         this.settings['font-sizing'] = enabled;
@@ -10820,11 +11104,12 @@ body.big-white-cursor * {
         
 
         if (enabled) {
+
             console.log('Accessibility Widget: Font sizing enabled, current fontSize:', this.fontSize);
 
             // Always update display to show current percentage
             this.updateFontSizeDisplay();
-            
+
             // Show the current percentage in the display
             const fontSizeDisplay = this.shadowRoot.getElementById('font-size-display');
             if (fontSizeDisplay) {
@@ -10889,6 +11174,17 @@ body.big-white-cursor * {
 
         
 
+        if (enabled) {
+            // Check if line height was actually used (not just toggled on)
+            const wasLineHeightUsed = localStorage.getItem('line-height-used') === 'true';
+            
+            if (!wasLineHeightUsed && this.lineHeight === 100) {
+                // If toggled on but never used, don't save the state and return
+                console.log('[CK] Line height toggled on but never used, not saving state');
+                return;
+            }
+        }
+
         // Save the toggle state
 
         this.settings['adjust-line-height'] = enabled;
@@ -10898,6 +11194,7 @@ body.big-white-cursor * {
         
 
         if (enabled) {
+
             // Show controls and restore current line height value
             this.updateLineHeightDisplay();
             
@@ -11219,6 +11516,9 @@ body.big-white-cursor * {
 
         this.settings['line-height'] = this.lineHeight; // Save to settings
 
+        // Mark line height feature as used
+        localStorage.setItem('line-height-used', 'true');
+
         console.log('Accessibility Widget: Line height changed from', oldLineHeight + '% to', this.lineHeight + '%');
 
         this.updateLineHeight();
@@ -11377,6 +11677,17 @@ body.big-white-cursor * {
 
         
 
+        if (enabled) {
+            // Check if letter spacing was actually used (not just toggled on)
+            const wasLetterSpacingUsed = localStorage.getItem('letter-spacing-used') === 'true';
+            
+            if (!wasLetterSpacingUsed && this.letterSpacing === 100) {
+                // If toggled on but never used, don't save the state and return
+                console.log('[CK] Letter spacing toggled on but never used, not saving state');
+                return;
+            }
+        }
+
         // Save the toggle state
 
         this.settings['adjust-letter-spacing'] = enabled;
@@ -11429,6 +11740,9 @@ body.big-white-cursor * {
 
         this.settings['font-size'] = this.fontSize; // Save to settings
 
+        // Mark that font sizing was actually used
+        localStorage.setItem('font-sizing-used', 'true');
+
         this.updateFontSizeEnhanced();
 
         this.updateFontSizeDisplay();
@@ -11448,6 +11762,9 @@ body.big-white-cursor * {
         this.fontSize = Math.max(this.fontSize - 10, 50);
 
         this.settings['font-size'] = this.fontSize; // Save to settings
+
+        // Mark that font sizing was actually used
+        localStorage.setItem('font-sizing-used', 'true');
 
         this.updateFontSizeEnhanced();
 
@@ -13330,6 +13647,13 @@ body.big-white-cursor * {
         this.saveSettings();
 
         this.applySettings();
+
+        // Clear usage tracking flags for toggleable features
+        localStorage.removeItem('content-scaling-used');
+        localStorage.removeItem('font-sizing-used');
+        localStorage.removeItem('line-height-used');
+        localStorage.removeItem('letter-spacing-used');
+        console.log('[CK] resetSettings() - Cleared usage tracking flags');
         
         // Restore the language after reset
         this.applyLanguage(currentLanguage);
@@ -13866,11 +14190,46 @@ body.big-white-cursor * {
 
             if (enabled) {
 
+                // Check usage tracking for special features before applying
+                let shouldApply = true;
+                
+                if (feature === 'content-scaling') {
+                    const wasContentScalingUsed = localStorage.getItem('content-scaling-used') === 'true';
+                    if (!wasContentScalingUsed && this.contentScale === 100) {
+                        console.log('[CK] Content scaling was saved but never used, not applying');
+                        shouldApply = false;
+                    }
+                } else if (feature === 'font-sizing') {
+                    const wasFontSizingUsed = localStorage.getItem('font-sizing-used') === 'true';
+                    if (!wasFontSizingUsed && this.fontSize === 100) {
+                        console.log('[CK] Font sizing was saved but never used, not applying');
+                        shouldApply = false;
+                    }
+                } else if (feature === 'adjust-line-height') {
+                    const wasLineHeightUsed = localStorage.getItem('line-height-used') === 'true';
+                    if (!wasLineHeightUsed && this.lineHeight === 100) {
+                        console.log('[CK] Line height was saved but never used, not applying');
+                        shouldApply = false;
+                    }
+                } else if (feature === 'adjust-letter-spacing') {
+                    const wasLetterSpacingUsed = localStorage.getItem('letter-spacing-used') === 'true';
+                    if (!wasLetterSpacingUsed && this.letterSpacing === 100) {
+                        console.log('[CK] Letter spacing was saved but never used, not applying');
+                        shouldApply = false;
+                    }
+                }
+
+                if (shouldApply) {
                 this.applyFeature(feature, true);
 
                 const toggle = this.shadowRoot.getElementById(feature);
 
                 if (toggle) toggle.checked = true;
+                } else {
+                    // Remove the setting from localStorage since it wasn't actually used
+                    delete this.settings[feature];
+                    this.saveSettings();
+                }
 
             }
 
@@ -13878,10 +14237,13 @@ body.big-white-cursor * {
 
         
 
-        // Apply content scale if it's not 100%
+        // Apply content scale if it's not 100% AND was actually used
 
         if (this.contentScale !== 100) {
 
+            const wasContentScalingUsed = localStorage.getItem('content-scaling-used') === 'true';
+            
+            if (wasContentScalingUsed) {
             console.log('Accessibility Widget: Applying saved content scale:', this.contentScale + '%');
 
             this.updateContentScale();
@@ -13910,16 +14272,25 @@ body.big-white-cursor * {
 
                 toggle.checked = true;
 
+                }
+            } else {
+                console.log('[CK] Content scaling was saved but never used, resetting to 100%');
+                this.contentScale = 100;
+                this.settings['content-scale'] = 100;
+                this.saveSettings();
             }
 
         }
 
         
 
-        // Apply font size if it's not 100%
+        // Apply font size if it's not 100% AND was actually used
 
         if (this.fontSize !== 100) {
 
+            const wasFontSizingUsed = localStorage.getItem('font-sizing-used') === 'true';
+            
+            if (wasFontSizingUsed) {
             console.log('Accessibility Widget: Applying saved font size:', this.fontSize + '%');
 
             this.updateFontSizeEnhanced();
@@ -13948,6 +14319,12 @@ body.big-white-cursor * {
 
                 fontToggle.checked = true;
 
+                }
+            } else {
+                console.log('[CK] Font sizing was saved but never used, resetting to 100%');
+                this.fontSize = 100;
+                this.settings['font-size'] = 100;
+                this.saveSettings();
             }
 
             
@@ -13964,10 +14341,13 @@ body.big-white-cursor * {
 
         
 
-        // Apply line height if it's not 100%
+        // Apply line height if it's not 100% AND was actually used
 
         if (this.lineHeight !== 100) {
 
+            const wasLineHeightUsed = localStorage.getItem('line-height-used') === 'true';
+            
+            if (wasLineHeightUsed) {
             console.log('Accessibility Widget: Applying saved line height:', this.lineHeight + '%');
 
             this.updateLineHeight();
@@ -13994,6 +14374,12 @@ body.big-white-cursor * {
 
                 lineHeightToggle.checked = true;
 
+                }
+            } else {
+                console.log('[CK] Line height was saved but never used, resetting to 100%');
+                this.lineHeight = 100;
+                this.settings['line-height'] = 100;
+                this.saveSettings();
             }
 
             
@@ -14018,10 +14404,13 @@ body.big-white-cursor * {
 
         
 
-        // Apply letter spacing if it's not 100%
+        // Apply letter spacing if it's not 100% AND was actually used
 
         if (this.letterSpacing !== 100) {
 
+            const wasLetterSpacingUsed = localStorage.getItem('letter-spacing-used') === 'true';
+            
+            if (wasLetterSpacingUsed) {
             console.log('Accessibility Widget: Applying saved letter spacing:', this.letterSpacing + '%');
 
             this.updateLetterSpacing();
@@ -14048,6 +14437,12 @@ body.big-white-cursor * {
 
                 letterSpacingToggle.checked = true;
 
+                }
+            } else {
+                console.log('[CK] Letter spacing was saved but never used, resetting to 100%');
+                this.letterSpacing = 100;
+                this.settings['letter-spacing'] = 100;
+                this.saveSettings();
             }
 
             
@@ -14306,7 +14701,7 @@ body.big-white-cursor * {
 
             body.monochrome #accessibility-widget {
 
-                z-index: 99999 !important;
+                z-index: 99998 !important;
 
             }
 
@@ -16318,9 +16713,19 @@ body.big-white-cursor * {
 
     applyBigBlackCursor() {
 
-        // CSS handles the cursor styling for the entire body
+        // Force apply cursor style with JavaScript to override any conflicts
+        const cursorUrl = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M0 0 L0 40 L12 28 L20 36 L24 32 L16 24 L40 24" fill="black" stroke="white" stroke-width="2"/></svg>';
+        
+        // Apply to body
+        document.body.style.setProperty('cursor', `url('${cursorUrl}') 0 0, auto`, 'important');
+        
+        // Apply to all elements
+        const allElements = document.querySelectorAll('*');
+        allElements.forEach(el => {
+            el.style.setProperty('cursor', `url('${cursorUrl}') 0 0, auto`, 'important');
+        });
 
-        console.log('Accessibility Widget: Big black cursor applied via CSS');
+        console.log('Accessibility Widget: Big black cursor applied via JavaScript');
 
     }
 
@@ -16456,9 +16861,19 @@ body.big-white-cursor * {
 
     applyBigWhiteCursor() {
 
-        // CSS handles the cursor styling for the entire body
+        // Force apply cursor style with JavaScript to override any conflicts
+        const cursorUrl = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M0 0 L0 40 L12 28 L20 36 L24 32 L16 24 L40 24" fill="white" stroke="black" stroke-width="2"/></svg>';
+        
+        // Apply to body
+        document.body.style.setProperty('cursor', `url('${cursorUrl}') 0 0, auto`, 'important');
+        
+        // Apply to all elements
+        const allElements = document.querySelectorAll('*');
+        allElements.forEach(el => {
+            el.style.setProperty('cursor', `url('${cursorUrl}') 0 0, auto`, 'important');
+        });
 
-        console.log('Accessibility Widget: Big white cursor applied via CSS');
+        console.log('Accessibility Widget: Big white cursor applied via JavaScript');
 
     }
 
@@ -16564,15 +16979,10 @@ body.big-white-cursor * {
 
         style.textContent = `
 
-            body:not(.big-white-cursor):not(.big-black-cursor) *,
-
-            body:not(.big-white-cursor):not(.big-black-cursor),
-
-            .accessibility-panel *,
-
-            .accessibility-widget *,
-
-            #accessibility-widget * {
+            /* Only apply auto cursor when big cursors are NOT active */
+            body:not(.big-white-cursor):not(.big-black-cursor) .accessibility-panel *,
+            body:not(.big-white-cursor):not(.big-black-cursor) .accessibility-widget *,
+            body:not(.big-white-cursor):not(.big-black-cursor) #accessibility-widget * {
 
                 cursor: auto !important;
 
@@ -17826,7 +18236,7 @@ body.big-white-cursor * {
 
             body.seizure-safe #accessibility-widget {
 
-                z-index: 99999 !important;
+                z-index: 99998 !important;
 
             }
 
@@ -17840,7 +18250,7 @@ body.big-white-cursor * {
 
             .adhd-friendly #adhd-spotlight {
 
-                z-index: 99999 !important;
+                z-index: 99998 !important;
 
                 background: rgba(255, 255, 255, 0.1) !important;
 
@@ -18044,7 +18454,7 @@ body.big-white-cursor * {
 
             transition: all 0.1s ease;
 
-            z-index: 99999;
+            z-index: 99998;
 
             top: 50vh;
 
@@ -19740,8 +20150,28 @@ applyCustomizations(customizationData) {
         
         console.log('[CK] applyCustomizations() - Successfully applied all customization data');
         
+        // Show the icon now that customizations have been applied
+        this.showIcon();
+        
     } catch (error) {
         console.error('[CK] applyCustomizations() - Error applying customization data:', error);
+        
+        // Show the icon even if there was an error, but with default styling
+        this.showIcon();
+    }
+}
+
+    // Show the icon after customizations are loaded
+    showIcon() {
+        const icon = this.shadowRoot?.getElementById('accessibility-icon');
+        if (icon) {
+            console.log('[CK] showIcon() - Showing icon with customizations applied');
+            icon.style.display = 'flex';
+            icon.style.visibility = 'visible';
+            icon.style.opacity = '1';
+            icon.style.transition = 'opacity 0.3s ease';
+        } else {
+            console.warn('[CK] showIcon() - Icon not found in shadow DOM');
     }
 }
 
@@ -19989,12 +20419,36 @@ applyCustomizations(customizationData) {
     showHideInterfaceModal() {
         console.log('[CK] showHideInterfaceModal() called');
         const modal = this.shadowRoot?.querySelector('#hide-interface-modal');
+        const panel = this.shadowRoot?.querySelector('#accessibility-panel');
         console.log('[CK] Modal element found:', !!modal);
-        if (modal) {
+        console.log('[CK] Panel element found:', !!panel);
+        
+        if (modal && panel) {
+            // Set modal to cover the entire panel content including scrollable areas
+            const panelScrollHeight = panel.scrollHeight;
+            const panelClientHeight = panel.clientHeight;
+            console.log('[CK] Panel scrollHeight:', panelScrollHeight, 'clientHeight:', panelClientHeight);
+            
+            // Set the modal height to cover the full scrollable content
+            modal.style.height = `${panelScrollHeight}px`;
+            modal.style.minHeight = `${panelScrollHeight}px`;
             modal.style.display = 'flex';
-            console.log('[CK] Hide interface modal shown');
+            
+            // Position the modal dialog in the center of the viewable area
+            const modalContent = modal.querySelector('.modal-content');
+            if (modalContent) {
+                // Calculate the center position of the viewable area
+                const centerTop = (panelClientHeight / 2) - (modalContent.offsetHeight / 2);
+                modalContent.style.position = 'absolute';
+                modalContent.style.top = `${Math.max(0, centerTop)}px`;
+                modalContent.style.left = '50%';
+                modalContent.style.transform = 'translateX(-50%)';
+                modalContent.style.margin = '0';
+            }
+            
+            console.log('[CK] Hide interface modal shown with height:', panelScrollHeight + 'px');
         } else {
-            console.log('[CK] Modal not found!');
+            console.log('[CK] Modal or panel not found!');
         }
     }
     
@@ -20107,175 +20561,131 @@ applyCustomizations(customizationData) {
     }
     
     updateTriggerButtonShape(shape) {
-        console.log('=== SHAPE DEBUG START ===');
         console.log('[CK] updateTriggerButtonShape() - Shape:', shape);
-        console.log('[CK] updateTriggerButtonShape() - Current window width:', window.innerWidth);
-        console.log('[CK] updateTriggerButtonShape() - Is mobile:', window.innerWidth <= 768);
         
         const icon = this.shadowRoot?.getElementById('accessibility-icon');
-        console.log('[CK] updateTriggerButtonShape() - Icon found:', !!icon);
         
         if (icon) {
-            console.log('[CK] updateTriggerButtonShape() - Icon element:', icon);
-            console.log('[CK] updateTriggerButtonShape() - Icon current styles:', {
-                borderRadius: icon.style.borderRadius,
-                display: icon.style.display,
-                width: icon.style.width,
-                height: icon.style.height
-            });
+            console.log('[CK] Icon found:', !!icon);
+            console.log('[CK] Current icon classes:', icon.className);
+            console.log('[CK] Current icon data-shape:', icon.getAttribute('data-shape'));
             
             // Set data attribute for CSS targeting
             icon.setAttribute('data-shape', shape.toLowerCase());
-            console.log('[CK] Set data-shape attribute to:', shape.toLowerCase());
-            console.log('[CK] Icon data-shape attribute after setting:', icon.getAttribute('data-shape'));
+            console.log('[CK] Set data-shape to:', shape.toLowerCase());
         
-            // Remove any existing border-radius completely
-            console.log('[CK] Removing existing border-radius...');
+            // Remove any existing border-radius properties
             icon.style.removeProperty('border-radius');
-            icon.style.borderRadius = '';
-            console.log('[CK] Border-radius after removal:', icon.style.borderRadius);
+            icon.style.removeProperty('-webkit-border-radius');
+            icon.style.removeProperty('-moz-border-radius');
+            console.log('[CK] Removed existing border-radius properties');
             
-            let borderRadius = '50%'; // Default round
+            // Set the appropriate border-radius
+            let borderRadius = '50%'; // Default circle
             
             if (shape === 'Circle') {
                 borderRadius = '50%';
-                console.log('[CK] Setting Circle shape (perfect circle)');
             } else if (shape === 'Rounded') {
                 borderRadius = '25px';
-                console.log('[CK] Setting Rounded shape (square with rounded corners)');
             } else if (shape === 'Square') {
                 borderRadius = '0px';
-                console.log('[CK] Setting Square shape (sharp square)');
             }
             
             console.log('[CK] Target border-radius:', borderRadius);
             
-            // Apply with maximum force - multiple methods
-            console.log('[CK] Applying border-radius with setProperty...');
+            // Apply the border-radius with maximum specificity
             icon.style.setProperty('border-radius', borderRadius, 'important');
-            console.log('[CK] Border-radius after setProperty:', icon.style.borderRadius);
+            icon.style.setProperty('-webkit-border-radius', borderRadius, 'important');
+            icon.style.setProperty('-moz-border-radius', borderRadius, 'important');
+            console.log('[CK] Applied border-radius with !important');
             
-            console.log('[CK] Applying border-radius with direct assignment...');
-            icon.style.borderRadius = borderRadius + ' !important';
-            console.log('[CK] Border-radius after direct assignment:', icon.style.borderRadius);
-            
-            // Force the CSS class to take effect
-            console.log('[CK] Managing CSS classes...');
-            console.log('[CK] Current classes before:', icon.className);
+            // Update CSS classes
             icon.classList.remove('circle', 'rounded', 'square');
             icon.classList.add(shape.toLowerCase());
-            console.log('[CK] Current classes after:', icon.className);
+            console.log('[CK] Updated classes to:', icon.className);
             
-            // Also set as inline style attribute to override external CSS
-            console.log('[CK] Setting inline style attribute...');
-            const currentStyle = icon.getAttribute('style') || '';
-            console.log('[CK] Current style attribute:', currentStyle);
-            const newStyle = currentStyle.replace(/border-radius[^;]*;?/g, '') + `border-radius: ${borderRadius} !important;`;
-            console.log('[CK] New style attribute:', newStyle);
-            icon.setAttribute('style', newStyle);
-            console.log('[CK] Final style attribute:', icon.getAttribute('style'));
-            
-            // Force reflow
-            console.log('[CK] Forcing reflow...');
+            // Force a reflow to ensure styles are applied
             icon.offsetHeight;
             
-            // Check computed style
-            const computedStyle = window.getComputedStyle(icon).borderRadius;
-            console.log('[CK] === SHAPE APPLICATION RESULTS ===');
             console.log('[CK] Applied shape:', shape, 'with border-radius:', borderRadius);
-            console.log('[CK] Icon inline style:', icon.getAttribute('style'));
-            console.log('[CK] Icon computed border-radius:', computedStyle);
-            console.log('[CK] Icon data-shape attribute:', icon.getAttribute('data-shape'));
-            console.log('[CK] Icon classes:', icon.className);
-            console.log('[CK] Icon element HTML:', icon.outerHTML);
             
-            // If computed style is still not what we want, try more aggressive approach
-            if (computedStyle !== borderRadius && computedStyle !== borderRadius.replace('px', 'px')) {
-                console.log('[CK] === COMPUTED STYLE MISMATCH DETECTED ===');
-                console.log('[CK] Expected:', borderRadius, 'Got:', computedStyle);
-                console.log('[CK] Trying aggressive override...');
-                
-                // Try setting it multiple times with different methods
-                console.log('[CK] Method 1: Direct assignment');
-                icon.style.borderRadius = borderRadius;
-                console.log('[CK] Border-radius after method 1:', icon.style.borderRadius);
-                
-                console.log('[CK] Method 2: setProperty with important');
-                icon.style.setProperty('border-radius', borderRadius, 'important');
-                console.log('[CK] Border-radius after method 2:', icon.style.borderRadius);
-                
-                // Force a style recalculation
-                console.log('[CK] Method 3: Force style recalculation');
-                icon.style.display = 'none';
-                icon.offsetHeight;
-                icon.style.display = '';
-                console.log('[CK] Border-radius after method 3:', icon.style.borderRadius);
-                
-                // Check again
-                const finalComputedStyle = window.getComputedStyle(icon).borderRadius;
-                console.log('[CK] Final computed border-radius after aggressive override:', finalComputedStyle);
-                } else {
-                console.log('[CK] === SHAPE SUCCESSFULLY APPLIED ===');
-                console.log('[CK] Computed style matches expected:', computedStyle);
-            }
+            // Double-check the applied style
+            const computedStyle = window.getComputedStyle(icon);
+            const appliedBorderRadius = computedStyle.borderRadius;
+            console.log('[CK] Computed border-radius after application:', appliedBorderRadius);
             
-            // Simple timeout to ensure CSS is applied
+            // Additional debugging
+            console.log('[CK] Icon inline style border-radius:', icon.style.borderRadius);
+            console.log('[CK] Icon final HTML:', icon.outerHTML);
+            
+            // Force apply after a short delay to override any conflicting styles
             setTimeout(() => {
-                console.log('[CK] === SIMPLE TIMEOUT CHECK ===');
-                const finalComputedStyle = window.getComputedStyle(icon).borderRadius;
-                console.log('[CK] Final computed border-radius after timeout:', finalComputedStyle);
+                console.log('[CK] === TIMEOUT FORCE APPLICATION ===');
+                if (shape === 'Rounded') {
+                    icon.style.setProperty('border-radius', '25px', 'important');
+                    icon.style.setProperty('-webkit-border-radius', '25px', 'important');
+                    icon.style.setProperty('-moz-border-radius', '25px', 'important');
+                    icon.style.setProperty('border-top-left-radius', '25px', 'important');
+                    icon.style.setProperty('border-top-right-radius', '25px', 'important');
+                    icon.style.setProperty('border-bottom-left-radius', '25px', 'important');
+                    icon.style.setProperty('border-bottom-right-radius', '25px', 'important');
+                    console.log('[CK] Force applied rounded shape after timeout');
+                }
                 
-                // If still showing percentage, force override
-                if (finalComputedStyle.includes('%') || finalComputedStyle !== borderRadius) {
-                    console.log('[CK] === FORCING PIXEL OVERRIDE ===');
-                    console.log('[CK] Computed style has percentage or mismatch:', finalComputedStyle);
+                const finalComputedStyle = window.getComputedStyle(icon);
+                const finalBorderRadius = finalComputedStyle.borderRadius;
+                console.log('[CK] Final computed border-radius after timeout:', finalBorderRadius);
+            }, 100);
+            
+            // Additional force application after external CSS loads
+            setTimeout(() => {
+                console.log('[CK] === EXTERNAL CSS OVERRIDE FORCE ===');
+                if (shape === 'Rounded') {
+                    icon.style.setProperty('border-radius', '25px', 'important');
+                    icon.style.setProperty('-webkit-border-radius', '25px', 'important');
+                    icon.style.setProperty('-moz-border-radius', '25px', 'important');
+                    icon.style.setProperty('border-top-left-radius', '25px', 'important');
+                    icon.style.setProperty('border-top-right-radius', '25px', 'important');
+                    icon.style.setProperty('border-bottom-left-radius', '25px', 'important');
+                    icon.style.setProperty('border-bottom-right-radius', '25px', 'important');
+                    console.log('[CK] External CSS override applied');
+                }
+                
+                const finalComputedStyle2 = window.getComputedStyle(icon);
+                const finalBorderRadius2 = finalComputedStyle2.borderRadius;
+                console.log('[CK] Final computed border-radius after external CSS override:', finalBorderRadius2);
+            }, 500);
+            
+            // Final aggressive force application
+            setTimeout(() => {
+                console.log('[CK] === FINAL AGGRESSIVE FORCE ===');
+                if (shape === 'Rounded') {
+                    // Remove any conflicting styles first
+                    icon.style.removeProperty('border-radius');
+                    icon.style.removeProperty('-webkit-border-radius');
+                    icon.style.removeProperty('-moz-border-radius');
                     
-                    // Force set as fixed pixel value
-                    icon.style.setProperty('border-radius', borderRadius, 'important');
-                    icon.style.setProperty('border-top-left-radius', borderRadius, 'important');
-                    icon.style.setProperty('border-top-right-radius', borderRadius, 'important');
-                    icon.style.setProperty('border-bottom-left-radius', borderRadius, 'important');
-                    icon.style.setProperty('border-bottom-right-radius', borderRadius, 'important');
+                    // Apply rounded shape with maximum force
+                    icon.style.setProperty('border-radius', '25px', 'important');
+                    icon.style.setProperty('-webkit-border-radius', '25px', 'important');
+                    icon.style.setProperty('-moz-border-radius', '25px', 'important');
+                    icon.style.setProperty('border-top-left-radius', '25px', 'important');
+                    icon.style.setProperty('border-top-right-radius', '25px', 'important');
+                    icon.style.setProperty('border-bottom-left-radius', '25px', 'important');
+                    icon.style.setProperty('border-bottom-right-radius', '25px', 'important');
                     
                     // Force reflow
                     icon.offsetHeight;
                     
-                    const forcedComputedStyle = window.getComputedStyle(icon).borderRadius;
-                    console.log('[CK] Forced computed border-radius:', forcedComputedStyle);
+                    console.log('[CK] Final aggressive force applied');
                 }
                 
-                // ALWAYS force override regardless of computed style
-                console.log('[CK] === ALWAYS FORCE OVERRIDE ===');
-                console.log('[CK] Forcing border-radius override regardless of computed style...');
-                
-                // Remove any existing border-radius
-                icon.style.removeProperty('border-radius');
-                icon.style.removeProperty('border-top-left-radius');
-                icon.style.removeProperty('border-top-right-radius');
-                icon.style.removeProperty('border-bottom-left-radius');
-                icon.style.removeProperty('border-bottom-right-radius');
-                
-                // Force set as fixed pixel value
-                icon.style.setProperty('border-radius', borderRadius, 'important');
-                icon.style.setProperty('border-top-left-radius', borderRadius, 'important');
-                icon.style.setProperty('border-top-right-radius', borderRadius, 'important');
-                icon.style.setProperty('border-bottom-left-radius', borderRadius, 'important');
-                icon.style.setProperty('border-bottom-right-radius', borderRadius, 'important');
-                
-                // Force reflow
-                icon.offsetHeight;
-                
-                const alwaysForcedComputedStyle = window.getComputedStyle(icon).borderRadius;
-                console.log('[CK] Always forced computed border-radius:', alwaysForcedComputedStyle);
-                
-                console.log('=== SHAPE DEBUG END ===');
-            }, 100);
-            } else {
-            console.log('[CK] === SHAPE DEBUG ERROR ===');
-            console.log('[CK] Icon element not found!');
-            console.log('[CK] ShadowRoot:', this.shadowRoot);
-            console.log('[CK] Available elements in shadowRoot:', this.shadowRoot?.querySelectorAll('*'));
-            console.log('=== SHAPE DEBUG END ===');
+                const finalComputedStyle3 = window.getComputedStyle(icon);
+                const finalBorderRadius3 = finalComputedStyle3.borderRadius;
+                console.log('[CK] Final computed border-radius after aggressive force:', finalBorderRadius3);
+            }, 1000);
+        } else {
+            console.error('[CK] Icon not found!');
         }
     }
     
@@ -20500,7 +20910,7 @@ applyCustomizations(customizationData) {
     }
     
     updateInterfacePosition() {
-        console.log('[CK] updateInterfacePosition() - Positioning panel next to icon');
+        console.log('[CK] updateInterfacePosition() - Positioning panel on top of icon');
         
         const icon = this.shadowRoot?.getElementById('accessibility-icon');
         const panel = this.shadowRoot?.getElementById('accessibility-panel');
@@ -20526,23 +20936,12 @@ applyCustomizations(customizationData) {
             panel.style.removeProperty('bottom');
             panel.style.removeProperty('transform');
 
-            // Determine if icon is on left or right side
-            const isIconOnLeft = iconRect.left < window.innerWidth / 2;
-            console.log('[CK] Icon is on left side:', isIconOnLeft);
+            // Position panel on top of the icon (centered horizontally)
+            const iconCenterX = iconRect.left + (iconRect.width / 2);
+            const panelLeft = iconCenterX - (panelWidth / 2);
             
-            if (isIconOnLeft) {
-                // Icon is on LEFT - panel opens to the RIGHT of icon
-                const leftPosition = iconRect.right + 10;
-                panel.style.setProperty('left', `${leftPosition}px`, 'important');
-                panel.style.setProperty('right', 'auto', 'important');
-                console.log('[CK] Panel opening to the RIGHT of icon at:', leftPosition + 'px');
-            } else {
-                // Icon is on RIGHT - panel opens to the LEFT of icon
-                const rightPosition = window.innerWidth - iconRect.left + 10;
-                panel.style.setProperty('right', `${rightPosition}px`, 'important');
-                panel.style.setProperty('left', 'auto', 'important');
-                console.log('[CK] Panel opening to the LEFT of icon at:', rightPosition + 'px');
-            }
+            // Ensure panel doesn't go outside viewport horizontally
+            const finalLeft = Math.max(20, Math.min(panelLeft, window.innerWidth - panelWidth - 20));
             
             // Position panel vertically centered with icon
             const iconCenterY = iconRect.top + (iconRect.height / 2);
@@ -20552,17 +20951,21 @@ applyCustomizations(customizationData) {
             // Ensure panel doesn't go above or below viewport
             const finalTop = Math.max(20, Math.min(topPosition, window.innerHeight - panelHeight - 20));
             
+            panel.style.setProperty('left', `${finalLeft}px`, 'important');
+            panel.style.setProperty('right', 'auto', 'important');
+            panel.style.setProperty('bottom', 'auto', 'important');
             panel.style.setProperty('top', `${finalTop}px`, 'important');
             panel.style.setProperty('transform', 'none', 'important');
-            panel.style.setProperty('z-index', '9999', 'important');
+            panel.style.setProperty('z-index', '100001', 'important'); // Higher than icon
+            panel.style.setProperty('position', 'fixed', 'important');
             
-            console.log('[CK] Panel positioned at:', {
-                left: panel.style.left,
-                right: panel.style.right,
-                top: panel.style.top,
+            console.log('[CK] Panel positioned on top of icon at:', {
+                left: finalLeft + 'px',
+                top: finalTop + 'px',
+                iconCenterX: iconCenterX,
                 iconCenterY: iconCenterY,
-                panelCenterY: panelCenterY,
-                finalTop: finalTop
+                panelWidth: panelWidth,
+                panelHeight: panelHeight
             });
         }
     }

@@ -2,20 +2,33 @@ import React, { useState, useEffect } from "react";
 import WelcomeScreen from "./components/WelcomeScreen";
 import CustomizationScreen from "./components/CustomizationScreen";
 import PublishScreen from "./components/PublishScreen";
-import { useAuth } from "./hooks/userAuth";
+import { useAuth} from "./hooks/userAuth";
+import { getAuthStorageItem,setAuthStorageItem,removeAuthStorageItem } from "./util/authStorage";
+import { getSessionTokenFromLocalStorage } from "./util/session";
 
 // Webflow API is available globally in the Webflow Designer environment
 
 type AppState = 'welcome' | 'customization' | 'publish';
 
 const App: React.FC = () => {
+  console.log("🚀 APP: App component rendering...");
+  console.log("🚀 APP: Component render timestamp:", new Date().toISOString());
+  
   const [currentScreen, setCurrentScreen] = useState<AppState>('welcome');
   const [customizationData, setCustomizationData] = useState<any>(null);
   const [isLoadingExistingData, setIsLoadingExistingData] = useState(false);
-  const { user, sessionToken, isAuthLoading, exchangeAndVerifyIdToken, openAuthScreen, getPublishedSettings } = useAuth();
+  
+  console.log("🚀 APP: About to call useAuth hook...");
+  const { openAuthScreen, getPublishedSettings, attemptAutoRefresh } = useAuth();
+  console.log("🚀 APP: useAuth hook completed, attemptAutoRefresh:", typeof attemptAutoRefresh);
+  console.log("🚀 APP: Component state - currentScreen:", currentScreen);
+  
+  const [isAppInitializing, setIsAppInitializing] = useState(true);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   // Check if user is authenticated based on session token
-  const isAuthenticated = !!(user.email && sessionToken);
+  //const isAuthenticated = !!(user.email && sessionToken);
 
   // OAuth callback handling is now done by the Cloudflare Worker
   // No need for frontend callback handling when using worker-based OAuth
@@ -27,6 +40,10 @@ const App: React.FC = () => {
     setIsLoadingExistingData(true);
     try {
       console.log("App: Loading existing customization data...");
+      
+      // Add a small delay to ensure authentication is fully complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const existingSettings = await getPublishedSettings();
       console.log("App: Existing settings loaded:", existingSettings);
       
@@ -45,7 +62,63 @@ const App: React.FC = () => {
     }
   };
 
- 
+  useEffect(() => {
+    console.log("🚀 APP: useEffect triggered - App component mounted");
+    console.log("🚀 APP: useEffect dependencies: []");
+    console.log("🚀 APP: attemptAutoRefresh available:", typeof attemptAutoRefresh);
+    
+    const initializeApp = async () => {
+      const startTime = performance.now();
+      console.log("🚀 APP: Starting initialization...");
+      setIsAppInitializing(false);
+      setIsCheckingAuth(true);
+      
+      // Test if attemptAutoRefresh function exists
+      console.log("🚀 APP: attemptAutoRefresh function:", typeof attemptAutoRefresh);
+      
+      try {
+        // Always attempt silent authentication first
+        console.log("🚀 APP: Attempting silent authentication...");
+        const authPromise = attemptAutoRefresh();
+        console.log("🚀 APP: Auth promise created:", typeof authPromise);
+        
+        const timeoutPromise = new Promise<boolean>((resolve) => {
+          setTimeout(() => {
+            console.log("🚀 APP: Silent auth timeout reached");
+            resolve(false);
+          }, 5000); // 5 second timeout
+        });
+        
+        console.log("🚀 APP: Waiting for auth result...");
+        const refreshSuccess = await Promise.race([authPromise, timeoutPromise]);
+        console.log("🚀 APP: Auth result:", refreshSuccess);
+        
+        if (refreshSuccess) {
+          console.log("🚀 APP: Silent authentication successful");
+          setIsAuthenticated(true);
+        } else {
+          console.log("🚀 APP: Silent authentication failed, user will need to re-authenticate");
+          setIsAuthenticated(false);
+          
+          // Since silent auth failed, we need to show the welcome screen
+          // The user will need to click "Authorize" to start the OAuth flow
+          console.log("🚀 APP: User needs to authenticate via OAuth flow");
+        }
+      } catch (error) {
+        console.error("🚀 APP: Error during silent authentication:", error);
+        setIsAuthenticated(false);
+      }
+      
+      setIsCheckingAuth(false);
+      const endTime = performance.now();
+      console.log(`🚀 APP: Initialization took ${endTime - startTime} milliseconds`);
+    };
+
+    console.log("🚀 APP: Calling initializeApp...");
+    initializeApp();
+  }, []);
+
+
   const handleAuthorize = async () => {
     console.log("Authorize button clicked");
     try {
@@ -58,12 +131,11 @@ const App: React.FC = () => {
       alert(`Authentication failed: ${error.message}`);
     }
   };
-useEffect(() => {
-    if (isAuthenticated && !isAuthLoading) {
+  useEffect(() => {
+    if (isAuthenticated) {
       loadExistingCustomizationData();
     }
-    
-  }, [isAuthenticated, isAuthLoading]);
+  }, [isAuthenticated]);
   const handleNeedHelp = () => {
     console.log("Need help button clicked");
     // Add your help logic here

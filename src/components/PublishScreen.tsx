@@ -60,14 +60,10 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
     }));
   };
 
+
   const handlePublish = () => {
-    // Check if user is authenticated
-    if (!user.email || !sessionToken) {
-      setPublishError('You must be authenticated to publish. Please authorize first.');
-      return;
-    }
     setPublishSuccess(false);
-  setPublishError(null);
+    setPublishError(null);
     setShowPublishModal(true);
   };
 const handleConfirmPublish = async () => {
@@ -226,19 +222,6 @@ const handleConfirmPublish = async () => {
 
       
 
-      {/* Error Message */}
-      {publishError && (
-        <div className="error-banner" style={{ 
-          backgroundColor: '#ffebee', 
-          color: '#c62828', 
-          padding: '10px 20px', 
-          margin: '10px 0',
-          borderRadius: '4px',
-          border: '1px solid #ffcdd2'
-        }}>
-          {publishError}
-        </div>
-      )}
 
       {/* Step Navigation */}
       <div className="step-navigation">

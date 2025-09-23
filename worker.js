@@ -1027,7 +1027,7 @@ async function handleRegisterScript(request, env) {
     }
     
     console.log('Authentication successful, siteId:', authResult.siteId);
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@5dc1e75/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@36fb51c/accessibility-widget.js';
     // Check if script is already registered - CORRECTED: Use exact match
     const existingScriptsResponse = await fetch(`https://api.webflow.com/v2/sites/${authResult.siteId}/registered_scripts`, {
       headers: {
@@ -1182,7 +1182,7 @@ async function handleApplyScript(request, env) {
     
         // Filter out duplicates - remove any existing accessibility widget scripts
     // Filter out duplicates - remove ALL accessibility widget scripts and any with same ID
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@5dc1e75/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@36fb51c/accessibility-widget.js';
 
     const existingAccessibilityScript = existingScripts.find(script => 
       script.scriptUrl === scriptUrl
