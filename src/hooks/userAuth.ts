@@ -168,7 +168,7 @@ export function useAuth() {
       if (!idToken) {
         throw new Error('Failed to get ID token from Webflow');
       }
-
+     
       // Get site info from Webflow
       const siteInfo = await webflow.getSiteInfo();
       if (!siteInfo || !siteInfo.siteId) {
@@ -466,38 +466,7 @@ export function useAuth() {
         }
       }
       
-      if (!sessionToken || !userEmail) {
-        console.log(`[PUBLISH] ${requestId} No session token found, triggering OAuth flow...`);
-        console.log(`[PUBLISH] ${requestId} Authentication state:`, {
-          hasToken: !!sessionToken,
-          hasEmail: !!userEmail,
-          authState: authState,
-          sessionStorageKeys: Object.keys(sessionStorage)
-        });
-        
-        // Trigger OAuth flow automatically
-        console.log(`[PUBLISH] ${requestId} Starting OAuth flow for authentication...`);
-        await openAuthScreen();
-        
-        // After OAuth, try to get the session token again
-        const newAuthState = queryClient.getQueryData<AuthState>(["auth"]);
-        const newStoredUser = sessionStorage.getItem("contrastkit-userinfo");
-        
-        if (newAuthState?.sessionToken && newAuthState?.user?.email) {
-          sessionToken = newAuthState.sessionToken;
-          userEmail = newAuthState.user.email;
-          console.log(`[PUBLISH] ${requestId} Got session token from auth state after OAuth`);
-        } else if (newStoredUser) {
-          const userData = JSON.parse(newStoredUser);
-          sessionToken = userData.sessionToken;
-          userEmail = userData.email;
-          console.log(`[PUBLISH] ${requestId} Got session token from sessionStorage after OAuth`);
-        }
-        
-        if (!sessionToken || !userEmail) {
-          throw new Error('Authentication failed. Please try again.');
-        }
-      }
+      // No OAuth popup needed - proceed with publishing using existing session token
 
       console.log(`[PUBLISH] ${requestId} Publishing with user: ${userEmail} and token: ${sessionToken.substring(0, 20)}...`);
 
@@ -565,23 +534,46 @@ export function useAuth() {
       console.log("[AUTO_REFRESH] Starting automatic token refresh...");
       
       // Check if user was explicitly logged out
-      const wasExplicitlyLoggedOut = getAuthStorageItem("explicitly_logged_out");
+      const wasExplicitlyLoggedOut = sessionStorage.getItem("explicitly_logged_out");
       if (wasExplicitlyLoggedOut) {
         console.log("[AUTO_REFRESH] User was explicitly logged out, skipping refresh");
         return false;
       }
       
+      // Get current site info to check if site has changed
+      const currentSiteInfo = await webflow.getSiteInfo();
+      if (!currentSiteInfo?.siteId) {
+        console.log("[AUTO_REFRESH] No current site info available");
+        return false;
+      }
+      
+      console.log("[AUTO_REFRESH] Current site ID:", currentSiteInfo.siteId);
+      
       // Check if there's existing auth data that might be expired or invalid
-      const authData = getAuthData();
-      if (authData && authData.sessionToken) {
+      const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+      if (storedUser) {
         try {
-          const decodedToken = jwtDecode(authData.sessionToken) as DecodedToken;
-          // If token is not expired, don't need to refresh
-          if (decodedToken.exp * 1000 > Date.now()) {
-            console.log("[AUTO_REFRESH] Valid token found, no refresh needed");
-            return true; // Already have valid token
-          } else {
-            console.log("[AUTO_REFRESH] Token expired, attempting refresh");
+          const userData = JSON.parse(storedUser);
+          
+          // Check if site has changed
+          if (userData.siteId && userData.siteId !== currentSiteInfo.siteId) {
+            console.log("[AUTO_REFRESH] Site has changed, clearing old session data");
+            console.log("[AUTO_REFRESH] Old site:", userData.siteId, "New site:", currentSiteInfo.siteId);
+            sessionStorage.removeItem('contrastkit-userinfo');
+            sessionStorage.removeItem('siteInfo');
+            console.log("[AUTO_REFRESH] Cleared old session data, attempting silent auth for new site");
+            return false; // Force silent auth for new site
+          }
+          
+          if (userData.sessionToken) {
+            const decodedToken = jwtDecode(userData.sessionToken) as DecodedToken;
+            // If token is not expired, don't need to refresh
+            if (decodedToken.exp * 1000 > Date.now()) {
+              console.log("[AUTO_REFRESH] Valid token found for current site, no refresh needed");
+              return true; // Already have valid token
+            } else {
+              console.log("[AUTO_REFRESH] Token expired, attempting refresh");
+            }
           }
         } catch (error) {
           console.log("[AUTO_REFRESH] Invalid token data, attempting refresh");
@@ -609,18 +601,41 @@ export function useAuth() {
     }
   };
 
-  // Function to attempt silent authorization without user interaction
+// Function to attempt silent authorization without user interaction
   const attemptSilentAuth = async (): Promise<boolean> => {
     try {
       console.log("[SILENT_AUTH] Starting silent authentication...");
       
       // Attempt to get ID token silently (works if user is already authenticated with Webflow)
       console.log("[SILENT_AUTH] Getting ID token from Webflow...");
+      console.log("[SILENT_AUTH] Webflow object available:", typeof webflow !== 'undefined');
+      console.log("[SILENT_AUTH] getIdToken method available:", typeof webflow?.getIdToken);
+      
       const idToken = await webflow.getIdToken();
+      console.log("[SILENT_AUTH] ID token result:", idToken ? 'Token received' : 'No token');
+      
+      if (idToken) {
+        // Decode and log the ID token payload for debugging
+        try {
+          const tokenParts = idToken.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            console.log("[SILENT_AUTH] ID token payload:", payload);
+            console.log("[SILENT_AUTH] ID token exp:", new Date(payload.exp * 1000));
+            console.log("[SILENT_AUTH] ID token iss:", payload.iss);
+            console.log("[SILENT_AUTH] ID token aud:", payload.aud);
+          }
+        } catch (error) {
+          console.log("[SILENT_AUTH] Failed to decode ID token:", error);
+        }
+      }
+      
       if (!idToken) {
-        console.log("[SILENT_AUTH] No ID token available from Webflow");
+        console.log("[SILENT_AUTH] No ID token available from Webflow - user needs to authorize first");
+        console.log("[SILENT_AUTH] This means the user hasn't authorized the app with Webflow yet");
         return false;
       }
+      
       console.log("[SILENT_AUTH] ID token obtained successfully");
       
       // Get site info from Webflow
@@ -654,6 +669,7 @@ export function useAuth() {
       });
       
       console.log("[SILENT_AUTH] Response status:", response.status);
+      
       if (response.ok) {
         console.log("[SILENT_AUTH] Success with token endpoint!");
         const data = await response.json();
@@ -661,33 +677,46 @@ export function useAuth() {
         console.log("[SILENT_AUTH] Full response data:", JSON.stringify(data, null, 2));
         
         if (data.sessionToken) {
+          // Create user data object with all necessary information
           const userData = {
             sessionToken: data.sessionToken,
             firstName: data.firstName,
             email: data.email,
             siteId: siteInfo.siteId,
-            exp: Date.now() + (24 * 60 * 60 * 1000)
+            exp: data.exp,
+            siteInfo: {
+              siteId: siteInfo.siteId,
+              siteName: siteInfo.siteName,
+              shortName: siteInfo.shortName
+            }
           };
+          
           console.log("[SILENT_AUTH] Storing authentication data...");
           console.log("[SILENT_AUTH] User data to store:", JSON.stringify(userData, null, 2));
-          setAuthData(userData);
-          setContrastKitAuthData(userData);
-          removeAuthStorageItem("explicitly_logged_out");
+          
+          // Store in sessionStorage with the correct key
+          sessionStorage.setItem('contrastkit-userinfo', JSON.stringify(userData));
+          sessionStorage.removeItem('explicitly_logged_out');
+          
+          // Also store site info separately for easy access
           if (siteInfo) {
-            setSiteInfo(siteInfo);
+            sessionStorage.setItem('siteInfo', JSON.stringify(siteInfo));
           }
+          
+          // Update React Query cache
           queryClient.setQueryData<AuthState>(["auth"], {
-            user: { firstName: data.firstName, email: data.email, siteId: siteInfo.siteId },
+            user: { 
+              firstName: data.firstName, 
+              email: data.email, 
+              siteId: siteInfo.siteId 
+            },
             sessionToken: data.sessionToken
           });
           
           // Verify the data was stored
           const storedData = sessionStorage.getItem('contrastkit-userinfo');
           console.log("[SILENT_AUTH] Stored data in sessionStorage:", storedData);
-          const storedData2 = sessionStorage.getItem('consentbit-userinfo');
-          console.log("[SILENT_AUTH] Stored data in sessionStorage (consentbit):", storedData2);
-          
-          console.log("[SILENT_AUTH] Silent authentication completed successfully");
+          console.log("[SILENT_AUTH] Silent authentication completed successfully - token generated");
           return true;
         } else {
           console.log("[SILENT_AUTH] No session token in response:", data);
@@ -701,39 +730,7 @@ export function useAuth() {
       console.log("[SILENT_AUTH] This means the backend cannot verify the Webflow ID token");
       console.log("[SILENT_AUTH] The user needs to go through OAuth flow first");
       return false;
-      console.log("[SILENT_AUTH] Token exchange successful");
       
-      // Store in both ContrastKit and legacy format for compatibility
-      const userData = {
-        sessionToken: data.sessionToken,
-        firstName: data.firstName,
-        email: data.email,
-        siteId: siteInfo.siteId,
-        exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
-      };
-      
-      console.log("[SILENT_AUTH] Storing authentication data...");
-      setAuthData(userData); // This stores in both keys
-      setContrastKitAuthData(userData); // Also store specifically for ContrastKit
-      removeAuthStorageItem("explicitly_logged_out");
-      
-      // Store site information after authentication
-      if (siteInfo) {
-        setSiteInfo(siteInfo);
-      }
-      
-      // Update React Query cache
-      queryClient.setQueryData<AuthState>(["auth"], {
-        user: {
-          firstName: data.firstName,
-          email: data.email,
-          siteId: siteInfo.siteId
-        },
-        sessionToken: data.sessionToken
-      });
-      
-      console.log("[SILENT_AUTH] Silent authentication completed successfully");
-      return true;
     } catch (error) {
       console.error("[SILENT_AUTH] Silent auth failed with error:", error);
       return false;
@@ -764,6 +761,40 @@ export function useAuth() {
     } catch (error) {
       console.error('Domain connection failed:', error);
       throw error;
+    }
+  };
+
+  // Function to check if published data exists for current user
+  const checkPublishedDataExists = async (): Promise<boolean> => {
+    try {
+      console.log("[CHECK_PUBLISHED] Checking if published data exists...");
+      
+      // Get siteId from Webflow
+      const siteInfo = await webflow.getSiteInfo();
+      if (!siteInfo?.siteId) {
+        console.log("[CHECK_PUBLISHED] No site information available");
+        return false;
+      }
+
+      console.log("[CHECK_PUBLISHED] Checking for siteId:", siteInfo.siteId);
+      
+      const result = await makeAuthenticatedRequest(`${base_url}/api/accessibility/settings?siteId=${siteInfo.siteId}`, {
+        method: 'GET',
+      });
+      
+      console.log("[CHECK_PUBLISHED] Published data check result:", result);
+      
+      // If we get here without error, published data exists
+      if (result && (result.customization || result.accessibilityProfiles)) {
+        console.log("[CHECK_PUBLISHED] Published data exists for current user");
+        return true;
+      } else {
+        console.log("[CHECK_PUBLISHED] No published data found");
+        return false;
+      }
+    } catch (error) {
+      console.log("[CHECK_PUBLISHED] No published data exists (404 or other error):", error.message);
+      return false;
     }
   };
 
@@ -999,6 +1030,7 @@ export function useAuth() {
     publishSettings,
     connectCustomDomain,
     getPublishedSettings,
+    checkPublishedDataExists,
     registerAccessibilityScript,
     applyAccessibilityScript,
     injectScriptToWebflow,

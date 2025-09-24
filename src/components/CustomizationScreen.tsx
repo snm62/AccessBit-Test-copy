@@ -455,7 +455,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
           justifyContent: 'center',
           zIndex: 9999
         }}>
-          <div style={{
+       {/*<div style={{
             backgroundColor: 'white',
             padding: '20px',
             borderRadius: '8px',
@@ -464,7 +464,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
           }}>
             <div style={{ marginBottom: '10px' }}>Loading your existing settings...</div>
             <div style={{ fontSize: '14px', color: '#666' }}>Please wait while we fetch your customization data</div>
-          </div>
+          </div>*/}
         </div>
       )}
       

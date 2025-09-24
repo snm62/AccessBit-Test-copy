@@ -58,18 +58,23 @@ if (url.pathname === '/api/accessibility/config' && request.method === 'GET') {
   return handleGetConfig(request, env);
 }
 
+// Get access token by site ID from URL params
+if (url.pathname === '/api/accessibility/get-token' && request.method === 'GET') {
+  return handleGetTokenBySiteId(request, env);
+}
+
 // Domain lookup endpoint
 if (url.pathname === '/api/accessibility/domain-lookup' && request.method === 'GET') {
   return handleDomainLookup(request, env);
 }
     
-// Add this to your worker.js inside the main request handler
-if (url.pathname === '/api/accessibility/save-config' && request.method === 'POST') {
+// Save accessibility settings (can be updated)
+if (url.pathname === '/api/accessibility/save-settings' && request.method === 'POST') {
     try {
-        const { siteId, customization } = await request.json();
+        const { siteId, customization, accessibilityProfiles, customDomain } = await request.json();
         
-        if (!siteId || !customization) {
-            return new Response(JSON.stringify({ error: 'Missing siteId or customization data' }), {
+        if (!siteId) {
+            return new Response(JSON.stringify({ error: 'Missing siteId' }), {
                 status: 400,
                 headers: { 
                     'Content-Type': 'application/json',
@@ -80,11 +85,30 @@ if (url.pathname === '/api/accessibility/save-config' && request.method === 'POS
             });
         }
         
-        // Save to KV store
-        await env.ACCESSIBILITY_AUTH.put(`Accessibility-Settings:${siteId}`, JSON.stringify({
-            customization: customization,
-            updatedAt: new Date().toISOString()
-        }));
+        // Get existing accessibility settings (separate from auth data)
+        const existingData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
+        let existingSettings = {};
+        
+        if (existingData) {
+            try {
+                existingSettings = JSON.parse(existingData);
+            } catch (error) {
+                console.warn('Failed to parse existing accessibility settings:', error);
+            }
+        }
+        
+        // Update only accessibility settings (no auth data mixed in)
+        const updatedSettings = {
+            siteId: siteId,
+            customization: customization || existingSettings.customization || {},
+            accessibilityProfiles: accessibilityProfiles || existingSettings.accessibilityProfiles || {},
+            customDomain: customDomain || existingSettings.customDomain,
+            lastUpdated: new Date().toISOString(),
+            lastUsed: new Date().toISOString()
+        };
+        
+        // Save updated accessibility settings
+        await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${siteId}`, JSON.stringify(updatedSettings));
         
         return new Response(JSON.stringify({ success: true }), {
             status: 200,
@@ -97,12 +121,152 @@ if (url.pathname === '/api/accessibility/save-config' && request.method === 'POS
         });
         
     } catch (error) {
-        return new Response(JSON.stringify({ error: 'Failed to save configuration' }), {
+        return new Response(JSON.stringify({ error: 'Failed to save accessibility settings' }), {
             status: 500,
             headers: { 
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        });
+    }
+}
+
+// Save custom domain data (can be updated)
+if (url.pathname === '/api/accessibility/save-custom-domain' && request.method === 'POST') {
+    try {
+        const { siteId, customDomain, customization } = await request.json();
+        
+        if (!siteId || !customDomain) {
+            return new Response(JSON.stringify({ error: 'Missing siteId or customDomain' }), {
+                status: 400,
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                }
+            });
+        }
+        
+        // Get existing custom domain data
+        const existingData = await env.ACCESSIBILITY_AUTH.get(`custom-domain-data:${siteId}`);
+        let existingDomainData = {};
+        
+        if (existingData) {
+            try {
+                existingDomainData = JSON.parse(existingData);
+            } catch (error) {
+                console.warn('Failed to parse existing custom domain data:', error);
+            }
+        }
+        
+        // Update custom domain data
+        const updatedDomainData = {
+            ...existingDomainData,
+            siteId: siteId,
+            customDomain: customDomain,
+            customization: customization || existingDomainData.customization || {},
+            lastUpdated: new Date().toISOString(),
+            lastUsed: new Date().toISOString()
+        };
+        
+        // Save custom domain data
+        await env.ACCESSIBILITY_AUTH.put(`custom-domain-data:${siteId}`, JSON.stringify(updatedDomainData));
+        
+        // Also create domain mapping for lookup
+        const domainKey = `domain:${customDomain}`;
+        await env.ACCESSIBILITY_AUTH.put(domainKey, JSON.stringify({
+            siteId: siteId,
+            customDomain: customDomain,
+            connectedAt: new Date().toISOString()
+        }), { expirationTtl: 86400 * 30 }); // 30 days
+        
+        return new Response(JSON.stringify({ success: true }), {
+            status: 200,
+            headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        });
+        
+    } catch (error) {
+        return new Response(JSON.stringify({ error: 'Failed to save custom domain data' }), {
+            status: 500,
+            headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        });
+    }
+}
+
+// Get authorization data (read-only, never updated)
+if (url.pathname === '/api/accessibility/auth-data' && request.method === 'GET') {
+    try {
+        const url = new URL(request.url);
+        const siteId = url.searchParams.get('siteId');
+        
+        if (!siteId) {
+            return new Response(JSON.stringify({ error: 'Missing siteId parameter' }), {
+                status: 400,
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                }
+            });
+        }
+        
+        // Get authorization data from separate key (never overwritten)
+        const authData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteId}`);
+        
+        if (!authData) {
+            return new Response(JSON.stringify({ error: 'Authorization data not found' }), {
+                status: 404,
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                }
+            });
+        }
+        
+        const parsedData = JSON.parse(authData);
+        
+        // Return only authorization data (access token, site info, user info)
+        const authResponse = {
+            accessToken: parsedData.accessToken,
+            siteId: parsedData.siteId,
+            siteName: parsedData.siteName,
+            user: parsedData.user,
+            installedAt: parsedData.installedAt,
+            widgetVersion: parsedData.widgetVersion
+        };
+        
+        return new Response(JSON.stringify(authResponse), {
+            headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        });
+        
+    } catch (error) {
+        return new Response(JSON.stringify({ error: 'Failed to get authorization data' }), {
+            status: 500,
+            headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type'
             }
         });
@@ -222,6 +386,10 @@ async function handleOAuthCallback(request, env) {
     console.log('Client ID:', env.WEBFLOW_CLIENT_ID);
     console.log('Flow type:', isDesigner ? 'App Interface' : 'Apps & Integrations');
     
+    // Extract siteId from URL parameters
+    const urlSiteId = url.searchParams.get('siteId');
+    console.log('SiteId from URL:', urlSiteId);
+    
     // Build token exchange request body conditionally
     const tokenRequestBody = {
       client_id: env.WEBFLOW_CLIENT_ID,
@@ -252,6 +420,7 @@ async function handleOAuthCallback(request, env) {
     }
     
     const tokenData = await tokenResponse.json();
+    console.log(tokenData);
     console.log('Token exchange successful');
     
     // Get user info
@@ -305,8 +474,18 @@ async function handleOAuthCallback(request, env) {
         currentSite = sites[0];
       }
     } else {
-      // Apps & Integrations flow - determine site from state or referrer
-      if (appsIntegrationsSiteInfo) {
+      // Apps & Integrations flow - determine site from URL parameter, state, or referrer
+      if (urlSiteId) {
+        // Use siteId from URL parameter if available
+        const foundSite = sites.find(site => site.id === urlSiteId);
+        if (foundSite) {
+          currentSite = foundSite;
+          console.log('Apps & Integrations: Using site from URL parameter:', currentSite.id, currentSite.shortName);
+        } else {
+          console.log('Apps & Integrations: Site not found for URL siteId:', urlSiteId);
+          currentSite = sites[0];
+        }
+      } else if (appsIntegrationsSiteInfo) {
         const foundSite = sites.find(site => site.shortName === appsIntegrationsSiteInfo);
         currentSite = foundSite || sites[0];
       } else {
@@ -328,7 +507,7 @@ async function handleOAuthCallback(request, env) {
     }
     
     // Generate JWT session token with the determined site
-    const userId = userData.id || userData.email || `user_${Date.now()}`;
+    const userId = userData.id || userData.email;
     const sessionToken = await createSessionToken({...userData, id: userId}, env, currentSite.id);
     
     // Handle different redirect scenarios
@@ -336,7 +515,7 @@ async function handleOAuthCallback(request, env) {
       // App Interface flow - only store data for the current site
       
       // Store user authentication data in KV (REQUIRED for verifyAuth)
-      const userId = userData.id || userData.email || `user_${Date.now()}`;
+      const userId = userData.id || userData.email;
       await env.ACCESSIBILITY_AUTH.put(`user-auth:${userId}`, JSON.stringify({
         accessToken: tokenData.access_token,
         userData: {
@@ -348,18 +527,36 @@ async function handleOAuthCallback(request, env) {
         createdAt: new Date().toISOString()
       }), { expirationTtl: 86400 });
       
-      // Store site data with correct key structure
-      await env.ACCESSIBILITY_AUTH.put(`Accessibility-Settings:${currentSite.id}`, JSON.stringify({
+      // Store authorization data separately (never overwritten)
+      await env.ACCESSIBILITY_AUTH.put(`auth-data:${currentSite.id}`, JSON.stringify({
         accessToken: tokenData.access_token,
-        siteName: currentSite.name || currentSite.shortName || 'Unknown Site',
+        siteName: currentSite.name || currentSite.shortName,
         siteId: currentSite.id,
         user: userData,
         installedAt: new Date().toISOString(),
-        customization: {},
-        accessibilityProfiles: {},
         widgetVersion: '1.0.0',
         lastUsed: new Date().toISOString()
       }), { expirationTtl: 86400 });
+      
+      // Store accessibility settings separately (can be updated)
+      await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${currentSite.id}`, JSON.stringify({
+        siteId: currentSite.id,
+        customization: {},
+        accessibilityProfiles: {},
+        customDomain: null,
+        lastUpdated: new Date().toISOString(),
+        lastUsed: new Date().toISOString()
+      }), { expirationTtl: 86400 });
+      
+      await env.ACCESSIBILITY_AUTH.put(currentSite.id, JSON.stringify({
+      accessToken: tokenData.access_token,
+     siteName: currentSite.name || currentSite.shortName,
+     siteId: currentSite.id,
+     user: userData,
+    installedAt: new Date().toISOString(),
+    lastUsed: new Date().toISOString()
+}), { expirationTtl: 86400 });
+
       
       // App Interface flow - send data to parent window with siteId parameter
       return new Response(`<!DOCTYPE html>
@@ -379,13 +576,13 @@ async function handleOAuthCallback(request, env) {
                 type: 'AUTH_SUCCESS',
                 sessionToken: '${sessionToken.token}',
                 user: {
-                  firstName: '${userData.firstName || 'User'}',
+                  firstName: '${userData.firstName}',
                   email: '${userData.email}',
                   siteId: '${currentSite.id}'
                 },
                 siteInfo: {
                   siteId: '${currentSite.id}',
-                  siteName: '${currentSite.name || currentSite.shortName || 'Unknown Site'}',
+                  siteName: '${currentSite.name || currentSite.shortName}',
                   shortName: '${currentSite.shortName}',
                   url: '${currentSite.url || `https://${currentSite.shortName}.webflow.io`}'
                 }
@@ -408,16 +605,24 @@ async function handleOAuthCallback(request, env) {
     console.log('Apps & Integrations: Using determined site for data storage...');
     console.log('Apps & Integrations: Storing data for site:', currentSite.id, currentSite.name || currentSite.shortName);
     
-    // Store data only for the current site with correct key structure
-    await env.ACCESSIBILITY_AUTH.put(`Accessibility-Settings:${currentSite.id}`, JSON.stringify({
+    // Store authorization data separately (never overwritten)
+    await env.ACCESSIBILITY_AUTH.put(`auth-data:${currentSite.id}`, JSON.stringify({
       accessToken: tokenData.access_token,
-      siteName: currentSite.name || currentSite.shortName || 'Unknown Site',
+      siteName: currentSite.name || currentSite.shortName,
       siteId: currentSite.id,
       user: userData,
       installedAt: new Date().toISOString(),
+      widgetVersion: '1.0.0',
+      lastUsed: new Date().toISOString()
+    }), { expirationTtl: 86400 });
+    
+    // Store accessibility settings separately (can be updated)
+    await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${currentSite.id}`, JSON.stringify({
+      siteId: currentSite.id,
       customization: {},
       accessibilityProfiles: {},
-      widgetVersion: '1.0.0',
+      customDomain: null,
+      lastUpdated: new Date().toISOString(),
       lastUsed: new Date().toISOString()
     }), { expirationTtl: 86400 });
     
@@ -460,12 +665,12 @@ async function handleOAuthCallback(request, env) {
             // Store site info in session storage for the correct site
             sessionStorage.setItem('wf_hybrid_user', JSON.stringify({
               sessionToken: '${sessionToken.token}',
-              firstName: '${userData.firstName || 'User'}',
+              firstName: '${userData.firstName}',
               email: '${userData.email}',
               exp: Date.now() + (24 * 60 * 60 * 1000),
               siteInfo: {
                 siteId: '${currentSite.id}',
-                siteName: '${currentSite.name || currentSite.shortName || 'Unknown Site'}',
+                siteName: '${currentSite.name || currentSite.shortName}',
                 shortName: '${currentSite.shortName}',
                 url: '${currentSite.url || `https://${currentSite.shortName}.webflow.io`}'
               }
@@ -566,63 +771,62 @@ async function handlePublishSettings(request, env) {
     console.log(`[PUBLISH] ${requestId} User data from auth:`, authResult.userData);
     console.log(`[PUBLISH] ${requestId} Site name from auth:`, authResult.siteName);
     
-    const existingData = await env.ACCESSIBILITY_AUTH.get(`Accessibility-Settings:${siteId}`);
+    // Get existing accessibility settings (separate from auth data)
+    const existingSettingsData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
     let existingSettings = {};
     
-    if (existingData) {
+    if (existingSettingsData) {
       try {
-        const parsed = JSON.parse(existingData);
-        existingSettings = parsed;
-        console.log(`[PUBLISH] ${requestId} Found existing settings, preserving some fields`);
+        existingSettings = JSON.parse(existingSettingsData);
+        console.log(`[PUBLISH] ${requestId} Found existing accessibility settings`);
       } catch (error) {
-        console.warn(`[PUBLISH] ${requestId} Failed to parse existing data:`, error);
+        console.warn(`[PUBLISH] ${requestId} Failed to parse existing accessibility settings:`, error);
       }
     }
-    // Create the data to store in KV
-    const dataToStore = {
-      // Authorization data
-      accessToken: authResult.accessToken,
-      user: {
-        email: authResult.userData?.email || existingSettings.user?.email || 'unknown@example.com',
-        firstName: authResult.userData?.firstName || existingSettings.user?.firstName || 'Unknown',
-        id: authResult.userData?.id || existingSettings.user?.id || 'unknown'
-      },
-      
-      // Site info
+    
+    // Get authorization data separately (never overwritten)
+    const authData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteId}`);
+    let authInfo = {};
+    if (authData) {
+      try {
+        authInfo = JSON.parse(authData);
+        console.log(`[PUBLISH] ${requestId} Found authorization data`);
+      } catch (error) {
+        console.warn(`[PUBLISH] ${requestId} Failed to parse authorization data:`, error);
+      }
+    }
+    // Get accessToken from auth data
+    let accessToken = authInfo.accessToken;
+    console.log(`[PUBLISH] ${requestId} Access token status:`, !!accessToken);
+    
+    // Create accessibility settings data (separate from auth data)
+    const accessibilityData = {
       siteId: siteId,
-      siteName: authResult.siteName || existingSettings.siteName || 'Unknown Site',
-      
       customization: {
         ...existingSettings.customization, // Preserve existing customization
         ...customization, // Override with new customization
-        interfaceLanguage: interfaceLanguage || customization?.interfaceLanguage || existingSettings.customization?.interfaceLanguage || 'English'
+        interfaceLanguage: interfaceLanguage || customization?.interfaceLanguage || existingSettings.customization?.interfaceLanguage
       },
-
-      accessibilityProfiles: accessibilityProfiles || existingSettings.accessibilityProfiles || [],
-      customDomain: customDomain || existingSettings.customDomain || null,
-   
-      
-      // Metadata
-      publishedAt: publishedAt || new Date().toISOString(),
+      accessibilityProfiles: accessibilityProfiles || existingSettings.accessibilityProfiles,
+      customDomain: customDomain || existingSettings.customDomain,
+      publishedAt: publishedAt,
       lastUpdated: new Date().toISOString(),
-      lastUsed: new Date().toISOString(),
-      widgetVersion: '1.0.0',
-      installedAt: existingSettings.installedAt || new Date().toISOString()
+      lastUsed: new Date().toISOString()
     };
     
-    // Store the data in KV
-    const kvKey = `Accessibility-Settings:${siteId}`;
-    console.log(`[PUBLISH] ${requestId} Storing data with key: ${kvKey}`);
-    console.log(`[PUBLISH] ${requestId} Data to store:`, JSON.stringify(dataToStore, null, 2));
+    // Store accessibility settings separately
+    const accessibilityKey = `accessibility-settings:${siteId}`;
+    console.log(`[PUBLISH] ${requestId} Storing accessibility settings with key: ${accessibilityKey}`);
+    console.log(`[PUBLISH] ${requestId} Accessibility data to store:`, JSON.stringify(accessibilityData, null, 2));
     
-    await env.ACCESSIBILITY_AUTH.put(kvKey, JSON.stringify(dataToStore));
+    await env.ACCESSIBILITY_AUTH.put(accessibilityKey, JSON.stringify(accessibilityData));
     
     // Also store domain mappings for easy lookup
     // Get the site's domains from Webflow API
     try {
       const domainsResponse = await fetch(`https://api.webflow.com/v2/sites/${siteId}/domains`, {
         headers: {
-          'Authorization': `Bearer ${authResult.accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
           'accept-version': '1.0.0'
         }
       });
@@ -637,7 +841,7 @@ async function handlePublishSettings(request, env) {
           await env.ACCESSIBILITY_AUTH.put(domainKey, JSON.stringify({
             siteId: siteId,
             domain: domain.name,
-            isPrimary: domain.isPrimary || false,
+            isPrimary: domain.isPrimary,
             connectedAt: new Date().toISOString()
           }), { expirationTtl: 86400 * 30 }); // 30 days
           
@@ -654,7 +858,7 @@ async function handlePublishSettings(request, env) {
       // Get site info to get the shortName for Webflow subdomain
       const siteResponse = await fetch(`https://api.webflow.com/v2/sites/${siteId}`, {
         headers: {
-          'Authorization': `Bearer ${authResult.accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
           'accept-version': '2.0.0'
         }
       });
@@ -698,10 +902,10 @@ async function handlePublishSettings(request, env) {
       success: true,
       message: "Accessibility settings published successfully",
       data: {
-        customization: dataToStore.customization,
-        accessibilityProfiles: dataToStore.accessibilityProfiles,
-        customDomain: dataToStore.customDomain,
-        publishedAt: dataToStore.publishedAt
+        customization: accessibilityData.customization,
+        accessibilityProfiles: accessibilityData.accessibilityProfiles,
+        customDomain: accessibilityData.customDomain,
+        publishedAt: accessibilityData.publishedAt
       },
       requestId
     }), {
@@ -764,9 +968,10 @@ async function handleGetSettings(request, env) {
     });
   }
   
-  const publishedData = await env.ACCESSIBILITY_AUTH.get(`Accessibility-Settings:${siteId}`);
-  if (!publishedData) {
-    return new Response(JSON.stringify({ error: 'Site not found' }), {
+  // Get accessibility settings from separate key
+  const accessibilityData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
+  if (!accessibilityData) {
+    return new Response(JSON.stringify({ error: 'Accessibility settings not found' }), {
       status: 404,
       headers: { 
         'Content-Type': 'application/json',
@@ -777,18 +982,29 @@ async function handleGetSettings(request, env) {
     });
   }
   
-  const published = JSON.parse(publishedData);
+  // Get authorization data for site info
+  const authData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteId}`);
+  let authInfo = {};
+  if (authData) {
+    try {
+      authInfo = JSON.parse(authData);
+    } catch (error) {
+      console.warn('Failed to parse authorization data:', error);
+    }
+  }
+  
+  const settings = JSON.parse(accessibilityData);
   return new Response(JSON.stringify({
-    settings: published.accessibilitySettings,
-    customization: published.customization,
-    accessibilityProfiles: published.accessibilityProfiles,
-    customDomain: published.customDomain,
+    settings: settings.accessibilitySettings,
+    customization: settings.customization,
+    accessibilityProfiles: settings.accessibilityProfiles,
+    customDomain: settings.customDomain,
     siteId: siteId,
-    siteName: published.siteName,
-    installedAt: published.installedAt,
-    lastUsed: published.lastUsed,
-    widgetVersion: published.widgetVersion,
-    publishedAt: published.publishedAt
+    siteName: authInfo.siteName,
+    installedAt: authInfo.installedAt,
+    lastUsed: settings.lastUsed,
+    widgetVersion: authInfo.widgetVersion,
+    publishedAt: settings.publishedAt
   }), {
     headers: { 
       'Content-Type': 'application/json',
@@ -799,7 +1015,7 @@ async function handleGetSettings(request, env) {
   });
 }
 
-// Handle Token Authentication - UPDATED TO USE PUBLISHED SETTINGS
+// Handle Token Authentication - UPDATED TO SUPPORT FIRST-TIME INSTALLS
 async function handleTokenAuth(request, env) {
   try {
     console.log('=== TOKEN AUTH DEBUG START ===');
@@ -823,61 +1039,45 @@ async function handleTokenAuth(request, env) {
       });
     }
     
-    // Get access token from published settings
-    console.log('Looking up published settings for siteId:', siteId);
-    const publishedData = await env.ACCESSIBILITY_AUTH.get(`Accessibility-Settings:${siteId}`);
-    if (!publishedData) {
-      console.error('Published settings not found in KV store');
-      return new Response(JSON.stringify({ error: 'Site not found or not authorized' }), {
+    // Always decode ID token directly - no Webflow API calls needed
+    console.log('Decoding ID token directly for authentication...');
+    let userData;
+    
+    try {
+      const tokenParts = idToken.split('.');
+      if (tokenParts.length !== 3) {
+        throw new Error('Invalid ID token format');
+      }
+      
+      const payload = JSON.parse(atob(tokenParts[1]));
+      console.log('ID token payload:', payload);
+      
+      userData = {
+        id: payload.sub || payload.user_id,
+        email: payload.email || `user-${payload.sub}@webflow.com`, // Fallback email
+        firstName: payload.given_name || payload.name || 'User' // Fallback name
+      };
+      
+      console.log('Decoded user data from ID token:', JSON.stringify(userData, null, 2));
+      
+      // Validate required fields - only ID is required
+      if (!userData.id) {
+        console.error('Missing required user ID in ID token:', userData);
+        return new Response(JSON.stringify({ error: 'Invalid user ID in ID token' }), {
+          status: 401,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+          }
+        });
+      }
+      
+    } catch (error) {
+      console.error('ID token verification failed:', error);
+      return new Response(JSON.stringify({ error: 'Invalid ID token' }), {
         status: 401,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        }
-      });
-    }
-    
-    const { accessToken } = JSON.parse(publishedData);
-    console.log('Found access token for site');
-    
-    // Verify user with Webflow - UPDATED TO V2
-    console.log('Verifying user with Webflow...');
-    const resolveResponse = await fetch('https://api.webflow.com/v2/token/resolve', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-        'accept-version': '2.0.0'
-      },
-      body: JSON.stringify({ idToken })
-    });
-    
-    console.log('Webflow resolve response status:', resolveResponse.status);
-    
-    if (!resolveResponse.ok) {
-      const errorText = await resolveResponse.text();
-      console.error('Token resolve failed:', resolveResponse.status, errorText);
-      return new Response(JSON.stringify({ error: 'Failed to verify user' }), {
-        status: 401,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        }
-      });
-    }
-    
-    const userData = await resolveResponse.json();
-    console.log('Resolved user data:', JSON.stringify(userData, null, 2));
-    
-    if (!userData.id || !userData.email) {
-      console.error('Invalid user data received');
-      return new Response(JSON.stringify({ error: 'Invalid user data received' }), {
-        status: 400,
         headers: { 
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
@@ -889,20 +1089,65 @@ async function handleTokenAuth(request, env) {
     
     // Create session token
     console.log('Creating session token...');
-    const sessionToken = await createSessionToken(userData, env,siteId);
+    const sessionToken = await createSessionToken(userData, env, siteId);
     console.log('Session token created successfully');
+    
+    // Try to get accessToken from existing published settings using siteId
+    let accessToken = null;
+    const existingPublishedData = await env.ACCESSIBILITY_AUTH.get(`Accessibility-Settings:${siteId}`);
+    if (existingPublishedData) {
+      const parsedData = JSON.parse(existingPublishedData);
+      accessToken = parsedData.accessToken;
+      console.log('Found accessToken from existing published settings:', !!accessToken);
+    }
     
     // Store user authentication
     await env.ACCESSIBILITY_AUTH.put(`user-auth:${userData.id}`, JSON.stringify({
-      accessToken,
+      accessToken: accessToken, // Use found accessToken or null
       userData: {
         id: userData.id,
         email: userData.email,
         firstName: userData.firstName
       },
       siteId,
-      widgetType: 'accessibility'
+      widgetType: 'accessibility',
+      authType: 'silent_auth'
     }), { expirationTtl: 86400 });
+    
+    // Check if authorization data exists, if not create initial auth data
+    const authData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteId}`);
+    if (!authData) {
+      console.log('No authorization data found, creating initial auth data...');
+      await env.ACCESSIBILITY_AUTH.put(`auth-data:${siteId}`, JSON.stringify({
+        accessToken: null, // No access token for silent auth
+        siteName: 'Unknown Site', // Will be updated when user publishes
+        siteId: siteId,
+        user: userData,
+        installedAt: new Date().toISOString(),
+        widgetVersion: '1.0.0',
+        lastUsed: new Date().toISOString()
+      }), { expirationTtl: 86400 });
+      console.log('Initial authorization data created');
+    } else {
+      console.log('Authorization data already exists, skipping creation');
+    }
+    
+    // Check if accessibility settings exist, if not create initial settings
+    const accessibilityData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
+    if (!accessibilityData) {
+      console.log('No accessibility settings found, creating initial settings...');
+      await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${siteId}`, JSON.stringify({
+        siteId: siteId,
+        customization: {},
+        accessibilityProfiles: {},
+        customDomain: null,
+        lastUpdated: new Date().toISOString(),
+        lastUsed: new Date().toISOString()
+      }), { expirationTtl: 86400 });
+      console.log('Initial accessibility settings created');
+    } else {
+      console.log('Accessibility settings already exist, skipping creation');
+    }
     
     console.log('User authentication stored');
     console.log('=== TOKEN AUTH DEBUG END ===');
@@ -957,9 +1202,10 @@ async function handleUpdateSettings(request, env) {
   const { siteId } = authResult;
   const newSettings = await request.json();
   
-  const publishedData = await env.ACCESSIBILITY_AUTH.get(`Accessibility-Settings:${siteId}`);
-  if (!publishedData) {
-    return new Response(JSON.stringify({ error: 'Site not found' }), {
+  // Get existing accessibility settings
+  const accessibilityData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
+  if (!accessibilityData) {
+    return new Response(JSON.stringify({ error: 'Accessibility settings not found' }), {
       status: 404,
       headers: { 
         'Content-Type': 'application/json',
@@ -970,17 +1216,17 @@ async function handleUpdateSettings(request, env) {
     });
   }
   
-  const siteInfo = JSON.parse(publishedData);
-  siteInfo.accessibilitySettings = { ...siteInfo.accessibilitySettings, ...newSettings };
-  siteInfo.lastUpdated = new Date().toISOString();
-  siteInfo.lastUsed = new Date().toISOString();
+  const settings = JSON.parse(accessibilityData);
+  settings.accessibilitySettings = { ...settings.accessibilitySettings, ...newSettings };
+  settings.lastUpdated = new Date().toISOString();
+  settings.lastUsed = new Date().toISOString();
   
-  await env.ACCESSIBILITY_AUTH.put(`Accessibility-Settings:${siteId}`, JSON.stringify(siteInfo));
+  await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${siteId}`, JSON.stringify(settings));
   
   return new Response(JSON.stringify({
     success: true,
-    settings: siteInfo.accessibilitySettings,
-    lastUpdated: siteInfo.lastUpdated
+    settings: settings.accessibilitySettings,
+    lastUpdated: settings.lastUpdated
   }), {
     headers: { 
       'Content-Type': 'application/json',
@@ -1014,6 +1260,11 @@ async function handleRegisterScript(request, env) {
   try {
     console.log('=== REGISTER SCRIPT DEBUG START ===');
     
+    // Get siteId from URL parameters
+    const url = new URL(request.url);
+    const siteIdFromUrl = url.searchParams.get('siteId');
+    console.log('SiteId from URL:', siteIdFromUrl);
+
     const authResult = await verifyAuth(request, env);
     if (!authResult) {
       console.log('Authentication failed in register script');
@@ -1025,13 +1276,42 @@ async function handleRegisterScript(request, env) {
         }
       });
     }
+    console.log('Authentication successful, siteId from auth:', authResult.siteId);
     
-    console.log('Authentication successful, siteId:', authResult.siteId);
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@36fb51c/accessibility-widget.js';
+    // Get access token from authorization data using the new key structure
+    let accessToken = null;
+    const authData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteIdFromUrl}`);
+    if (authData) {
+      const parsedAuthData = JSON.parse(authData);
+      accessToken = parsedAuthData.accessToken;
+      console.log('Found access token from auth-data:', !!accessToken);
+    } else {
+      console.log('No auth-data found for siteId:', siteIdFromUrl);
+    }
+    
+    console.log('Access token status:', !!accessToken);
+    
+    // If still no access token, skip script registration
+    if (!accessToken) {
+      console.log('No access token available - skipping script registration');
+      return new Response(JSON.stringify({
+        success: true,
+        message: "Script registration skipped - no access token available",
+        skipApplyScript: true
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+    
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@6db4e28/accessibility-widget.js';
+    console.log(accessToken);
     // Check if script is already registered - CORRECTED: Use exact match
-    const existingScriptsResponse = await fetch(`https://api.webflow.com/v2/sites/${authResult.siteId}/registered_scripts`, {
+    const existingScriptsResponse = await fetch(`https://api.webflow.com/v2/sites/${siteIdFromUrl}/registered_scripts`, {
       headers: {
-        'Authorization': `Bearer ${authResult.accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'accept-version': '2.0.0'
       }
     });
@@ -1069,22 +1349,22 @@ async function handleRegisterScript(request, env) {
     console.log('Generated SRI hash:', integrityHash);
     
     // Register the script with Webflow
-    const registerResponse = await fetch(`https://api.webflow.com/v2/sites/${authResult.siteId}/registered_scripts/hosted`, {
+    const registerResponse = await fetch(`https://api.webflow.com/v2/sites/${siteIdFromUrl}/registered_scripts/hosted`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${authResult.accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'accept-version': '2.0.0'
       },
-        body: JSON.stringify({
-          displayName: `ContrastKit${Date.now()}`,
-          scriptUrl: scriptUrl,
-          version: '1.0.0',
-          hostedLocation: scriptUrl,
-          integrityHash: integrityHash,
-          canCopy: false,
-          isRequired: false
-        })
+      body: JSON.stringify({
+        displayName: `ContrastKit${Date.now()}`,
+        scriptUrl: scriptUrl,
+        version: '1.0.0',
+        hostedLocation: scriptUrl,
+        integrityHash: integrityHash,
+        canCopy: false,
+        isRequired: false
+      })
     });
     
     console.log('Webflow API response status:', registerResponse.status);
@@ -1158,18 +1438,36 @@ async function handleApplyScript(request, env) {
     const { targetType, scriptId, location, version } = requestBody;
     console.log("script request body:", requestBody);
     
+    // Get access token from authorization data
+    let accessToken = null;
+    const authData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteId}`);
+    if (authData) {
+      const parsedAuthData = JSON.parse(authData);
+      accessToken = parsedAuthData.accessToken;
+    }
+    
+    if (!accessToken) {
+      return new Response(JSON.stringify({ error: 'No access token available' }), {
+        status: 401,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+    
     // Get existing custom code
-    const existingResponse = await fetch(`https://api.webflow.com/v2/sites/${authResult.siteId}/custom_code`, {
+    const existingResponse = await fetch(`https://api.webflow.com/v2/sites/${siteId}/custom_code`, {
       headers: {
-        'Authorization': `Bearer ${authResult.accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'accept-version': '2.0.0'
       }
     });
     console.log("existing response status:", existingResponse.status);
 
-    const already_registered_scripts = await fetch(`https://api.webflow.com/v2/sites/${authResult.siteId}/registered_scripts`, {
+    const already_registered_scripts = await fetch(`https://api.webflow.com/v2/sites/${siteId}/registered_scripts`, {
       headers: {
-        'Authorization': `Bearer ${authResult.accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         
       }
     });
@@ -1182,7 +1480,7 @@ async function handleApplyScript(request, env) {
     
         // Filter out duplicates - remove any existing accessibility widget scripts
     // Filter out duplicates - remove ALL accessibility widget scripts and any with same ID
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@36fb51c/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@6db4e28/accessibility-widget.js';
 
     const existingAccessibilityScript = existingScripts.find(script => 
       script.scriptUrl === scriptUrl
@@ -1230,10 +1528,10 @@ async function handleApplyScript(request, env) {
     console.log("Scripts to send to custom_code API:", JSON.stringify(filteredScripts, null, 2));
     
     // Update custom code
-    const updateResponse = await fetch(`https://api.webflow.com/v2/sites/${authResult.siteId}/custom_code`, {
+    const updateResponse = await fetch(`https://api.webflow.com/v2/sites/${siteId}/custom_code`, {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${authResult.accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'accept-version': '2.0.0'
       },
@@ -1295,12 +1593,12 @@ async function verifyAuth(request, env) {
     const { accessToken, userData: user, siteId } = JSON.parse(userData);
     
     // Get site name from the site-specific data
-    let siteName = 'Unknown Site';
+    let siteName;
     try {
       const siteData = await env.ACCESSIBILITY_AUTH.get(`Accessibility-Settings:${siteId}`);
       if (siteData) {
         const parsedSiteData = JSON.parse(siteData);
-        siteName = parsedSiteData.siteName || 'Unknown Site';
+        siteName = parsedSiteData.siteName;
       }
     } catch (error) {
       console.warn('Failed to get site name:', error);
@@ -1416,13 +1714,13 @@ async function handleGetConfig(request, env) {
       });
     }
     
-    // Get customization data from KV store
-    const kvKey = `Accessibility-Settings:${siteId}`;
-    const storedData = await env.ACCESSIBILITY_AUTH.get(kvKey);
+    // Get accessibility settings from separate key
+    const accessibilityKey = `accessibility-settings:${siteId}`;
+    const accessibilityData = await env.ACCESSIBILITY_AUTH.get(accessibilityKey);
     
-    if (!storedData) {
+    if (!accessibilityData) {
       return new Response(JSON.stringify({ 
-        error: 'Site configuration not found' 
+        error: 'Accessibility settings not found' 
       }), {
         status: 404,
         headers: { 
@@ -1434,15 +1732,26 @@ async function handleGetConfig(request, env) {
       });
     }
     
-    const siteData = JSON.parse(storedData);
+    // Get authorization data for widget version
+    const authData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteId}`);
+    let authInfo = {};
+    if (authData) {
+      try {
+        authInfo = JSON.parse(authData);
+      } catch (error) {
+        console.warn('Failed to parse authorization data:', error);
+      }
+    }
+    
+    const settings = JSON.parse(accessibilityData);
     
     // Return only the customization data needed by the widget
     const config = {
-      customization: siteData.customization || {},
-      accessibilityProfiles: siteData.accessibilityProfiles || [],
+      customization: settings.customization,
+      accessibilityProfiles: settings.accessibilityProfiles,
       siteId: siteId,
-      publishedAt: siteData.publishedAt,
-      widgetVersion: siteData.widgetVersion || '1.0.0'
+      publishedAt: settings.publishedAt,
+      widgetVersion: authInfo.widgetVersion || '1.0.0'
     };
     
     return new Response(JSON.stringify(config), {
@@ -1535,5 +1844,103 @@ async function handleDomainLookup(request, env) {
         'Access-Control-Allow-Headers': 'Content-Type'
       }
     });
+  }
+}
+
+// Get access token by site ID from URL params
+async function handleGetTokenBySiteId(request, env) {
+  try {
+    const url = new URL(request.url);
+    const siteId = url.searchParams.get('siteId');
+    
+    if (!siteId) {
+      return new Response(JSON.stringify({ error: 'Missing siteId parameter' }), {
+        status: 400,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type'
+        }
+      });
+    }
+    
+    // Get authorization data for the site
+    const authData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteId}`);
+    
+    if (!authData) {
+      return new Response(JSON.stringify({ error: 'Site not found' }), {
+        status: 404,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type'
+        }
+      });
+    }
+    
+    const parsedData = JSON.parse(authData);
+    
+    // Return access token and site info
+    return new Response(JSON.stringify({
+      accessToken: parsedData.accessToken,
+      siteId: parsedData.siteId,
+      siteName: parsedData.siteName,
+      user: parsedData.user,
+      hasAccessToken: !!parsedData.accessToken
+    }), {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get token by site ID error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to get token' }), {
+      status: 500,
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      }
+    });
+  }
+}
+
+// Helper function to get site ID from URL params and retrieve access token
+async function getSiteIdAndToken(request, env) {
+  try {
+    const url = new URL(request.url);
+    const siteId = url.searchParams.get('siteId');
+    
+    if (!siteId) {
+      return { error: 'No siteId provided in URL parameters' };
+    }
+    
+    // Get authorization data for the site
+    const authData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteId}`);
+    
+    if (!authData) {
+      return { error: 'Site not found' };
+    }
+    
+    const parsedData = JSON.parse(authData);
+    
+    return {
+      siteId: parsedData.siteId,
+      accessToken: parsedData.accessToken,
+      siteName: parsedData.siteName,
+      user: parsedData.user,
+      hasAccessToken: !!parsedData.accessToken
+    };
+    
+  } catch (error) {
+    console.error('Get site ID and token error:', error);
+    return { error: 'Failed to get site data' };
   }
 }
