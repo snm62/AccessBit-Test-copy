@@ -114,7 +114,8 @@ const App: React.FC = () => {
             }
           }, 500); // Small delay to ensure auth state is updated
           
-          setCurrentScreen('customization');
+          // Stay on welcome screen for authenticated users instead of auto-redirecting
+          setCurrentScreen('welcome');
         } else {
           console.log(":rocket: APP: Silent authentication failed, user needs to authorize first");
           setIsAuthenticated(false);

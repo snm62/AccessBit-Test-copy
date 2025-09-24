@@ -283,7 +283,7 @@
 }
 
 .browser-content {
-  height: calc(100% - 15px);
+  height: calc(100% - 20px);
   background: #1F1D2E;
   position: relative;
   display: flex;

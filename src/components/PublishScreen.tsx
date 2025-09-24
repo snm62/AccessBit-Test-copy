@@ -401,32 +401,34 @@ const handleConfirmPublish = async () => {
                 )}
 
                 {/* Accessibility Widget */}
-                <div
-                  className="accessibility-widget"
-                  style={{
-                    left: customizationData?.triggerHorizontalPosition === 'Left' ? '20px' :
-                      customizationData?.triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
-                    right: customizationData?.triggerHorizontalPosition === 'Right' ? '20px' : 'auto',
-                    top: customizationData?.triggerVerticalPosition === 'Top' ? '20px' :
-                      customizationData?.triggerVerticalPosition === 'Middle' ? '50%' : 'auto',
-                    bottom: customizationData?.triggerVerticalPosition === 'Bottom' ? '20px' : 'auto',
-                    transform: customizationData?.triggerHorizontalPosition === 'Center' ?
-                      (customizationData?.triggerVerticalPosition === 'Middle' ? 'translate(-50%, -50%)' : 'translateX(-50%)') :
-                      (customizationData?.triggerVerticalPosition === 'Middle' ? 'translateY(-50%)' : 'none')
-                  }}
-                >
+                {customizationData?.hideTriggerButton !== 'Yes' && (
                   <div
-                    className={`widget-trigger ${customizationData?.triggerButtonShape?.toLowerCase() || 'circle'} ${customizationData?.triggerButtonSize?.toLowerCase() || 'medium'}`}
-                    style={{ backgroundColor: customizationData?.triggerButtonColor || '#007bff' }}
-                    onClick={() => setShowModal(!showModal)}
+                    className="accessibility-widget"
+                    style={{
+                      left: customizationData?.triggerHorizontalPosition === 'Left' ? '20px' :
+                        customizationData?.triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
+                      right: customizationData?.triggerHorizontalPosition === 'Right' ? '20px' : 'auto',
+                      top: customizationData?.triggerVerticalPosition === 'Top' ? '20px' :
+                        customizationData?.triggerVerticalPosition === 'Middle' ? '50%' : 'auto',
+                      bottom: customizationData?.triggerVerticalPosition === 'Bottom' ? '20px' : 'auto',
+                      transform: customizationData?.triggerHorizontalPosition === 'Center' ?
+                        (customizationData?.triggerVerticalPosition === 'Middle' ? 'translate(-50%, -50%)' : 'translateX(-50%)') :
+                        (customizationData?.triggerVerticalPosition === 'Middle' ? 'translateY(-50%)' : 'none')
+                    }}
                   >
-                    <img
-                      src={iconOptions.find(icon => icon.id === customizationData?.selectedIcon)?.label || icon1}
-                      alt="Accessibility Icon"
-                      className="widget-icon"
-                    />
+                    <div
+                      className={`widget-trigger ${customizationData?.triggerButtonShape?.toLowerCase() || 'circle'} ${customizationData?.triggerButtonSize?.toLowerCase() || 'medium'}`}
+                      style={{ backgroundColor: customizationData?.triggerButtonColor || '#007bff' }}
+                      onClick={() => setShowModal(!showModal)}
+                    >
+                      <img
+                        src={iconOptions.find(icon => icon.id === customizationData?.selectedIcon)?.label || icon1}
+                        alt="Accessibility Icon"
+                        className="widget-icon"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

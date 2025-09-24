@@ -76,7 +76,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
       setTriggerButtonShape(existingCustomizationData.triggerButtonShape || "Circle");
       setTriggerHorizontalOffset(existingCustomizationData.triggerHorizontalOffset || "0px");
       setHideTriggerButton(existingCustomizationData.hideTriggerButton || "No");
-      setTriggerVerticalOffset(existingCustomizationData.triggerVerticalOffset || "3px");
+      setTriggerVerticalOffset(existingCustomizationData.triggerVerticalOffset || "0px");
       setTriggerHorizontalPosition(existingCustomizationData.triggerHorizontalPosition || "Left");
       setBtnColor(existingCustomizationData.triggerButtonColor || "#007bff");
       setShowOnMobile(existingCustomizationData.showOnMobile || "Show");
@@ -84,8 +84,8 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
       setMobileTriggerVerticalPosition(existingCustomizationData.mobileTriggerVerticalPosition || "Bottom");
       setMobileTriggerSize(existingCustomizationData.mobileTriggerSize || "Medium");
       setMobileTriggerShape(existingCustomizationData.mobileTriggerShape || "Rounded");
-      setMobileTriggerHorizontalOffset(existingCustomizationData.mobileTriggerHorizontalOffset || "3");
-      setMobileTriggerVerticalOffset(existingCustomizationData.mobileTriggerVerticalOffset || "3");
+      setMobileTriggerHorizontalOffset(existingCustomizationData.mobileTriggerHorizontalOffset || "0");
+      setMobileTriggerVerticalOffset(existingCustomizationData.mobileTriggerVerticalOffset || "0");
       setInterfaceLanguage(existingCustomizationData.interfaceLanguage || "English");
     }
   }, [existingCustomizationData]);
