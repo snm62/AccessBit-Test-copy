@@ -1,7 +1,94 @@
+// Security Headers
+const securityHeaders = {
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.stripe.com; script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com; script-src-attr 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.stripe.com https://*.stripe.com; frame-src 'self' https://js.stripe.com; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests;",
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Embedder-Policy': 'require-corp',
+    'Cross-Origin-Resource-Policy': 'same-origin',
+    'X-DNS-Prefetch-Control': 'on',
+    'X-Download-Options': 'noopen',
+    'X-Permitted-Cross-Domain-Policies': 'none'
+};
+// Rate limiting storage
+const rateLimitStore = new Map();
+
+// Security Functions
+function secureJsonResponse(data, status = 200) {
+    return new Response(JSON.stringify(data), {
+        status,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    });
+}
+
+function sanitizeInput(input) {
+    return input.replace(/[<>\"'&]/g, (match) => {
+        const escapeMap = {
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#x27;',
+            '&': '&amp;'
+        };
+        return escapeMap[match];
+    });
+}
+function rateLimitCheck(ip, requests) {
+    const now = Date.now();
+    const windowMs = 15 * 60 * 1000; // 15 minutes
+    const maxRequests = 100;
+
+    const userRequests = requests.get(ip);
+    
+    if (!userRequests || now > userRequests.resetTime) {
+        requests.set(ip, { count: 1, resetTime: now + windowMs });
+        return true;
+    }
+
+    if (userRequests.count >= maxRequests) {
+        return false;
+    }
+
+    userRequests.count++;
+    return true;
+}
+
+function addSecurityAndCorsHeaders(response, origin) {
+    const headers = new Headers(response.headers);
+    
+    // Add all security headers
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+        headers.set(key, value);
+    });
+    // CORS Headers
+    headers.set('Access-Control-Allow-Origin', origin || '*');
+    headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-CSRF-Token');
+    headers.set('Access-Control-Allow-Credentials', 'true');
+    headers.set('Access-Control-Max-Age', '86400');
+    headers.set('Vary', 'Origin');
+    
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+    });
+}
+
+
+
 // Complete Accessibility Widget Cloudflare Worker
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const origin = request.headers.get('origin');
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
     
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -23,18 +110,7 @@ export default {
       return handleTokenAuth(request, env);
     }
     
-    // Get accessibility settings
-    if (url.pathname === '/api/accessibility/settings' && request.method === 'GET') {
-      return handleGetSettings(request, env);
-    }
-    
-    // Update accessibility settings
-    if (url.pathname === '/api/accessibility/settings' && (request.method === 'POST' || request.method === 'PUT')) {
-      return handleUpdateSettings(request, env);
-    }
-    
-    // Verify authentication
-    if (url.pathname === '/api/auth/verify') {
+     if (url.pathname === '/api/auth/verify') {
       return handleVerifyAuth(request, env);
     }
     
@@ -53,85 +129,50 @@ export default {
       return handleApplyScript(request, env);
     }
     
+    // Get access token by site ID from URL params
+if (url.pathname === '/api/accessibility/get-token' && request.method === 'GET') {
+  return handleGetTokenBySiteId(request, env);
+}
+
+  // ADD RATE LIMITING ONLY FOR NON-OAUTH ENDPOINTS
+    if (!rateLimitCheck(clientIP, rateLimitStore)) {
+      const errorResponse = secureJsonResponse(
+        { error: 'Rate limit exceeded' }, 
+        429
+      );
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+
+    // Get accessibility settings
+    if (url.pathname === '/api/accessibility/settings' && request.method === 'GET') {
+      return handleGetSettings(request, env);
+    }
+    
+    // Update accessibility settings
+    if (url.pathname === '/api/accessibility/settings' && (request.method === 'POST' || request.method === 'PUT')) {
+      return handleUpdateSettings(request, env);
+    }
+    
+   
+   
+    
 // Get accessibility configuration for hosted script
 if (url.pathname === '/api/accessibility/config' && request.method === 'GET') {
   return handleGetConfig(request, env);
 }
 
-// Get access token by site ID from URL params
-if (url.pathname === '/api/accessibility/get-token' && request.method === 'GET') {
-  return handleGetTokenBySiteId(request, env);
-}
 
 // Domain lookup endpoint
 if (url.pathname === '/api/accessibility/domain-lookup' && request.method === 'GET') {
   return handleDomainLookup(request, env);
 }
-    
-// Save accessibility settings (can be updated)
+
+// Save accessibility settings
 if (url.pathname === '/api/accessibility/save-settings' && request.method === 'POST') {
-    try {
-        const { siteId, customization, accessibilityProfiles, customDomain } = await request.json();
-        
-        if (!siteId) {
-            return new Response(JSON.stringify({ error: 'Missing siteId' }), {
-                status: 400,
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type'
-                }
-            });
-        }
-        
-        // Get existing accessibility settings (separate from auth data)
-        const existingData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
-        let existingSettings = {};
-        
-        if (existingData) {
-            try {
-                existingSettings = JSON.parse(existingData);
-            } catch (error) {
-                console.warn('Failed to parse existing accessibility settings:', error);
-            }
-        }
-        
-        // Update only accessibility settings (no auth data mixed in)
-        const updatedSettings = {
-            siteId: siteId,
-            customization: customization || existingSettings.customization || {},
-            accessibilityProfiles: accessibilityProfiles || existingSettings.accessibilityProfiles || {},
-            customDomain: customDomain || existingSettings.customDomain,
-            lastUpdated: new Date().toISOString(),
-            lastUsed: new Date().toISOString()
-        };
-        
-        // Save updated accessibility settings
-        await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${siteId}`, JSON.stringify(updatedSettings));
-        
-        return new Response(JSON.stringify({ success: true }), {
-            status: 200,
-            headers: { 
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type'
-            }
-        });
-        
-    } catch (error) {
-        return new Response(JSON.stringify({ error: 'Failed to save accessibility settings' }), {
-            status: 500,
-            headers: { 
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type'
-            }
-        });
-    }
+  return handleSaveSettings(request, env);
 }
+    
 
 // Save custom domain data (can be updated)
 if (url.pathname === '/api/accessibility/save-custom-domain' && request.method === 'POST') {
@@ -285,7 +326,7 @@ if (url.pathname === '/api/accessibility/auth-data' && request.method === 'GET')
 
 // Handle CORS preflight requests
 function handleCORS() {
-  return new Response(null, {
+  const corsResponse = new Response(null, {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -294,6 +335,7 @@ function handleCORS() {
       'Access-Control-Max-Age': '86400'
     }
   });
+  return addSecurityAndCorsHeaders(corsResponse, '*');
 }
 // Handle OAuth Authorization
 async function handleOAuthAuthorize(request, env) {
@@ -557,47 +599,12 @@ async function handleOAuthCallback(request, env) {
     lastUsed: new Date().toISOString()
 }), { expirationTtl: 86400 });
 
-      
-      // App Interface flow - send data to parent window with siteId parameter
-      return new Response(`<!DOCTYPE html>
-        <html>
-          <head>
-            <title>Accessibility Widget Installed</title>
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-              .success { color: #28a745; }
-            </style>
-          </head>
-          <body>
-            <h1 class="success">✅ Accessibility Widget Installed Successfully!</h1>
-            <p>Your accessibility widget is now active on this site.</p>
-            <script>
-              const sessionData = {
-                type: 'AUTH_SUCCESS',
-                sessionToken: '${sessionToken.token}',
-                user: {
-                  firstName: '${userData.firstName}',
-                  email: '${userData.email}',
-                  siteId: '${currentSite.id}'
-                },
-                siteInfo: {
-                  siteId: '${currentSite.id}',
-                  siteName: '${currentSite.name || currentSite.shortName}',
-                  shortName: '${currentSite.shortName}',
-                  url: '${currentSite.url || `https://${currentSite.shortName}.webflow.io`}'
-                }
-              };
-              
-              // Store siteId in sessionStorage for the widget to use
-              sessionStorage.setItem('accessibility_site_id', '${currentSite.id}');
-              console.log('Stored siteId in sessionStorage:', '${currentSite.id}');
-              
-              window.opener.postMessage(sessionData, '*');
-              window.close();
-            </script>
-          </body>
-        </html>`, {
-        headers: { 'Content-Type': 'text/html' }
+       // App Interface flow - redirect directly to site
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Location': `https://${currentSite.shortName}.design.webflow.com?app=${env.WEBFLOW_CLIENT_ID}`
+        }
       });
     }
     
@@ -646,49 +653,14 @@ async function handleOAuthCallback(request, env) {
       console.warn('Apps & Integrations: Failed to store subdomain mapping:', domainError);
     }
     
-    // Apps & Integrations flow - redirect to site with success message
-    return new Response(`<!DOCTYPE html>
-      <html>
-        <head>
-          <title>Accessibility Widget Installed</title>
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .success { color: #28a745; }
-            .redirect { color: #007bff; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <h1 class="success">✅Accessibility Widget Installed Successfully!</h1>
-          <p>Your accessibility widget is now active on this site.</p>
-          <p class="redirect">Redirecting to your site...</p>
-          <script>
-            // Store site info in session storage for the correct site
-            sessionStorage.setItem('wf_hybrid_user', JSON.stringify({
-              sessionToken: '${sessionToken.token}',
-              firstName: '${userData.firstName}',
-              email: '${userData.email}',
-              exp: Date.now() + (24 * 60 * 60 * 1000),
-              siteInfo: {
-                siteId: '${currentSite.id}',
-                siteName: '${currentSite.name || currentSite.shortName}',
-                shortName: '${currentSite.shortName}',
-                url: '${currentSite.url || `https://${currentSite.shortName}.webflow.io`}'
-              }
-            }));
-            
-            // Also store siteId directly for easy access by the widget
-            sessionStorage.setItem('accessibility_site_id', '${currentSite.id}');
-            console.log('Apps & Integrations: Stored siteId in sessionStorage:', '${currentSite.id}');
-            
-            // Redirect to the correct site after a short delay
-            setTimeout(() => {
-              window.location.href = 'https://${currentSite.shortName}.design.webflow.com?app=${env.WEBFLOW_CLIENT_ID}';
-            }, 2000);
-          </script>
-        </body>
-      </html>`, {
-      headers: { 'Content-Type': 'text/html' }
+    // Apps & Integrations flow - redirect directly to site
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': `https://${currentSite.shortName}.design.webflow.com?app=${env.WEBFLOW_CLIENT_ID}`
+      }
     });
+    
     
   } catch (error) {
     console.error('OAuth callback error:', error);
@@ -938,17 +910,12 @@ async function handlePublishSettings(request, env) {
 
 // Get accessibility settings - UPDATED TO USE ONLY PUBLISHED SETTINGS
 async function handleGetSettings(request, env) {
+  const origin = request.headers.get('origin');
+  
   const authResult = await verifyAuth(request, env);
   if (!authResult) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      }
-    });
+    const errorResponse = secureJsonResponse({ error: 'Unauthorized' }, 401);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
   }
   
   // Get siteId from URL parameter (preferred) or from auth result
@@ -957,29 +924,15 @@ async function handleGetSettings(request, env) {
   const siteId = urlSiteId || authResult.siteId;
   
   if (!siteId) {
-    return new Response(JSON.stringify({ error: 'No siteId provided' }), {
-      status: 400,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      }
-    });
+    const errorResponse = secureJsonResponse({ error: 'No siteId provided' }, 400);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
   }
   
   // Get accessibility settings from separate key
   const accessibilityData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
   if (!accessibilityData) {
-    return new Response(JSON.stringify({ error: 'Accessibility settings not found' }), {
-      status: 404,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      }
-    });
+    const errorResponse = secureJsonResponse({ error: 'Accessibility settings not found' }, 404);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
   }
   
   // Get authorization data for site info
@@ -994,7 +947,7 @@ async function handleGetSettings(request, env) {
   }
   
   const settings = JSON.parse(accessibilityData);
-  return new Response(JSON.stringify({
+  const successResponse = secureJsonResponse({
     settings: settings.accessibilitySettings,
     customization: settings.customization,
     accessibilityProfiles: settings.accessibilityProfiles,
@@ -1005,14 +958,8 @@ async function handleGetSettings(request, env) {
     lastUsed: settings.lastUsed,
     widgetVersion: authInfo.widgetVersion,
     publishedAt: settings.publishedAt
-  }), {
-    headers: { 
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-    }
   });
+  return addSecurityAndCorsHeaders(successResponse, origin);
 }
 
 // Handle Token Authentication - UPDATED TO SUPPORT FIRST-TIME INSTALLS
@@ -1186,55 +1133,57 @@ async function handleTokenAuth(request, env) {
 
 // Update accessibility settings - UPDATED TO USE PUBLISHED SETTINGS
 async function handleUpdateSettings(request, env) {
+  const origin = request.headers.get('origin');
+  
   const authResult = await verifyAuth(request, env);
   if (!authResult) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, PUT, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      }
-    });
+    const errorResponse = secureJsonResponse({ error: 'Unauthorized' }, 401);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
   }
   
   const { siteId } = authResult;
   const newSettings = await request.json();
   
+  // Sanitize input data
+  const sanitizedSettings = {};
+  for (const [key, value] of Object.entries(newSettings)) {
+    if (typeof value === 'string') {
+      sanitizedSettings[key] = sanitizeInput(value);
+    } else if (typeof value === 'object' && value !== null) {
+      // Recursively sanitize object values
+      sanitizedSettings[key] = {};
+      for (const [subKey, subValue] of Object.entries(value)) {
+        if (typeof subValue === 'string') {
+          sanitizedSettings[key][subKey] = sanitizeInput(subValue);
+        } else {
+          sanitizedSettings[key][subKey] = subValue;
+        }
+      }
+    } else {
+      sanitizedSettings[key] = value;
+    }
+  }
+  
   // Get existing accessibility settings
   const accessibilityData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
   if (!accessibilityData) {
-    return new Response(JSON.stringify({ error: 'Accessibility settings not found' }), {
-      status: 404,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, PUT, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      }
-    });
+    const errorResponse = secureJsonResponse({ error: 'Accessibility settings not found' }, 404);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
   }
   
   const settings = JSON.parse(accessibilityData);
-  settings.accessibilitySettings = { ...settings.accessibilitySettings, ...newSettings };
+  settings.accessibilitySettings = { ...settings.accessibilitySettings, ...sanitizedSettings };
   settings.lastUpdated = new Date().toISOString();
   settings.lastUsed = new Date().toISOString();
   
   await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${siteId}`, JSON.stringify(settings));
   
-  return new Response(JSON.stringify({
+  const successResponse = secureJsonResponse({
     success: true,
     settings: settings.accessibilitySettings,
     lastUpdated: settings.lastUpdated
-  }), {
-    headers: { 
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, PUT, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-    }
   });
+  return addSecurityAndCorsHeaders(successResponse, origin);
 }
 
 // Verify authentication
@@ -1306,7 +1255,7 @@ async function handleRegisterScript(request, env) {
       });
     }
     
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@6db4e28/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@7edb34e/accessibility-widget.js';
     console.log(accessToken);
     // Check if script is already registered - CORRECTED: Use exact match
     const existingScriptsResponse = await fetch(`https://api.webflow.com/v2/sites/${siteIdFromUrl}/registered_scripts`, {
@@ -1480,7 +1429,7 @@ async function handleApplyScript(request, env) {
     
         // Filter out duplicates - remove any existing accessibility widget scripts
     // Filter out duplicates - remove ALL accessibility widget scripts and any with same ID
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@6db4e28/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@7edb34e/accessibility-widget.js';
 
     const existingAccessibilityScript = existingScripts.find(script => 
       script.scriptUrl === scriptUrl
@@ -1696,22 +1645,17 @@ function base64UrlDecode(str) {
 
 // Get accessibility configuration for hosted script
 async function handleGetConfig(request, env) {
+  const origin = request.headers.get('origin');
+  
   try {
     const url = new URL(request.url);
     const siteId = url.searchParams.get('siteId');
     
     if (!siteId) {
-      return new Response(JSON.stringify({ 
+      const errorResponse = secureJsonResponse({ 
         error: 'Missing siteId parameter' 
-      }), {
-        status: 400,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        }
-      });
+      }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
     }
     
     // Get accessibility settings from separate key
@@ -1719,17 +1663,10 @@ async function handleGetConfig(request, env) {
     const accessibilityData = await env.ACCESSIBILITY_AUTH.get(accessibilityKey);
     
     if (!accessibilityData) {
-      return new Response(JSON.stringify({ 
+      const errorResponse = secureJsonResponse({ 
         error: 'Accessibility settings not found' 
-      }), {
-        status: 404,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        }
-      });
+      }, 404);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
     }
     
     // Get authorization data for widget version
@@ -1754,35 +1691,33 @@ async function handleGetConfig(request, env) {
       widgetVersion: authInfo.widgetVersion || '1.0.0'
     };
     
-    return new Response(JSON.stringify(config), {
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Cache-Control': 'public, max-age=300' // Cache for 5 minutes
-      }
+    const successResponse = secureJsonResponse(config);
+    const responseWithHeaders = addSecurityAndCorsHeaders(successResponse, origin);
+    
+    // Add cache headers
+    const headers = new Headers(responseWithHeaders.headers);
+    headers.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+    
+    return new Response(responseWithHeaders.body, {
+      status: responseWithHeaders.status,
+      statusText: responseWithHeaders.statusText,
+      headers
     });
     
   } catch (error) {
     console.error('Get config error:', error);
-    return new Response(JSON.stringify({ 
+    const errorResponse = secureJsonResponse({ 
       error: 'Failed to get configuration',
       details: error.message 
-    }), {
-      status: 500,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      }
-    });
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
   }
 }
 
 // Domain lookup function
 async function handleDomainLookup(request, env) {
+  const origin = request.headers.get('origin');
+  
   try {
     const url = new URL(request.url);
     const domain = url.searchParams.get('domain');
@@ -1790,60 +1725,110 @@ async function handleDomainLookup(request, env) {
     console.log('Domain lookup request for:', domain);
     
     if (!domain) {
-      return new Response(JSON.stringify({ error: 'Missing domain parameter' }), {
-        status: 400,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        }
-      });
+      const errorResponse = secureJsonResponse({ error: 'Missing domain parameter' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
     }
     
+    // Sanitize domain input
+    const sanitizedDomain = sanitizeInput(domain);
+    
     // Check if there's a domain mapping
-    const domainKey = `domain:${domain}`;
+    const domainKey = `domain:${sanitizedDomain}`;
     const domainData = await env.ACCESSIBILITY_AUTH.get(domainKey);
     
     if (domainData) {
       const data = JSON.parse(domainData);
       console.log('Found domain mapping:', data);
-      return new Response(JSON.stringify({ 
+      const successResponse = secureJsonResponse({ 
         siteId: data.siteId,
         domain: data.domain,
         isPrimary: data.isPrimary
-      }), {
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        }
       });
+      return addSecurityAndCorsHeaders(successResponse, origin);
     }
     
-    console.log('No domain mapping found for:', domain);
-    return new Response(JSON.stringify({ error: 'Domain not found' }), {
-      status: 404,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      }
-    });
+    console.log('No domain mapping found for:', sanitizedDomain);
+    const errorResponse = secureJsonResponse({ error: 'Domain not found' }, 404);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
     
   } catch (error) {
     console.error('Domain lookup error:', error);
-    return new Response(JSON.stringify({ error: 'Lookup failed' }), {
-      status: 500,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
+    const errorResponse = secureJsonResponse({ error: 'Lookup failed' }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Save accessibility settings
+async function handleSaveSettings(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const body = await request.json();
+    const { siteId, settings } = body;
+    
+    if (!siteId || !settings) {
+      const errorResponse = secureJsonResponse({ error: 'Missing siteId or settings' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    // Sanitize input data
+    const sanitizedSettings = {};
+    for (const [key, value] of Object.entries(settings)) {
+      if (typeof value === 'string') {
+        sanitizedSettings[key] = sanitizeInput(value);
+      } else if (typeof value === 'object' && value !== null) {
+        // Recursively sanitize object values
+        sanitizedSettings[key] = {};
+        for (const [subKey, subValue] of Object.entries(value)) {
+          if (typeof subValue === 'string') {
+            sanitizedSettings[key][subKey] = sanitizeInput(subValue);
+          } else {
+            sanitizedSettings[key][subKey] = subValue;
+          }
+        }
+      } else {
+        sanitizedSettings[key] = value;
       }
+    }
+    
+    // Get existing accessibility settings
+    const existingData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
+    let existingSettings = {};
+    
+    if (existingData) {
+      try {
+        existingSettings = JSON.parse(existingData);
+      } catch (error) {
+        console.warn('Failed to parse existing accessibility settings:', error);
+      }
+    }
+    
+    // Update settings
+    const updatedSettings = {
+      ...existingSettings,
+      ...sanitizedSettings,
+      siteId: siteId,
+      lastUpdated: new Date().toISOString(),
+      lastUsed: new Date().toISOString()
+    };
+    
+    // Save to KV storage
+    await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${siteId}`, JSON.stringify(updatedSettings));
+    
+    const successResponse = secureJsonResponse({ 
+      success: true,
+      message: 'Settings saved successfully',
+      settings: updatedSettings
     });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Save settings error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to save settings',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
   }
 }
 

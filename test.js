@@ -18,6 +18,8 @@ constructor() {
         this.originalFontSizes = new Map(); // Store original font sizes to prevent compounding
 
         this.currentlyFocusedElement = null; // Track currently focused element for highlight focus
+        this.isKeyboardNavigation = false; // Track if user is using keyboard navigation
+        this.lastInteractionMethod = null; // Track last interaction method (keyboard/mouse)
 
         this.currentLanguage = this.getCurrentLanguage(); // Initialize current language
 
@@ -52,6 +54,10 @@ constructor() {
         this.createWidget();
 
         this.loadSettings();
+        
+        // Load user settings from KV storage
+        await this.loadSettingsFromKV();
+        
         await this.fetchCustomizationData();
         
         // Restore saved language
@@ -94,10 +100,7 @@ constructor() {
 
             } else {
 
-                console.log('Accessibility Widget: No customization data found, using defaults');
-                
-                // Show the icon with default styling
-                this.showIcon();
+                console.log('Accessibility Widget: No customization data found from KV; keeping icon hidden until styles are available');
 
             }
 
@@ -185,22 +188,49 @@ constructor() {
 
             });
             // Add this in your init function after the existing code
-// Add window resize listener for mobile responsiveness
+// Add window resize listener for mobile responsiveness and screen scaling
 window.addEventListener('resize', () => {
-    const isMobile = window.innerWidth <= 768;
+    const screenWidth = window.innerWidth;
+    const isMobile = screenWidth <= 768;
     const icon = this.shadowRoot?.getElementById('accessibility-icon');
     const panel = this.shadowRoot?.getElementById('accessibility-panel');
     
+    console.log('📱 [WINDOW RESIZE] Window resized - screen width:', screenWidth);
+    console.log('📱 [WINDOW RESIZE] Is mobile:', isMobile);
+    console.log('📱 [WINDOW RESIZE] Icon found:', !!icon);
+    console.log('📱 [WINDOW RESIZE] Panel found:', !!panel);
+    
     if (icon && panel) {
+        // Add a small delay to ensure proper rendering after resize
+        setTimeout(() => {
+            // First, ensure base panel CSS is applied
+            this.ensureBasePanelCSS();
+            
+            // Force re-render to ensure styles are applied
+            panel.style.display = 'none';
+            panel.offsetHeight; // Trigger reflow
+            panel.style.display = '';
+            
         if (isMobile) {
             // Apply mobile settings - force small panel near icon
-            console.log('[CK] Window resized to mobile - applying mobile styles');
+                console.log('📱 [WINDOW RESIZE] Window resized to mobile - applying mobile styles');
             this.applyMobileResponsiveStyles();
+            
+            // Reapply mobile positioning if it was set
+            if (this.customizationData) {
+                if (this.customizationData.mobileTriggerHorizontalPosition && this.customizationData.mobileTriggerVerticalPosition) {
+                        console.log('📱 [WINDOW RESIZE] Reapplying combined mobile positioning on resize');
+                    this.updateMobileTriggerCombinedPosition(this.customizationData.mobileTriggerHorizontalPosition, this.customizationData.mobileTriggerVerticalPosition);
+                }
+            }
         } else {
             // Apply desktop settings
-            console.log('[CK] Window resized to desktop - removing mobile styles');
+                console.log('📱 [WINDOW RESIZE] Window resized to desktop - removing mobile styles');
             this.removeMobileResponsiveStyles();
         }
+        }, 100); // Small delay to ensure proper rendering
+    } else {
+        console.log('📱 [WINDOW RESIZE] Icon or panel not found - skipping responsive styles');
     }
 });
 
@@ -208,6 +238,74 @@ window.addEventListener('resize', () => {
 if (window.innerWidth <= 768) {
     this.applyMobileResponsiveStyles();
 }
+
+// Add listener for display scaling changes and device pixel ratio changes
+window.addEventListener('resize', () => {
+    // Force re-application of base CSS after any resize to maintain styling
+    setTimeout(() => {
+        const panel = this.shadowRoot?.getElementById('accessibility-panel');
+        if (panel) {
+            console.log('🔧 [SCALING RESIZE] Display scaling or size changed - reapplying base CSS');
+            this.ensureBasePanelCSS();
+        }
+    }, 50);
+});
+
+// Add listener for device pixel ratio changes (display scaling)
+if (window.matchMedia) {
+    const mediaQuery = window.matchMedia('(min-resolution: 1.5dppx)');
+    const handlePixelRatioChange = () => {
+        console.log('🔧 [PIXEL RATIO] Device pixel ratio changed - reapplying base CSS');
+        setTimeout(() => {
+            const panel = this.shadowRoot?.getElementById('accessibility-panel');
+            if (panel) {
+                this.ensureBasePanelCSS();
+            }
+        }, 100);
+    };
+    
+    mediaQuery.addListener(handlePixelRatioChange);
+}
+
+// Add MutationObserver to watch for style changes and reapply base CSS
+if (this.shadowRoot) {
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                const panel = this.shadowRoot?.getElementById('accessibility-panel');
+                if (panel && panel === mutation.target) {
+                    console.log('🔧 [MUTATION] Panel style changed - ensuring base CSS is maintained');
+                    setTimeout(() => {
+                        this.ensureBasePanelCSS();
+                    }, 10);
+                }
+            }
+        });
+    });
+    
+    // Start observing the panel for style changes
+    const panel = this.shadowRoot?.getElementById('accessibility-panel');
+    if (panel) {
+        observer.observe(panel, { attributes: true, attributeFilter: ['style'] });
+    }
+}
+
+// Add periodic check to ensure panel maintains its CSS (every 2 seconds)
+setInterval(() => {
+    const panel = this.shadowRoot?.getElementById('accessibility-panel');
+    if (panel && panel.style.display !== 'none') {
+        // Check if essential CSS properties are missing
+        const computedStyle = window.getComputedStyle(panel);
+        const hasBackground = computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)' && computedStyle.backgroundColor !== 'transparent';
+        const hasBoxShadow = computedStyle.boxShadow !== 'none';
+        const hasBorderRadius = computedStyle.borderRadius !== '0px';
+        
+        if (!hasBackground || !hasBoxShadow || !hasBorderRadius) {
+            console.log('🔧 [PERIODIC CHECK] Panel missing essential CSS - reapplying base CSS');
+            this.ensureBasePanelCSS();
+        }
+    }
+}, 2000);
             
 
             // Keyboard event for icon
@@ -309,11 +407,65 @@ if (window.innerWidth <= 768) {
 
 
                 // Special handling for line height toggle
+                console.log('📏 [TOGGLE HANDLER] Processing line height toggle:', feature, 'enabled:', enabled);
 
                 if (feature === 'adjust-line-height') {
-
+                    console.log('📏 [TOGGLE HANDLER] Calling toggleLineHeightControls with enabled:', enabled);
                     this.toggleLineHeightControls(enabled);
 
+                }
+
+                // Special handling for alignment toggles - ensure mutual exclusion
+                console.log('🔧 [TOGGLE HANDLER] Processing alignment toggle:', feature, 'enabled:', enabled);
+
+                if (feature === 'align-left' && enabled) {
+                    console.log('🔧 [TOGGLE HANDLER] Enabling align-left, disabling others...');
+                    
+                    // Clear all alignment classes first
+                    this.clearAllAlignmentClasses();
+
+                    // Uncheck other alignment toggles in UI
+                    const centerToggle = this.shadowRoot.getElementById('align-center');
+                    const rightToggle = this.shadowRoot.getElementById('align-right');
+                    console.log('🔧 [TOGGLE HANDLER] Center toggle found:', !!centerToggle);
+                    console.log('🔧 [TOGGLE HANDLER] Right toggle found:', !!rightToggle);
+                    if (centerToggle) centerToggle.checked = false;
+                    if (rightToggle) rightToggle.checked = false;
+
+                } else if (feature === 'align-center' && enabled) {
+                    console.log('🔧 [TOGGLE HANDLER] Enabling align-center, disabling others...');
+
+                    // Clear all alignment classes first
+                    this.clearAllAlignmentClasses();
+
+                    // Uncheck other alignment toggles in UI
+                    const leftToggle = this.shadowRoot.getElementById('align-left');
+                    const rightToggle = this.shadowRoot.getElementById('align-right');
+                    console.log('🔧 [TOGGLE HANDLER] Left toggle found:', !!leftToggle);
+                    console.log('🔧 [TOGGLE HANDLER] Right toggle found:', !!rightToggle);
+                    if (leftToggle) leftToggle.checked = false;
+                    if (rightToggle) rightToggle.checked = false;
+
+                } else if (feature === 'align-right' && enabled) {
+                    console.log('🔧 [TOGGLE HANDLER] Enabling align-right, disabling others...');
+
+                    // Clear all alignment classes first
+                    this.clearAllAlignmentClasses();
+
+                    // Uncheck other alignment toggles in UI
+                    const leftToggle = this.shadowRoot.getElementById('align-left');
+                    const centerToggle = this.shadowRoot.getElementById('align-center');
+                    console.log('🔧 [TOGGLE HANDLER] Left toggle found:', !!leftToggle);
+                    console.log('🔧 [TOGGLE HANDLER] Center toggle found:', !!centerToggle);
+                    if (leftToggle) leftToggle.checked = false;
+                    if (centerToggle) centerToggle.checked = false;
+
+                }
+
+                // Prevent multiple calls to the same alignment function
+                if (feature.startsWith('align-') && enabled) {
+                    console.log('🔧 [TOGGLE HANDLER] Preventing duplicate alignment calls for:', feature);
+                    return; // Skip the normal toggle processing to prevent conflicts
                 }
 
 
@@ -363,12 +515,32 @@ if (window.innerWidth <= 768) {
                         toggle.checked = !toggle.checked;
 
                         const feature = toggle.id;
+                        console.log('🎹 [KEYBOARD TOGGLE] Feature toggled via keyboard:', feature, 'enabled:', toggle.checked);
 
                         const enabled = toggle.checked;
 
                         console.log(`Accessibility Widget: Keyboard toggle ${feature} changed to ${enabled}`);
 
                         this.handleToggle(feature, enabled);
+
+                        // Ensure control buttons are revealed when toggled via keyboard
+                        try {
+                            if (feature === 'content-scaling') {
+                                console.log('🎛️ [KEYBOARD TOGGLE] Forcing content scaling controls visibility:', enabled);
+                                this.toggleContentScalingControls(enabled);
+                            } else if (feature === 'font-sizing') {
+                                console.log('🔤 [KEYBOARD TOGGLE] Forcing font sizing controls visibility:', enabled);
+                                this.toggleFontSizingControls(enabled);
+                            } else if (feature === 'adjust-line-height') {
+                                console.log('📏 [KEYBOARD TOGGLE] Forcing line height controls visibility:', enabled);
+                                this.toggleLineHeightControls(enabled);
+                            } else if (feature === 'adjust-letter-spacing') {
+                                console.log('📝 [KEYBOARD TOGGLE] Forcing letter spacing controls visibility:', enabled);
+                                this.toggleLetterSpacingControls(enabled);
+                            }
+                        } catch (err) {
+                            console.warn('⚠️ [KEYBOARD TOGGLE] Failed to force control visibility:', err);
+                        }
 
                         
 
@@ -586,11 +758,37 @@ if (window.innerWidth <= 768) {
 
         
 
+        // Add mouse detection for disabling keyboard focus indicators
+        this.mouseHandler = (e) => {
+            this.isKeyboardNavigation = false;
+            this.lastInteractionMethod = 'mouse';
+            console.log('Accessibility Widget: Mouse interaction detected - disabling keyboard focus indicators');
+            
+            // Disable highlight focus when mouse is used
+            if (document.body.classList.contains('highlight-focus')) {
+                console.log('Accessibility Widget: Auto-disabling highlight focus for mouse interaction');
+                this.disableHighlightFocus();
+            }
+        };
+
         // Add keyboard shortcuts for navigation
 
         this.keyboardShortcutHandler = (e) => {
 
             console.log('Accessibility Widget: Key pressed:', e.key, 'Alt:', e.altKey, 'Keyboard nav enabled:', this.settings['keyboard-nav']);
+
+            // Detect Tab key navigation
+            if (e.key === 'Tab') {
+                this.isKeyboardNavigation = true;
+                this.lastInteractionMethod = 'keyboard';
+                console.log('Accessibility Widget: Tab key detected - keyboard navigation mode active');
+                
+                // Automatically enable highlight focus when Tab is used
+                if (!document.body.classList.contains('highlight-focus')) {
+                    console.log('Accessibility Widget: Auto-enabling highlight focus for keyboard navigation');
+                    this.enableHighlightFocus();
+                }
+            }
 
             
 
@@ -854,11 +1052,13 @@ if (window.innerWidth <= 768) {
 
         
 
-        // Add event listener
+        // Add event listeners
 
         document.addEventListener('keydown', this.keyboardShortcutHandler);
+        document.addEventListener('mousedown', this.mouseHandler);
+        document.addEventListener('click', this.mouseHandler);
 
-        console.log('Accessibility Widget: Keyboard shortcuts initialized successfully');
+        console.log('Accessibility Widget: Keyboard shortcuts and mouse detection initialized successfully');
 
         
 
@@ -889,6 +1089,17 @@ if (window.innerWidth <= 768) {
             this.keyboardShortcutHandler = null;
 
             console.log('Accessibility Widget: Keyboard shortcuts removed');
+        }
+
+        if (this.mouseHandler) {
+
+            document.removeEventListener('mousedown', this.mouseHandler);
+
+            document.removeEventListener('click', this.mouseHandler);
+
+            this.mouseHandler = null;
+
+            console.log('Accessibility Widget: Mouse detection removed');
 
         }
 
@@ -1040,7 +1251,7 @@ if (window.innerWidth <= 768) {
 
             border-radius: 4px;
 
-            /* Font size controlled by JavaScript */
+            font-size: 12px;
 
             font-weight: bold;
 
@@ -1158,7 +1369,7 @@ if (window.innerWidth <= 768) {
 
             link.rel = 'stylesheet';
 
-            // link.href = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@0e86d68/accessibility-widget.css';
+            link.href = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@77b2db8/accessibility-widget.css';
             // External CSS removed to prevent conflicts with internal styles
             link.onload = () => {
                 
@@ -1179,90 +1390,110 @@ if (window.innerWidth <= 768) {
             // Define overrideCSS first
             const overrideCSS = `
 .accessibility-panel {
-  left: auto;
-  right: auto;
-  top: auto;
-  bottom: auto;
-  transform: none;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: none !important;
 }
 
 /* REMOVED the conflicting accessibility-icon rule that was forcing 50% border-radius */
 
-/* Icon Shape Rules - Consolidated with Maximum Specificity */
+/* Icon Shape Rules - Simplified */
 .accessibility-icon[data-shape="circle"] {
     border-radius: 50%;
-    -webkit-border-radius: 50%;
-    -moz-border-radius: 50%;
 }
 
 .accessibility-icon[data-shape="rounded"] {
-    border-radius: 25px;
-    -webkit-border-radius: 25px;
-    -moz-border-radius: 25px;
-    border-top-left-radius: 25px;
-    border-top-right-radius: 25px;
-    border-bottom-left-radius: 25px;
-    border-bottom-right-radius: 25px;
+    border-radius: 12px;
 }
 
 .accessibility-icon[data-shape="square"] {
     border-radius: 0px;
-    -webkit-border-radius: 0px;
-    -moz-border-radius: 0px;
 }
 
-/* Ensure panel always appears on top of icon */
-.accessibility-panel {
-    z-index: 100001;
-    position: fixed;
-}
+        /* Ensure panel always appears on top of icon */
+        .accessibility-panel {
+            z-index: 100001 !important;
+            position: fixed !important;
+            overflow-y: auto !important;
+            scroll-behavior: smooth !important;
+            -webkit-overflow-scrolling: touch !important;
+            overscroll-behavior: contain !important;
+        }
 
 .accessibility-icon {
-    z-index: 99998;
+    z-index: 99998 !important;
 }
 
-/* Maximum Specificity Overrides - Force Shape Application */
-.accessibility-icon[data-shape="rounded"],
-.accessibility-icon.rounded,
-.accessibility-icon[data-shape="rounded"].rounded {
-    border-radius: 25px;
-    -webkit-border-radius: 25px;
-    -moz-border-radius: 25px;
-    border-top-left-radius: 25px;
-    border-top-right-radius: 25px;
-    border-bottom-left-radius: 25px;
-    border-bottom-right-radius: 25px;
+/* Additional shape classes for compatibility */
+.accessibility-icon.rounded {
+    border-radius: 12px;
 }
 
-.accessibility-icon[data-shape="circle"],
 .accessibility-icon.circle {
     border-radius: 50%;
-    -webkit-border-radius: 50%;
-    -moz-border-radius: 50%;
 }
 
-.accessibility-icon[data-shape="square"],
 .accessibility-icon.square {
     border-radius: 0px;
-    -webkit-border-radius: 0px;
-    -moz-border-radius: 0px;
-}
-
-/* Force rounded shape with absolute maximum specificity */
-.accessibility-icon.rounded {
-    border-radius: 25px;
-    -webkit-border-radius: 25px;
-    -moz-border-radius: 25px;
-}
-
-/* Additional force for rounded shape */
-.accessibility-icon[data-shape="rounded"] {
-    border-radius: 25px;
-    -webkit-border-radius: 25px;
-    -moz-border-radius: 25px;
 }
 
 /* Mobile-First Responsive Design */
+
+/* Very Small Mobile Screens (430px and below) */
+@media (max-width: 430px) {
+    .accessibility-panel {
+        font-size: 12px;
+    }
+    
+    .accessibility-panel h2 {
+        font-size: 1.3em;
+    }
+    
+    .accessibility-panel h3 {
+        font-size: 1.1em;
+    }
+    
+    .accessibility-panel h4 {
+        font-size: 0.9em;
+    }
+    
+    .accessibility-panel p {
+        font-size: 0.8em;
+    }
+    
+    .accessibility-panel .action-btn {
+        font-size: 0.8em;
+        padding: 4px 8px;
+    }
+    
+    .accessibility-panel .scaling-btn {
+        font-size: 0.7em;
+        padding: 3px 5px;
+    }
+    
+    .accessibility-panel .profile-info h4 {
+        font-size: 0.8em;
+    }
+    
+    .accessibility-panel .profile-info p {
+        font-size: 0.7em;
+    }
+    
+    .accessibility-panel .profile-item h4 {
+        font-size: 0.8em;
+    }
+    
+    .accessibility-panel .profile-item p {
+        font-size: 0.7em;
+    }
+    
+    .accessibility-panel .close-btn {
+        font-size: 16px;
+        padding: 4px;
+    }
+}
 
 /* Mobile Devices (Small Screens) - Base styles */
 @media (max-width: 480px) {
@@ -1270,58 +1501,64 @@ if (window.innerWidth <= 768) {
         width: 90vw;
         max-width: 350px;
         padding: 12px;
-        /* Font size controlled by JavaScript */
+        font-size: 14px;
+        max-height: 90vh !important;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
     }
     
     .accessibility-panel h2 {
-        /* Font size controlled by JavaScript */
         margin-bottom: 8px;
+        font-size: 1.5em;
     }
     
     .accessibility-panel h3 {
-        /* Font size controlled by JavaScript */
         margin-bottom: 6px;
+        font-size: 1.2em;
     }
     
     .accessibility-panel h4 {
-        /* Font size controlled by JavaScript */
+        font-size: 1em;
     }
     
     .accessibility-panel p {
-        /* Font size controlled by JavaScript */
         line-height: 1.3;
+        font-size: 0.9em;
     }
     
     .accessibility-panel .action-btn {
-        /* Font size controlled by JavaScript */
         padding: 6px 10px;
         min-height: 28px;
+        font-size: 0.9em;
     }
     
     .accessibility-panel .scaling-btn {
-        /* Font size controlled by JavaScript */
         padding: 4px 6px;
         min-height: 24px;
+        font-size: 0.8em;
     }
     
     .accessibility-panel .profile-info h4 {
-        /* Font size controlled by JavaScript */
+        font-size: 0.9em;
     }
     
     .accessibility-panel .profile-info p {
-        /* Font size controlled by JavaScript */
+        font-size: 0.8em;
     }
     
     .accessibility-panel .profile-item h4 {
-        /* Font size controlled by JavaScript */
+        font-size: 0.9em;
     }
     
     .accessibility-panel .profile-item p {
-        /* Font size controlled by JavaScript */
+        font-size: 0.8em;
     }
     
     .accessibility-panel .close-btn {
-        /* Font size controlled by JavaScript */
+        font-size: 18px;
+        padding: 6px;
     }
     
     .accessibility-icon {
@@ -1341,17 +1578,22 @@ if (window.innerWidth <= 768) {
         width: 80vw;
         max-width: 380px;
         padding: 14px;
+        max-height: 90vh !important;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
         /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h2 {
-        /* Font size controlled by JavaScript */
         margin-bottom: 10px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h3 {
-        /* Font size controlled by JavaScript */
         margin-bottom: 8px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h4 {
@@ -1359,20 +1601,20 @@ if (window.innerWidth <= 768) {
     }
     
     .accessibility-panel p {
-        /* Font size controlled by JavaScript */
         line-height: 1.4;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .action-btn {
-        /* Font size controlled by JavaScript */
         padding: 8px 12px;
         min-height: 32px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .scaling-btn {
-        /* Font size controlled by JavaScript */
         padding: 5px 8px;
         min-height: 26px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .profile-info h4 {
@@ -1412,17 +1654,22 @@ if (window.innerWidth <= 768) {
         width: 70vw;
         max-width: 450px;
         padding: 16px;
+        max-height: 90vh !important;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
         /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h2 {
-        /* Font size controlled by JavaScript */
         margin-bottom: 12px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h3 {
-        /* Font size controlled by JavaScript */
         margin-bottom: 10px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h4 {
@@ -1430,20 +1677,20 @@ if (window.innerWidth <= 768) {
     }
     
     .accessibility-panel p {
-        /* Font size controlled by JavaScript */
         line-height: 1.5;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .action-btn {
-        /* Font size controlled by JavaScript */
         padding: 10px 14px;
         min-height: 36px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .scaling-btn {
-        /* Font size controlled by JavaScript */
         padding: 6px 10px;
         min-height: 28px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .profile-info h4 {
@@ -1478,7 +1725,7 @@ if (window.innerWidth <= 768) {
 }
 
 /* Larger Displays (Desktops) */
-@media (min-width: 1025px) {
+@media (min-width: 1012px) {
     .accessibility-panel {
         width: 500px;
         max-width: 500px;
@@ -1487,13 +1734,13 @@ if (window.innerWidth <= 768) {
     }
     
     .accessibility-panel h2 {
-        /* Font size controlled by JavaScript */
         margin-bottom: 14px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h3 {
-        /* Font size controlled by JavaScript */
         margin-bottom: 12px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h4 {
@@ -1501,20 +1748,20 @@ if (window.innerWidth <= 768) {
     }
     
     .accessibility-panel p {
-        /* Font size controlled by JavaScript */
         line-height: 1.6;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .action-btn {
-        /* Font size controlled by JavaScript */
         padding: 12px 16px;
         min-height: 40px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .scaling-btn {
-        /* Font size controlled by JavaScript */
         padding: 8px 12px;
         min-height: 32px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .profile-info h4 {
@@ -1553,19 +1800,22 @@ if (window.innerWidth <= 768) {
     .accessibility-panel {
         width: 85vw;
         max-width: 400px;
-        max-height: 80vh;
+        max-height: 90vh !important;
         overflow-y: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
         /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h2 {
-        /* Font size controlled by JavaScript */
         margin-bottom: 8px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h3 {
-        /* Font size controlled by JavaScript */
         margin-bottom: 6px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel h4 {
@@ -1573,20 +1823,20 @@ if (window.innerWidth <= 768) {
     }
     
     .accessibility-panel p {
-        /* Font size controlled by JavaScript */
         line-height: 1.3;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .action-btn {
-        /* Font size controlled by JavaScript */
         padding: 6px 10px;
         min-height: 28px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .scaling-btn {
-        /* Font size controlled by JavaScript */
         padding: 4px 6px;
         min-height: 24px;
+        /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .profile-info h4 {
@@ -1629,12 +1879,12 @@ if (window.innerWidth <= 768) {
     }
     
     .accessibility-panel .action-btn {
-        padding: 8px 12px;
+        padding: 8px 12px !important;
         /* Font size controlled by JavaScript */
     }
     
     .accessibility-panel .scaling-btn {
-        padding: 4px 8px;
+        padding: 4px 8px !important;
         /* Font size controlled by JavaScript */
     }
     
@@ -1646,11 +1896,9 @@ if (window.innerWidth <= 768) {
         /* Font size controlled by JavaScript */
     }
     
-    /* Ensure rounded shape works on mobile */
+    /* Mobile shape adjustments */
     .accessibility-icon[data-shape="rounded"] {
-        border-radius: 25px;
-        -webkit-border-radius: 25px;
-        -moz-border-radius: 25px;
+        border-radius: 12px;
     }
 }
 
@@ -1658,53 +1906,57 @@ if (window.innerWidth <= 768) {
     
     /* Medium toggles for medium mobile screens */
     .toggle-switch {
-        width: 18px;
-        height: 11px;
+        width: 18px !important;
+        height: 11px !important;
     }
     
     .toggle-switch .slider {
-        width: 18px;
-        height: 11px;
+        width: 18px !important;
+        height: 11px !important;
     }
     
     .toggle-switch .slider:before {
-        width: 7px;
-        height: 7px;
-        left: 2px;
-        bottom: 2px;
+        width: 7px !important;
+        height: 7px !important;
+        left: 2px !important;
+        bottom: 2px !important;
     }
     
     .toggle-switch input:checked + .slider:before {
-        transform: translateX(7px);
+        transform: translateX(26px) !important;
     }
     
     /* Medium profile items for medium mobile screens */
     .profile-item {
-        padding: 3px;
-        margin-bottom: 3px;
+        padding: 3px !important;
+        margin-bottom: 3px !important;
     }
     
     .profile-item h4 {
         /* Font size controlled by JavaScript */
-        margin-bottom: 2px;
+        margin-bottom: 2px !important;
     }
     
     .profile-item p {
         /* Font size controlled by JavaScript */
-        margin-bottom: 2px;
+        margin-bottom: 2px !important;
     }
     
     /* Medium close button for medium mobile screens */
     .close-btn {
         /* Font size controlled by JavaScript */
-        padding: 6px;
+        padding: 10px !important;
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
     }
     
     /* Ensure rounded shape works on medium mobile */
     .accessibility-icon[data-shape="rounded"] {
-        border-radius: 25px;
-        -webkit-border-radius: 25px;
-        -moz-border-radius: 25px;
+        border-radius: 12px !important;
+        -webkit-border-radius: 12px !important;
+        -moz-border-radius: 12px !important;
     }
 }
 
@@ -1717,6 +1969,9 @@ if (window.innerWidth <= 768) {
         max-width: 300px;
         max-height: 80vh;
         overflow-y: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
     }
     
     .accessibility-panel h2 {
@@ -1790,27 +2045,69 @@ if (window.innerWidth <= 768) {
     /* Smaller close button for small screens */
     .close-btn {
         /* Font size controlled by JavaScript */
-        padding: 4px;
+        padding: 8px;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
     }
     
     /* Ensure rounded shape works on small mobile */
     .accessibility-icon[data-shape="rounded"] {
-        border-radius: 25px;
-        -webkit-border-radius: 25px;
-        -moz-border-radius: 25px;
+        border-radius: 12px;
+        -webkit-border-radius: 12px;
+        -moz-border-radius: 12px;
     }
 }
 
-/* Removed - consolidated with main mobile media query above */
+@media (max-width: 480px) {
+    .accessibility-panel {
+        /* Font size controlled by JavaScript */ /* Override external 8px */
+    }
+    
+    .accessibility-panel h2 {
+        /* Font size controlled by JavaScript */ /* Override external 9px */
+    }
+    
+    .accessibility-panel h3 {
+        /* Font size controlled by JavaScript */ /* Override external 8px */
+    }
+    
+    /* Override external button size conflicts */
+    .accessibility-panel .action-btn {
+        /* Font size controlled by JavaScript */
+        padding: 6px 10px;
+    }
+    
+    .accessibility-panel .scaling-btn {
+        /* Font size controlled by JavaScript */
+        padding: 3px 6px;
+    }
+    
+    .accessibility-panel .profile-info h4 {
+        /* Font size controlled by JavaScript */
+    }
+    
+    .accessibility-panel .profile-info p {
+        /* Font size controlled by JavaScript */
+    }
+    
+    /* Ensure rounded shape works on small mobile */
+    .accessibility-icon[data-shape="rounded"] {
+        border-radius: 12px;
+        -webkit-border-radius: 12px;
+        -moz-border-radius: 12px;
+    }
+}
 
 /* Override external panel positioning conflicts */
 .accessibility-panel {
     /* Let JavaScript control positioning, not external CSS */
-    left: auto;
-    right: auto;
-    top: auto;
-    bottom: auto;
-    transform: none;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
 }
 
 /* ===== MOBILE RESPONSIVE - PANEL CLOSE TO ICON ===== */
@@ -1819,14 +2116,14 @@ if (window.innerWidth <= 768) {
     
     /* Ensure rounded shape works on large tablets */
     .accessibility-icon[data-shape="rounded"] {
-        border-radius: 25px;
-        -webkit-border-radius: 25px;
-        -moz-border-radius: 25px;
+        border-radius: 12px !important;
+        -webkit-border-radius: 12px !important;
+        -moz-border-radius: 12px !important;
     }
     
     .accessibility-icon {
-        width: 55px;
-        height: 55px;
+        width: 55px !important;
+        height: 55px !important;
     }
     
     .accessibility-icon i {
@@ -1836,17 +2133,17 @@ if (window.innerWidth <= 768) {
     /* Better content spacing for large tablets */
     .accessibility-panel h2 {
         /* Font size controlled by JavaScript */
-        margin-bottom: 14px;
+        margin-bottom: 14px !important;
     }
     
     .accessibility-panel h3 {
         /* Font size controlled by JavaScript */
-        margin-bottom: 12px;
+        margin-bottom: 12px !important;
     }
     
     .profile-item {
-        padding: 12px;
-        margin-bottom: 10px;
+        padding: 12px !important;
+        margin-bottom: 10px !important;
     }
     
     .profile-item h4 {
@@ -1858,7 +2155,7 @@ if (window.innerWidth <= 768) {
     }
     
     .action-btn {
-        padding: 10px 14px;
+        padding: 10px 14px !important;
         /* Font size controlled by JavaScript */
     }
 }
@@ -1867,14 +2164,14 @@ if (window.innerWidth <= 768) {
     
     /* Ensure rounded shape works on tablets */
     .accessibility-icon[data-shape="rounded"] {
-        border-radius: 25px;
-        -webkit-border-radius: 25px;
-        -moz-border-radius: 25px;
+        border-radius: 12px !important;
+        -webkit-border-radius: 12px !important;
+        -moz-border-radius: 12px !important;
     }
     
     .accessibility-icon {
-        width: 50px;
-        height: 50px;
+        width: 50px !important;
+        height: 50px !important;
     }
     
     .accessibility-icon i {
@@ -1885,26 +2182,26 @@ if (window.innerWidth <= 768) {
 /* iPad Mini and Tablet - Responsive sizing */
 @media (max-width: 819px) and (min-width: 769px) {
     .accessibility-panel {
-        width: 85vw;
-        max-width: 450px;
+        width: 85vw !important;
+        max-width: 450px !important;
         /* Font size controlled by JavaScript */
-        padding: 16px;
-        max-height: 80vh;
-        overflow-y: auto;
-        position: fixed;
-        z-index: 100001;
+        padding: 16px !important;
+        max-height: 80vh !important;
+        overflow-y: auto !important;
+        position: fixed !important;
+        z-index: 100001 !important;
     }
     
     /* Ensure rounded shape works on iPad Mini */
     .accessibility-icon[data-shape="rounded"] {
-        border-radius: 25px;
-        -webkit-border-radius: 25px;
-        -moz-border-radius: 25px;
+        border-radius: 12px !important;
+        -webkit-border-radius: 12px !important;
+        -moz-border-radius: 12px !important;
     }
     
     .accessibility-icon {
-        width: 50px;
-        height: 50px;
+        width: 50px !important;
+        height: 50px !important;
     }
     
     .accessibility-icon i {
@@ -1914,17 +2211,17 @@ if (window.innerWidth <= 768) {
     /* Better content spacing for tablet */
     .accessibility-panel h2 {
         /* Font size controlled by JavaScript */
-        margin-bottom: 12px;
+        margin-bottom: 12px !important;
     }
     
     .accessibility-panel h3 {
         /* Font size controlled by JavaScript */
-        margin-bottom: 10px;
+        margin-bottom: 10px !important;
     }
     
     .profile-item {
-        padding: 10px;
-        margin-bottom: 8px;
+        padding: 10px !important;
+        margin-bottom: 8px !important;
     }
     
     .profile-item h4 {
@@ -1936,7 +2233,7 @@ if (window.innerWidth <= 768) {
     }
     
     .action-btn {
-        padding: 8px 12px;
+        padding: 8px 12px !important;
         /* Font size controlled by JavaScript */
     }
 }
@@ -1944,8 +2241,8 @@ if (window.innerWidth <= 768) {
 /* Removed - replaced with mobile-first approach above */
     
     .accessibility-icon {
-        width: 45px;
-        height: 45px;
+        width: 45px !important;
+        height: 45px !important;
     }
     
     .accessibility-icon i {
@@ -1955,17 +2252,17 @@ if (window.innerWidth <= 768) {
     /* Reasonable text and toggles for mobile landscape */
     .accessibility-panel h2 {
         /* Font size controlled by JavaScript */
-        margin-bottom: 10px;
+        margin-bottom: 10px !important;
     }
     
     .accessibility-panel h3 {
         /* Font size controlled by JavaScript */
-        margin-bottom: 8px;
+        margin-bottom: 8px !important;
     }
     
     .profile-item {
-        padding: 6px;
-        margin-bottom: 4px;
+        padding: 6px !important;
+        margin-bottom: 4px !important;
     }
     
     .profile-item h4 {
@@ -1977,7 +2274,7 @@ if (window.innerWidth <= 768) {
     }
     
     .action-btn {
-        padding: 4px 6px;
+        padding: 4px 6px !important;
         /* Font size controlled by JavaScript */
     }
     
@@ -1985,55 +2282,76 @@ if (window.innerWidth <= 768) {
     .action-btn.reset-btn,
     .action-btn.statement-btn,
     .action-btn.hide-btn {
-        padding: 3px 5px;
+        padding: 3px 5px !important;
         /* Font size controlled by JavaScript */
-        min-height: 20px;
+        min-height: 20px !important;
     }
     
     .action-btn i {
         /* Font size controlled by JavaScript */
-        margin-right: 2px;
+        margin-right: 2px !important;
     }
     
     /* Very small toggles for mobile landscape */
     .toggle-switch {
-        width: 20px;
-        height: 12px;
+        width: 20px !important;
+        height: 12px !important;
     }
     
     .toggle-switch .slider {
-        width: 20px;
-        height: 12px;
+        width: 20px !important;
+        height: 12px !important;
     }
     
     .toggle-switch .slider:before {
-        height: 8px;
-        width: 8px;
-        left: 2px;
-        bottom: 2px;
+        height: 8px !important;
+        width: 8px !important;
+        left: 2px !important;
+        bottom: 2px !important;
     }
     
     .toggle-switch input:checked + .slider:before {
-        transform: translateX(8px);
+        transform: translateX(26px) !important;
     }
 }
 
-/* Removed - consolidated with main mobile media query above */
+/* Mobile Portrait - Reasonable text and toggles */
+@media (max-width: 480px) {
+    .accessibility-panel {
+        width: 75vw !important;
+        max-width: 320px !important;
+        /* Font size controlled by JavaScript */
+        padding: 12px !important;
+        max-height: 90vh !important;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+    
+    .accessibility-icon {
+        width: 40px !important;
+        height: 40px !important;
+    }
+    
+    .accessibility-icon i {
+        /* Font size controlled by JavaScript */
+    }
     
     /* Reasonable text and toggles for mobile portrait */
     .accessibility-panel h2 {
         /* Font size controlled by JavaScript */
-        margin-bottom: 8px;
+        margin-bottom: 8px !important;
     }
     
     .accessibility-panel h3 {
         /* Font size controlled by JavaScript */
-        margin-bottom: 6px;
+        margin-bottom: 6px !important;
     }
     
     .profile-item {
-        padding: 2px;
-        margin-bottom: 2px;
+        padding: 2px !important;
+        margin-bottom: 2px !important;
     }
     
     .profile-item h4 {
@@ -2045,7 +2363,7 @@ if (window.innerWidth <= 768) {
     }
     
     .action-btn {
-        padding: 2px 3px;
+        padding: 2px 3px !important;
         /* Font size controlled by JavaScript */
     }
     
@@ -2053,36 +2371,36 @@ if (window.innerWidth <= 768) {
     .action-btn.reset-btn,
     .action-btn.statement-btn,
     .action-btn.hide-btn {
-        padding: 1px 2px;
+        padding: 1px 2px !important;
         /* Font size controlled by JavaScript */
-        min-height: 12px;
+        min-height: 12px !important;
     }
     
     .action-btn i {
         /* Font size controlled by JavaScript */
-        margin-right: 1px;
+        margin-right: 1px !important;
     }
     
     /* TINY toggles for mobile portrait */
     .toggle-switch {
-        width: 12px;
-        height: 8px;
+        width: 12px !important;
+        height: 8px !important;
     }
     
     .toggle-switch .slider {
-        width: 12px;
-        height: 8px;
+        width: 12px !important;
+        height: 8px !important;
     }
     
     .toggle-switch .slider:before {
-        height: 4px;
-        width: 4px;
-        left: 2px;
-        bottom: 2px;
+        height: 4px !important;
+        width: 4px !important;
+        left: 2px !important;
+        bottom: 2px !important;
     }
     
     .toggle-switch input:checked + .slider:before {
-        transform: translateX(4px);
+        transform: translateX(26px) !important;
     }
 }
 
@@ -2092,36 +2410,36 @@ if (window.innerWidth <= 768) {
 
 /* DEBUG: Add visual indicators for shape testing */
 .accessibility-icon[data-shape="circle"]::after {
-    content: "CIRCLE";
-    position: absolute;
-    top: -20px;
-    left: 0;
+    content: "CIRCLE" !important;
+    position: absolute !important;
+    top: -20px !important;
+    left: 0 !important;
     /* Font size controlled by JavaScript */
-    color: red;
-    background: yellow;
-    z-index: 9999;
+    color: red !important;
+    background: yellow !important;
+    z-index: 9999 !important;
 }
 
 .accessibility-icon[data-shape="rounded"]::after {
-    content: "ROUNDED";
-    position: absolute;
-    top: -20px;
-    left: 0;
+    content: "ROUNDED" !important;
+    position: absolute !important;
+    top: -20px !important;
+    left: 0 !important;
     /* Font size controlled by JavaScript */
-    color: red;
-    background: yellow;
-    z-index: 9999;
+    color: red !important;
+    background: yellow !important;
+    z-index: 9999 !important;
 }
 
 .accessibility-icon[data-shape="square"]::after {
-    content: "SQUARE";
-    position: absolute;
-    top: -20px;
-    left: 0;
+    content: "SQUARE" !important;
+    position: absolute !important;
+    top: -20px !important;
+    left: 0 !important;
     /* Font size controlled by JavaScript */
-    color: red;
-    background: yellow;
-    z-index: 9999;
+    color: red !important;
+    background: yellow !important;
+    z-index: 9999 !important;
 }
 
 /* Removed conflicting media query rules */
@@ -2145,11 +2463,9 @@ if (window.innerWidth <= 768) {
         /* Font size controlled by JavaScript */
     }
     
-    /* Ensure rounded shape works on mobile */
+    /* Mobile shape adjustments */
     .accessibility-icon[data-shape="rounded"] {
-        border-radius: 25px;
-        -webkit-border-radius: 25px;
-        -moz-border-radius: 25px;
+        border-radius: 12px;
     }
     
     .profile-item h4 {
@@ -2162,46 +2478,99 @@ if (window.innerWidth <= 768) {
     
     .action-btn {
         /* Font size controlled by JavaScript */
-        padding: 2px 3px;
+        padding: 2px 3px !important;
     }
     
     .action-btn.reset-btn,
     .action-btn.statement-btn,
     .action-btn.hide-btn {
         /* Font size controlled by JavaScript */
-        padding: 1px 2px;
-        min-height: 12px;
+        padding: 1px 2px !important;
+        min-height: 12px !important;
     }
     
     .toggle-switch {
-        width: 12px;
-        height: 8px;
+        width: 12px !important;
+        height: 8px !important;
     }
     
     .toggle-switch .slider {
-        width: 12px;
-        height: 8px;
+        width: 12px !important;
+        height: 8px !important;
     }
     
     .toggle-switch .slider:before {
-        width: 4px;
-        height: 4px;
+        width: 4px !important;
+        height: 4px !important;
     }
     
     .toggle-switch input:checked + .slider:before {
-        transform: translateX(4px);
+        transform: translateX(26px) !important;
     }
 }
 
 .accessibility-panel {
-    display: none;
-    position: fixed;
-    z-index: 100001;
+    display: none !important;
+    position: fixed !important;
+    z-index: 100001 !important;
 }
 
 .accessibility-panel.show {
-    display: block;
-    visibility: visible;
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* Text Alignment CSS Rules */
+body.align-left * {
+    text-align: left !important;
+}
+
+body.align-center * {
+    text-align: center !important;
+}
+
+body.align-right * {
+    text-align: right !important;
+}
+
+/* More specific alignment rules for better coverage */
+body.align-left h1,
+body.align-left h2,
+body.align-left h3,
+body.align-left h4,
+body.align-left h5,
+body.align-left h6,
+body.align-left p,
+body.align-left div,
+body.align-left span,
+body.align-left a {
+    text-align: left !important;
+}
+
+body.align-center h1,
+body.align-center h2,
+body.align-center h3,
+body.align-center h4,
+body.align-center h5,
+body.align-center h6,
+body.align-center p,
+body.align-center div,
+body.align-center span,
+body.align-center a {
+    text-align: center !important;
+}
+
+body.align-right h1,
+body.align-right h2,
+body.align-right h3,
+body.align-right h4,
+body.align-right h5,
+body.align-right h6,
+body.align-right p,
+body.align-right div,
+body.align-right span,
+body.align-right a {
+    text-align: right !important;
 }
 `;
 
@@ -2477,37 +2846,103 @@ if (window.innerWidth <= 768) {
             /* REMOVED empty rule that was potentially conflicting */
         }
         
-        /* Override external CSS */
+        /* Override external CSS with maximum specificity */
         .accessibility-icon[data-shape="circle"] {
-            border-radius: 50%;
+            border-radius: 50% !important;
+            -webkit-border-radius: 50% !important;
+            -moz-border-radius: 50% !important;
         }
         
         .accessibility-icon[data-shape="rounded"] {
-            border-radius: 25px;
+            border-radius: 12px !important;
+            -webkit-border-radius: 12px !important;
+            -moz-border-radius: 12px !important;
         }
         
         .accessibility-icon[data-shape="square"] {
-            border-radius: 0px;
+            border-radius: 0px !important;
+            -webkit-border-radius: 0px !important;
+            -moz-border-radius: 0px !important;
+        }
+        
+        /* ULTRA-AGGRESSIVE OVERRIDE FOR ROUNDED SHAPE */
+        .accessibility-icon.rounded,
+        .accessibility-icon[data-shape="rounded"],
+        .accessibility-icon.rounded[data-shape="rounded"],
+        .accessibility-icon[data-shape="rounded"].rounded {
+            border-radius: 12px !important;
+            -webkit-border-radius: 12px !important;
+            -moz-border-radius: 12px !important;
+        }
+        
+        /* Force rounded shape with absolute maximum specificity */
+        .accessibility-icon.rounded[data-shape="rounded"] {
+            border-radius: 12px !important;
+            -webkit-border-radius: 12px !important;
+            -moz-border-radius: 12px !important;
+        }
+        
+        /* Override any external CSS that might be forcing circle shape */
+        .accessibility-icon[data-shape="rounded"]:not([data-shape="circle"]) {
+            border-radius: 12px !important;
+            -webkit-border-radius: 12px !important;
+            -moz-border-radius: 12px !important;
+        }
+        
+        /* Force rounded shape with absolute maximum specificity */
+        .accessibility-icon.rounded,
+        .accessibility-icon[data-shape="rounded"] {
+            border-radius: 12px !important;
+            -webkit-border-radius: 12px !important;
+            -moz-border-radius: 12px !important;
+        }
+        
+        /* Override any external CSS that might be forcing circle shape */
+        .accessibility-icon[data-shape="rounded"]:not([data-shape="circle"]) {
+            border-radius: 12px !important;
+            -webkit-border-radius: 12px !important;
+            -moz-border-radius: 12px !important;
+        }
+        
+        /* Maximum specificity override for rounded shape */
+        .accessibility-icon.rounded[data-shape="rounded"] {
+            border-radius: 12px !important;
+            -webkit-border-radius: 12px !important;
+            -moz-border-radius: 12px !important;
+        }
+        
+        /* Force rounded shape with absolute maximum specificity */
+        .accessibility-icon[data-shape="rounded"].rounded {
+            border-radius: 12px !important;
+            -webkit-border-radius: 12px !important;
+            -moz-border-radius: 12px !important;
+        }
+        
+        /* Override any external CSS with maximum force */
+        .accessibility-icon[data-shape="rounded"] {
+            border-radius: 12px !important;
+            -webkit-border-radius: 12px !important;
+            -moz-border-radius: 12px !important;
         }
         
         /* Force panel positioning */
         .accessibility-panel {
-            position: fixed;
-            z-index: 100001;
-            display: none; /* Hidden by default */
+            position: fixed !important;
+            z-index: 100001 !important;
+            display: none !important; /* Hidden by default */
         }
         
         .accessibility-panel.show {
-            display: block;
-            visibility: visible;
+            display: block !important;
+            visibility: visible !important;
         }
         
         /* Mobile responsiveness - handled by main responsive CSS above */
         
         @media (max-width: 480px) {
             .accessibility-icon {
-                width: 45px;
-                height: 45px;
+                width: 45px !important;
+                height: 45px !important;
             }
             
             .accessibility-icon i {
@@ -2515,8 +2950,8 @@ if (window.innerWidth <= 768) {
             }
             
             .accessibility-panel {
-                width: 95vw;
-                max-width: 350px;
+                width: 95vw !important;
+                max-width: 350px !important;
             }
         }
             /* Accessibility Widget Styles - Shadow DOM */
@@ -2549,16 +2984,16 @@ if (window.innerWidth <= 768) {
 
             .accessibility-icon {
 
-                position: fixed;
+                position: fixed !important;
 
-                z-index: 99998;
+                z-index: 99998 !important;
                 
                 /* Ensure JavaScript positioning takes precedence */
-                top: unset;
-                bottom: unset;
-                left: unset;
-                right: unset;
-                transform: unset;
+                top: unset !important;
+                bottom: unset !important;
+                left: unset !important;
+                right: unset !important;
+                transform: unset !important;
 
             }
 
@@ -2618,8 +3053,26 @@ if (window.innerWidth <= 768) {
 
             .accessibility-icon:focus {
 
-                outline: none;
+                
+            }
 
+            /* Allow focus indicators when highlight-focus is active */
+            body.highlight-focus .accessibility-icon:focus {
+                outline: 3px solid #6366f1 !important;
+                outline-offset: 2px !important;
+                background: rgba(99, 102, 241, 0.1) !important;
+                border-radius: 4px !important;
+                transition: outline 0.2s ease, background 0.2s ease !important;
+            }
+            
+            /* Additional focus styles for accessibility icon when keyboard navigation is active */
+            body.highlight-focus #accessibility-icon:focus {
+                outline: 3px solid #6366f1 !important;
+                outline-offset: 2px !important;
+                background: rgba(99, 102, 241, 0.1) !important;
+                border-radius: 4px !important;
+                transition: outline 0.2s ease, background 0.2s ease !important;
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3) !important;
             }
 
 
@@ -2642,9 +3095,9 @@ if (window.innerWidth <= 768) {
 
             .language-selector:focus {
 
-             outline: none;
-             outline-offset: 0px;
-             box-shadow: none;   
+        
+             outline-offset: 0px !important;
+             box-shadow: none !important;   
 
             }
 
@@ -2652,7 +3105,18 @@ if (window.innerWidth <= 768) {
 
             .toggle-switch input:focus + .slider {
 
-                 outline: none;
+                 outline: none !important;
+            }
+            
+            /* Override for accessibility icon to show focus when keyboard navigation is active */
+            body.highlight-focus .accessibility-icon:focus,
+            body.highlight-focus #accessibility-icon:focus {
+                outline: 3px solid #6366f1 !important;
+                outline-offset: 2px !important;
+                background: rgba(99, 102, 241, 0.1) !important;
+                border-radius: 4px !important;
+                transition: outline 0.2s ease, background 0.2s ease !important;
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3) !important;
             }
 
 
@@ -2663,14 +3127,22 @@ if (window.innerWidth <= 768) {
 
             .profile-item:focus-within {
 
-                outline: none;
+                outline: 3px solid #6366f1 !important;
+                outline-offset: 2px !important;
+                background: rgba(99, 102, 241, 0.1) !important;
+                border-radius: 4px !important;
+                transition: outline 0.2s ease, background 0.2s ease !important;
             }
 
 
 
             .profile-item:focus {
 
-               outline: none;
+               outline: 3px solid #6366f1 !important;
+               outline-offset: 2px !important;
+               background: rgba(99, 102, 241, 0.1) !important;
+               border-radius: 4px !important;
+               transition: outline 0.2s ease, background 0.2s ease !important;
             }
 
 
@@ -2679,23 +3151,23 @@ if (window.innerWidth <= 768) {
 
             .sr-only {
 
-                position: absolute;
+                position: absolute !important;
 
-                width: 1px;
+                width: 1px !important;
 
-                height: 1px;
+                height: 1px !important;
 
-                padding: 0;
+                padding: 0 !important;
 
-                margin: -1px;
+                margin: -1px !important;
 
-                overflow: hidden;
+                overflow: hidden !important;
 
-                clip: rect(0, 0, 0, 0);
+                clip: rect(0, 0, 0, 0) !important;
 
-                white-space: nowrap;
+                white-space: nowrap !important;
 
-                border: 0;
+                border: 0 !important;
 
             }
 
@@ -2711,13 +3183,36 @@ if (window.innerWidth <= 768) {
 
             .accessibility-panel label:focus {
 
-                outline: none;
-                outline-offset: 0px;
-                box-shadow: none;
+                
+                outline-offset: 0px !important;
+                box-shadow: none !important;
 
             }
 
+            /* Allow focus indicators when highlight-focus is active (document scope) */
+            body.highlight-focus .accessibility-icon:focus,
+            body.highlight-focus .accessibility-panel button:focus,
+            body.highlight-focus .accessibility-panel input:focus,
+            body.highlight-focus .accessibility-panel label:focus {
+                outline: 3px solid #6366f1 !important;
+                outline-offset: 2px !important;
+                background: rgba(99, 102, 241, 0.1) !important;
+                border-radius: 4px !important;
+                transition: outline 0.2s ease, background 0.2s ease !important;
+            }
 
+            /* Ensure focus styles work inside Shadow DOM when body has highlight-focus */
+            :host-context(.highlight-focus) #accessibility-icon:focus,
+            :host-context(.highlight-focus) .accessibility-icon:focus,
+            :host-context(.highlight-focus) .accessibility-panel button:focus,
+            :host-context(.highlight-focus) .accessibility-panel input:focus,
+            :host-context(.highlight-focus) .accessibility-panel label:focus {
+                outline: 3px solid #6366f1 !important;
+                outline-offset: 2px !important;
+                background: rgba(99, 102, 241, 0.1) !important;
+                border-radius: 4px !important;
+                transition: outline 0.2s ease, background 0.2s ease !important;
+            }
 
             /* High contrast focus for better visibility */
 
@@ -2727,7 +3222,7 @@ if (window.innerWidth <= 768) {
 
             .accessibility-panel input:focus-visible {
 
-                outline: none;
+                
 
             }
 
@@ -2739,29 +3234,38 @@ if (window.innerWidth <= 768) {
 
                 position: fixed;
 
-                width: 500px;
+                width: 500px !important;
 
-                height: 700px;
+                height: 700px !important;
 
-                background: #ffffff;
+                background: #ffffff !important;
 
-                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
 
-                z-index: 100000;
+                z-index: 100000 !important;
 
                 transition: left 0.3s ease;
 
                 overflow-y: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
 
                 overflow-x: hidden;
 
-                font-family: 'DM Sans', sans-serif;
+                font-family: 'DM Sans', sans-serif !important;
 
-                border-radius: 8px;
+                border-radius: 8px !important;
 
                 margin: 0 20px;
 
                 pointer-events: auto;
+
+                /* Text wrapping to prevent cutoff */
+                word-wrap: break-word !important;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
+                hyphens: auto !important;
 
                 /* Make panel a containing block for modal */
                 position: relative;
@@ -2770,11 +3274,11 @@ if (window.innerWidth <= 768) {
 
             .accessibility-panel.active {
 
-                display: block;
+                display: block !important;
 
-                visibility: visible;
+                visibility: visible !important;
 
-                opacity: 1;
+                opacity: 1 !important;
 
             }
 
@@ -2785,7 +3289,7 @@ if (window.innerWidth <= 768) {
 
                 .accessibility-panel.active {
 
-                    left: 20px;
+                    left: 20px !important;
 
                 }
 
@@ -2797,9 +3301,9 @@ if (window.innerWidth <= 768) {
 
                 .accessibility-icon {
 
-                    width: 45px;
+                    width: 45px !important;
 
-                    height: 45px;
+                    height: 45px !important;
 
                     /* Position controlled by JS; do not force a corner here */
 
@@ -2817,11 +3321,11 @@ if (window.innerWidth <= 768) {
 
                 .accessibility-panel {
 
-                    width: 500px;
+                    width: 500px !important;
 
-                    margin: 0 10px;
+                    margin: 0 10px !important;
 
-                    height: 700px;
+                    height: 700px !important;
 
                 }
 
@@ -2829,7 +3333,7 @@ if (window.innerWidth <= 768) {
 
                 .accessibility-panel.active {
 
-                    left: 10px;
+                    left: 10px !important;
 
                 }
 
@@ -2847,15 +3351,15 @@ if (window.innerWidth <= 768) {
 
                 padding: 20px;
 
-                background: transparent;
+                background: transparent !important;
 
-                color: #ffffff;
+                color: #ffffff !important;
 
-                border-radius: 24px;
+                border-radius: 24px !important;
 
-                border: 4px solid #ffffff;
+                border: 4px solid #ffffff !important;
 
-                border-bottom: none;
+                border-bottom: none !important;
 
                 position: relative;
 
@@ -2895,25 +3399,45 @@ if (window.innerWidth <= 768) {
 
             .close-btn {
 
-                cursor: pointer;
+                cursor: pointer !important;
 
-                /* Font size controlled by JavaScript */
+                font-size: 24px;
 
-                padding: 8px;
+                padding: 12px !important;
 
-                position: absolute;
+                position: absolute !important;
 
-                top: 10px;
+                top: 4px !important;
 
-                left: 15px;
+                left: 8px !important;
 
-                z-index: 1005;
+                z-index: 1005 !important;
 
-                background: transparent;
+                background: transparent !important;
 
-                border: none;
+                border: none !important;
 
                 color: white;
+
+                /* Increased clickable area */
+                width: 48px !important;
+                height: 48px !important;
+                min-width: 48px !important;
+                min-height: 48px !important;
+                max-width: 48px !important;
+                max-height: 48px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                box-sizing: border-box !important;
+                margin: 0 !important;
+                outline: none !important;
+                border-radius: 8px !important;
+                transition: background-color 0.2s ease !important;
+                
+                /* Ensure the entire button area is clickable */
+                position: relative !important;
+                overflow: visible !important;
 
             }
 
@@ -2922,7 +3446,54 @@ if (window.innerWidth <= 768) {
             .close-btn:hover {
 
                 color: white;
+                background-color: rgba(255, 255, 255, 0.1) !important;
 
+            }
+
+            /* Ensure entire close button area is clickable */
+            .close-btn * {
+                pointer-events: none !important;
+            }
+
+            .close-btn {
+                pointer-events: auto !important;
+                cursor: pointer !important;
+            }
+            
+            /* Make sure the button itself captures all clicks */
+            .close-btn::before,
+            .close-btn::after {
+                pointer-events: none !important;
+            }
+            
+            /* Ensure the button background captures all clicks */
+            .close-btn {
+                background-color: transparent !important;
+                background-image: none !important;
+            }
+            
+            /* Make sure no child elements interfere with clicks */
+            .close-btn i,
+            .close-btn span,
+            .close-btn div {
+                pointer-events: none !important;
+                user-select: none !important;
+                position: relative !important;
+                z-index: 2 !important;
+            }
+            
+            /* Create a full-coverage clickable area */
+            .close-btn::before {
+                content: '' !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                pointer-events: auto !important;
+                z-index: 1 !important;
             }
 
 
@@ -3003,7 +3574,7 @@ if (window.innerWidth <= 768) {
 
                 margin: 4px 0;
 
-                /* Font size controlled by JavaScript */
+                font-size: 13px;
 
                 color: #64748b;
 
@@ -3015,9 +3586,13 @@ if (window.innerWidth <= 768) {
 
             .profile-item {
 
-                word-wrap: break-word;
+                word-wrap: break-word !important;
 
-                overflow-wrap: break-word;
+                overflow-wrap: break-word !important;
+                
+                word-break: break-word !important;
+                
+                hyphens: auto !important;
 
             }
 
@@ -3036,6 +3611,14 @@ if (window.innerWidth <= 768) {
             .profile-info div {
 
                 min-width: 0; /* Allow text to wrap */
+                
+                word-wrap: break-word !important;
+                
+                word-break: break-word !important;
+                
+                overflow-wrap: break-word !important;
+                
+                hyphens: auto !important;
 
             }
 
@@ -3083,11 +3666,11 @@ if (window.innerWidth <= 768) {
 
                 padding: 8px 16px;
 
-                background: rgba(217, 217, 217, 0.3);
+                background: rgba(217, 217, 217, 0.3) !important;
 
-                border: 2px solid rgba(217, 217, 217, 0.3);
+                border: 2px solid rgba(217, 217, 217, 0.3) !important;
 
-                color: #ffffff;
+                color: #ffffff !important;
 
                 border-radius: 30px;
 
@@ -3099,7 +3682,7 @@ if (window.innerWidth <= 768) {
 
                 white-space: nowrap;
 
-                /* Font size controlled by JavaScript */
+                font-size: 12px;
 
                 justify-content: center;
 
@@ -3127,11 +3710,11 @@ if (window.innerWidth <= 768) {
 
                 padding: 0 20px 20px;
 
-                background: #ffffff;
+                background: #ffffff !important;
 
-                border-radius: 40px 40px 0 0;
+                border-radius: 40px 40px 0 0 !important;
 
-                margin-top: -30px;
+                margin-top: -30px !important;
 
                 position: relative;
 
@@ -3151,7 +3734,7 @@ if (window.innerWidth <= 768) {
 
                 margin-bottom: 12px;
 
-                /* Font size controlled by JavaScript */
+                font-size: 18px;
 
                 font-weight: 600;
 
@@ -3235,7 +3818,7 @@ if (window.innerWidth <= 768) {
 
             .profile-info i {
 
-                /* Font size controlled by JavaScript */
+                font-size: 20px;
 
                 color: #6366f1;
 
@@ -3251,17 +3834,25 @@ if (window.innerWidth <= 768) {
 
                 margin: 0;
 
-                /* Font size controlled by JavaScript */
+                font-size: 16px;
 
                 color: #334155;
 
                 font-weight: 600;
 
-                white-space: nowrap;
+                white-space: normal !important;
 
-                overflow: hidden;
+                overflow: visible !important;
 
-                text-overflow: ellipsis;
+                text-overflow: unset !important;
+                
+                word-wrap: break-word !important;
+                
+                word-break: break-word !important;
+                
+                overflow-wrap: break-word !important;
+                
+                hyphens: auto !important;
 
             }
 
@@ -3269,17 +3860,25 @@ if (window.innerWidth <= 768) {
 
             .profile-info p {
 
-                margin: 5px 0 0;
+                margin: 5px 0 0 !important;
 
-                /* Font size controlled by JavaScript */
+                font-size: 14px;
 
                 color: #64748b;
 
-                white-space: nowrap;
+                white-space: normal !important;
 
-                overflow: hidden;
+                overflow: visible !important;
 
-                text-overflow: ellipsis;
+                text-overflow: unset !important;
+                
+                word-wrap: break-word !important;
+                
+                word-break: break-word !important;
+                
+                overflow-wrap: break-word !important;
+                
+                hyphens: auto !important;
 
             }
 
@@ -3291,7 +3890,7 @@ if (window.innerWidth <= 768) {
 
                 margin: 3px 0 0;
 
-                /* Font size controlled by JavaScript */
+                font-size: 12px;
 
                 color: #6366f1;
 
@@ -3315,13 +3914,11 @@ if (window.innerWidth <= 768) {
 
                 display: inline-block;
 
-                width: 80px;
+                width: 80px !important;
 
-                height: 40px;
+                height: 40px !important;
 
                 flex-shrink: 0;
-
-                order: 1;
 
             }
 
@@ -3357,7 +3954,7 @@ if (window.innerWidth <= 768) {
 
                 transition: 0.3s;
 
-                border-radius: 20px;
+                border-radius: 20px !important;
 
             }
 
@@ -3391,7 +3988,7 @@ if (window.innerWidth <= 768) {
 
             input:checked + .slider {
 
-                background-color: #e5e7eb;
+                background-color: #e5e7eb !important;
 
             }
 
@@ -3399,7 +3996,7 @@ if (window.innerWidth <= 768) {
 
             input:checked + .slider:before {
 
-                transform: translateX(26px);
+                transform: translateX(26px) !important;
 
             }
 
@@ -3415,11 +4012,11 @@ if (window.innerWidth <= 768) {
 
                 top: 50%;
 
-                left: 12px;
+                left: 20px; /* Position relative to knob center */
 
-                transform: translateY(-50%);
+                transform: translateY(-50%) translateX(-50%);
 
-                /* Font size controlled by JavaScript */
+                font-size: 12px;
 
                 font-weight: bold;
 
@@ -3463,7 +4060,7 @@ if (window.innerWidth <= 768) {
 
                 justify-content: center;
 
-                /* Font size controlled by JavaScript */
+                font-size: 12px;
 
                 font-weight: bold;
 
@@ -3483,7 +4080,9 @@ if (window.innerWidth <= 768) {
 
                 left: auto;
 
-                right: 12px;
+                right: 20px; /* Position relative to knob center */
+                
+                transform: translateY(-50%) translateX(50%);
 
             }
 
@@ -3507,7 +4106,7 @@ if (window.innerWidth <= 768) {
 
                 bottom: 0;
 
-                background: linear-gradient(135deg, #262E84, #2AA2F1);
+                background: linear-gradient(135deg, #262E84, #2AA2F1) !important;
 
                 color: #ffffff;
 
@@ -3519,9 +4118,9 @@ if (window.innerWidth <= 768) {
 
                 align-items: center;
 
-                /* Font size controlled by JavaScript */
+                font-size: 14px;
 
-                border-radius: 0 0 8px 8px;
+                border-radius: 0 0 8px 8px !important;
 
                 z-index: 1001;
 
@@ -3561,7 +4160,7 @@ if (window.innerWidth <= 768) {
 
                 color: #ffffff;
 
-                /* Font size controlled by JavaScript */
+                font-size: 12px;
 
                 font-weight: 500;
 
@@ -3587,7 +4186,7 @@ if (window.innerWidth <= 768) {
 
             .language-selector-header .current-flag {
 
-                /* Font size controlled by JavaScript */
+                font-size: 16px;
 
             }
 
@@ -3595,7 +4194,7 @@ if (window.innerWidth <= 768) {
 
             .language-selector-header i.fa-chevron-down {
 
-                /* Font size controlled by JavaScript */
+                font-size: 10px;
 
                 transition: transform 0.2s ease;
 
@@ -3617,48 +4216,47 @@ if (window.innerWidth <= 768) {
 
             .language-dropdown {
 
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
+                position: sticky !important;
+                top: 0 !important;
 
                 /* Keep dropdown in panel viewport when scrolling */
-                background: #ffffff;
+                position: fixed !important;
 
-                border-radius: 12px;
+                background: #ffffff !important;
 
-                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                border-radius: 12px !important;
 
-                border: 1px solid #e5e7eb;
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
 
-                z-index: 100001;
+                border: 1px solid #e5e7eb !important;
 
-                width: 400px;
+                z-index: 100001 !important;
 
-                max-height: 400px;
+                width: 400px !important;
 
-                overflow-y: auto;
+                max-height: 400px !important;
 
-                overflow-x: hidden;
+                overflow-y: auto !important;
 
-                animation: dropdownSlideIn 0.2s ease-out;
+                overflow-x: hidden !important;
 
-                transform: none;
+                animation: dropdownSlideIn 0.2s ease-out !important;
 
-                clip: none;
+                transform: none !important;
 
-                display: none;
+                clip: none !important;
 
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                display: none !important;
 
-                pointer-events: auto;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+
+                pointer-events: auto !important;
 
                 /* Ensure dropdown is positioned relative to panel */
 
-                margin: 0;
+                margin: 0 !important;
 
-                padding: 0;
+                padding: 0 !important;
 
             }
 
@@ -3668,13 +4266,13 @@ if (window.innerWidth <= 768) {
 
             .language-dropdown[style*="display: block"] {
 
-                display: block;
+                display: block !important;
 
-                visibility: visible;
+                visibility: visible !important;
 
-                opacity: 1;
+                opacity: 1 !important;
 
-                pointer-events: auto;
+                pointer-events: auto !important;
 
             }
 
@@ -3704,11 +4302,11 @@ if (window.innerWidth <= 768) {
 
             .language-dropdown-content {
 
-                padding: 20px;
+                padding: 20px !important;
 
-                background: #ffffff;
+                background: #ffffff !important;
 
-                min-height: 100px;
+                min-height: 100px !important;
 
             }
 
@@ -3734,7 +4332,7 @@ if (window.innerWidth <= 768) {
 
                 transition: all 0.2s ease;
 
-                /* Font size controlled by JavaScript */
+                font-size: 14px;
 
                 font-weight: 500;
 
@@ -3748,9 +4346,9 @@ if (window.innerWidth <= 768) {
 
                 font-family: inherit;
 
-                outline: none;
+            
 
-                pointer-events: auto;
+                pointer-events: auto !important;
 
                 user-select: none;
 
@@ -3766,11 +4364,19 @@ if (window.innerWidth <= 768) {
 
 
 
-            .language-option.selected {
+            .language-option.selected,
+            .language-option[aria-selected="true"] {
 
-                background: #6366f1;
+                background: #6366f1 !important;
 
-                color: #ffffff;
+                color: #ffffff !important;
+
+            }
+
+            .language-option.selected:hover,
+            .language-option[aria-selected="true"]:hover {
+
+                background: #4f46e5 !important;
 
             }
 
@@ -3778,7 +4384,7 @@ if (window.innerWidth <= 768) {
 
             .language-option .flag {
 
-                /* Font size controlled by JavaScript */
+                font-size: 16px;
 
                 flex-shrink: 0;
 
@@ -3792,7 +4398,7 @@ if (window.innerWidth <= 768) {
 
                 font-weight: 500;
 
-                /* Font size controlled by JavaScript */
+                font-size: 14px;
 
             }
 
@@ -3804,7 +4410,7 @@ if (window.innerWidth <= 768) {
 
             :host(.seizure-safe) .accessibility-panel {
 
-                filter: grayscale(0.8) contrast(0.9);
+                filter: grayscale(0.8) contrast(0.9) !important;
 
             }
 
@@ -3814,9 +4420,9 @@ if (window.innerWidth <= 768) {
 
             :host(.seizure-safe) .accessibility-icon {
 
-                position: fixed;
+                position: fixed !important;
 
-                z-index: 99998;
+                z-index: 99998 !important;
 
             }
 
@@ -3826,7 +4432,7 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) {
 
-                filter: saturate(1.1) brightness(1.05);
+                filter: saturate(1.1) brightness(1.05) !important;
 
                 /* Use CSS custom properties for responsive scaling */
 
@@ -3842,11 +4448,11 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-icon {
 
-                width: calc(60px * var(--vision-scale));
+                width: calc(60px * var(--vision-scale)) !important;
 
-                height: calc(60px * var(--vision-scale));
+                height: calc(60px * var(--vision-scale)) !important;
 
-                font-size: calc(24px * var(--vision-font-scale));
+                font-size: calc(24px * var(--vision-font-scale)) !important;
 
             }
 
@@ -3854,9 +4460,9 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel {
 
-                width: calc(400px * var(--vision-scale));
+                width: calc(400px * var(--vision-scale)) !important;
 
-                font-size: calc(1em * var(--vision-font-scale));
+                font-size: calc(1em * var(--vision-font-scale)) !important;
 
             }
 
@@ -3864,7 +4470,7 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel h2 {
 
-                font-size: calc(24px * var(--vision-font-scale));
+                font-size: calc(24px * var(--vision-font-scale)) !important;
 
             }
 
@@ -3872,7 +4478,7 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel h3 {
 
-                font-size: calc(18px * var(--vision-font-scale));
+                font-size: calc(18px * var(--vision-font-scale)) !important;
 
             }
 
@@ -3880,7 +4486,7 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel h4 {
 
-                font-size: calc(16px * var(--vision-font-scale));
+                font-size: calc(16px * var(--vision-font-scale)) !important;
 
             }
 
@@ -3888,7 +4494,7 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel p {
 
-                font-size: calc(14px * var(--vision-font-scale));
+                font-size: calc(14px * var(--vision-font-scale)) !important;
 
             }
 
@@ -3896,9 +4502,9 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel .action-btn {
 
-                font-size: calc(1em * var(--vision-font-scale));
+                font-size: calc(1em * var(--vision-font-scale)) !important;
 
-                padding: calc(12px * var(--vision-font-scale)) calc(16px * var(--vision-font-scale));
+                padding: calc(12px * var(--vision-font-scale)) calc(16px * var(--vision-font-scale)) !important;
 
             }
 
@@ -3906,7 +4512,7 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel * {
 
-                font-size: 1em;
+                font-size: 1em !important;
 
             }
 
@@ -3914,7 +4520,7 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel h1 {
 
-                font-size: 1.5em;
+                font-size: 1.5em !important;
 
             }
 
@@ -3922,7 +4528,7 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel h2 {
 
-                font-size: 1.3em;
+                font-size: 1.3em !important;
 
             }
 
@@ -3930,7 +4536,7 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel h3 {
 
-                font-size: 1.2em;
+                font-size: 1.2em !important;
 
             }
 
@@ -3938,7 +4544,7 @@ if (window.innerWidth <= 768) {
 
             :host(.vision-impaired) .accessibility-panel h4 {
 
-                font-size: 1.1em;
+                font-size: 1.1em !important;
 
             }
 
@@ -3948,7 +4554,7 @@ if (window.innerWidth <= 768) {
 
             :host(.adhd-friendly) .accessibility-panel {
 
-                filter: saturate(0.9) brightness(0.9);
+                filter: saturate(0.9) brightness(0.9) !important;
 
             }
 
@@ -3958,7 +4564,7 @@ if (window.innerWidth <= 768) {
 
             :host(.cognitive-disability) .accessibility-panel {
 
-                filter: saturate(1.2) brightness(1.1);
+                filter: saturate(1.2) brightness(1.1) !important;
 
             }
 
@@ -3972,7 +4578,7 @@ if (window.innerWidth <= 768) {
 
             :host(.monochrome) .accessibility-panel {
 
-                filter: grayscale(1);
+                filter: grayscale(1) !important;
 
             }
 
@@ -3982,7 +4588,7 @@ if (window.innerWidth <= 768) {
 
             :host(.dark-contrast) .accessibility-panel {
 
-                filter: saturate(1.2) brightness(0.8) contrast(1.3);
+                filter: saturate(1.2) brightness(0.8) contrast(1.3) !important;
 
             }
 
@@ -3992,7 +4598,7 @@ if (window.innerWidth <= 768) {
 
             :host(.light-contrast) .accessibility-panel {
 
-                filter: saturate(1.2) brightness(1.2) contrast(0.9);
+                filter: saturate(1.2) brightness(1.2) contrast(0.9) !important;
 
             }
 
@@ -4006,9 +4612,9 @@ if (window.innerWidth <= 768) {
 
             :host(.high-contrast) .accessibility-panel * {
 
-                filter: contrast(0.8);
+                filter: contrast(0.8) !important;
 
-                -webkit-filter: contrast(0.8);
+                -webkit-filter: contrast(0.8) !important;
 
             }
 
@@ -4022,11 +4628,11 @@ if (window.innerWidth <= 768) {
 
             :host(:not(.readable-font)) .accessibility-panel {
 
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
 
-                font-weight: normal;
+                font-weight: normal !important;
 
-                letter-spacing: normal;
+                letter-spacing: normal !important;
 
             }
 
@@ -4048,11 +4654,11 @@ if (window.innerWidth <= 768) {
 
             :host(:not(.readable-font)) .accessibility-panel label {
 
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
 
-                font-weight: normal;
+                font-weight: normal !important;
 
-                letter-spacing: normal;
+                letter-spacing: normal !important;
 
             }
 
@@ -4064,11 +4670,11 @@ if (window.innerWidth <= 768) {
 
             :host(.readable-font) .accessibility-panel {
 
-                font-family: 'Arial', 'Open Sans', sans-serif;
+                font-family: 'Arial', 'Open Sans', sans-serif !important;
 
-                font-weight: 500;
+                font-weight: 500 !important;
 
-                letter-spacing: 0.5px;
+                letter-spacing: 0.5px !important;
 
             }
 
@@ -4090,11 +4696,11 @@ if (window.innerWidth <= 768) {
 
             :host(.readable-font) .accessibility-panel label {
 
-                font-family: 'Arial', 'Open Sans', sans-serif;
+                font-family: 'Arial', 'Open Sans', sans-serif !important;
 
-                font-weight: 500;
+                font-weight: 500 !important;
 
-                letter-spacing: 0.5px;
+                letter-spacing: 0.5px !important;
 
             }
 
@@ -4104,7 +4710,7 @@ if (window.innerWidth <= 768) {
 
             :host(.high-saturation) .accessibility-panel {
 
-                filter: saturate(1.5);
+                filter: saturate(1.5) !important;
 
             }
 
@@ -4386,7 +4992,7 @@ if (window.innerWidth <= 768) {
 
                 color: #333;
 
-                /* Font size controlled by JavaScript */
+                font-size: 14px;
 
                 font-weight: 600;
 
@@ -4466,7 +5072,7 @@ if (window.innerWidth <= 768) {
 
                 cursor: pointer;
 
-                /* Font size controlled by JavaScript */
+                font-size: 12px;
 
                 font-weight: 500;
 
@@ -4488,7 +5094,7 @@ if (window.innerWidth <= 768) {
 
             .profile-item.has-dropdown {
 
-                position: relative;
+                position: relative !important;
 
             }
 
@@ -4498,17 +5104,7 @@ if (window.innerWidth <= 768) {
 
             .profile-item.has-dropdown .toggle-switch {
 
-                position: absolute;
-
-                left: 20px;
-
-                top: 20px;
-
-                transform: none;
-
-                flex-shrink: 0;
-
-                margin: 0;
+                flex-shrink: 0 !important;
 
             }
 
@@ -4516,11 +5112,8 @@ if (window.innerWidth <= 768) {
 
             .profile-item.has-dropdown .profile-info {
 
-                display: block;
-
-                padding-left: 100px;
-
-                margin-bottom: 10px;
+                padding-left: 0 !important;
+                margin-bottom: 0 !important;
 
             }
 
@@ -4537,10 +5130,6 @@ if (window.innerWidth <= 768) {
                 width: 100%;
 
                 display: block;
-
-                flex-basis: 100%;
-
-                order: 1;
 
                 background: #f8fafc;
 
@@ -4588,7 +5177,7 @@ if (window.innerWidth <= 768) {
 
                 color: #374151;
 
-                /* Font size controlled by JavaScript */
+                font-size: 13px;
 
                 font-weight: 500;
 
@@ -4618,9 +5207,9 @@ if (window.innerWidth <= 768) {
 
             .useful-links-content select:focus {
 
-                outline: 3px solid #4f46e5;
+                outline: 3px solid #4f46e5 !important;
 
-                outline-offset: 2px;
+                outline-offset: 2px !important;
 
                 border-color: #4f46e5;
 
@@ -4683,7 +5272,7 @@ body.big-black-cursor,
 html body.big-black-cursor,
 body.big-black-cursor *,
 html body.big-black-cursor * {
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M0 0 L0 40 L12 28 L20 36 L24 32 L16 24 L40 24" fill="black" stroke="white" stroke-width="2"/></svg>') 0 0, auto;
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M0 0 L0 40 L12 28 L20 36 L24 32 L16 24 L40 24" fill="black" stroke="white" stroke-width="2"/></svg>') 0 0, auto !important;
 }
 
 /* Big White Cursor - Proper Arrow Headed - MAXIMUM SPECIFICITY */
@@ -4691,24 +5280,24 @@ body.big-white-cursor,
 html body.big-white-cursor,
 body.big-white-cursor *,
 html body.big-white-cursor * {
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M0 0 L0 40 L12 28 L20 36 L24 32 L16 24 L40 24" fill="white" stroke="black" stroke-width="2"/></svg>') 0 0, auto;
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M0 0 L0 40 L12 28 L20 36 L24 32 L16 24 L40 24" fill="white" stroke="black" stroke-width="2"/></svg>') 0 0, auto !important;
 }
             /* Hide Interface Modal Styles */
             .hide-interface-modal {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
+                position: sticky !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
                 background: rgba(0, 0, 0, 0.8);
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 z-index: 100001;
                 /* Keep modal in panel viewport when scrolling */
-                width: 100%;
-                height: 100%;
-                min-height: 100%;
+                width: 100% !important;
+                height: 100% !important;
+                min-height: 100% !important;
                 /* Ensure overlay covers full scrollable area */
                 max-height: none;
                 overflow: hidden;
@@ -4717,7 +5306,7 @@ html body.big-white-cursor * {
             .hide-interface-modal .modal-content {
                 background: white;
                 border-radius: 12px;
-                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+                box-shadow: 0 10px 12px rgba(0, 0, 0, 0.3);
                 /* Position the modal dialog in the center of viewable area */
                 position: absolute;
                 top: 50%;
@@ -4741,7 +5330,7 @@ html body.big-white-cursor * {
             .hide-interface-modal .modal-header h3 {
                 margin: 0;
                 color: #1f2937;
-                /* Font size controlled by JavaScript */
+                font-size: 18px;
                 font-weight: 600;
             }
 
@@ -4771,7 +5360,7 @@ html body.big-white-cursor * {
                 margin: 0;
                 color: #374151;
                 line-height: 1.5;
-                /* Font size controlled by JavaScript */
+                font-size: 14px;
             }
 
             .hide-interface-modal .modal-footer {
@@ -4785,7 +5374,7 @@ html body.big-white-cursor * {
                 padding: 10px 20px;
                 border: none;
                 border-radius: 6px;
-                /* Font size controlled by JavaScript */
+                font-size: 14px;
                 font-weight: 500;
                 cursor: pointer;
                 transition: all 0.2s ease;
@@ -5021,9 +5610,8 @@ html body.big-white-cursor * {
 
                             <div class="profile-description">
 
-                                <p>This profile enables motor-impaired persons to operate the website using keyboard keys (Tab, Shift+Tab, Enter) and shortcuts (e.g., "M" for menus, "H" for headings, "F" for forms, "B" for buttons, "G" for graphics).</p>
+                                <p>This profile enables motor-impaired persons to operate the website using keyboard keys and shortcuts</p>
 
-                                <p><strong>Note:</strong> This profile prompts automatically for keyboard users.</p>
 
                             </div>
 
@@ -5061,7 +5649,7 @@ html body.big-white-cursor * {
 
                                 <p>This profile adjusts the website to be compatible with screen-readers such as JAWS, NVDA, VoiceOver, and TalkBack. Screen-reader software is installed on the blind user's computer and smartphone, and websites should ensure compatibility.</p>
 
-                                <p><strong>Note:</strong> This profile prompts automatically to screen-readers.</p>
+                                
 
                             </div>
 
@@ -6348,7 +6936,11 @@ html body.big-white-cursor * {
                 hideInterfaceModalTitle: "Hide Accessibility Interface?",
                 hideInterfaceModalText: "Please note: If you choose to hide the accessibility interface, you won't be able to see it anymore, unless you clear your browsing history and data. Are you sure that you wish to hide the interface?",
                 hideInterfaceModalAccept: "Accept",
-                hideInterfaceModalCancel: "Cancel"
+                hideInterfaceModalCancel: "Cancel",
+
+                // Toggle switch text
+                toggleOn: "ON",
+                toggleOff: "OFF"
 
             },
 
@@ -6440,7 +7032,17 @@ html body.big-white-cursor * {
                 screenReaderDetailed: "Este perfil ajusta el sitio web para ser compatible con lectores de pantalla como JAWS, NVDA, VoiceOver y TalkBack. El software lector de pantalla está instalado en la computadora y smartphone del usuario ciego, y los sitios web deben asegurar compatibilidad.",
     screenReaderNote: "Nota: Este perfil se activa automáticamente con lectores de pantalla.",
                 activatesWithScreenReader: "Se activa con Lector de Pantalla",
-                activatesWithKeyboardNav: "Se activa con Navegación por Teclado"
+                activatesWithKeyboardNav: "Se activa con Navegación por Teclado",
+                
+                // Hide Interface Modal
+                hideInterfaceModalTitle: "¿Ocultar Interfaz de Accesibilidad?",
+                hideInterfaceModalText: "Tenga en cuenta: Si elige ocultar la interfaz de accesibilidad, no podrá verla más, a menos que borre el historial de navegación y los datos. ¿Está seguro de que desea ocultar la interfaz?",
+                hideInterfaceModalAccept: "Aceptar",
+                hideInterfaceModalCancel: "Cancelar",
+
+                // Toggle switch text
+                toggleOn: "SÍ",
+                toggleOff: "NO"
             },
 
             de: {
@@ -6617,7 +7219,17 @@ html body.big-white-cursor * {
 
                 activatesWithScreenReader: "Aktiviert sich mit Bildschirmleser",
 
-                activatesWithKeyboardNav: "Aktiviert sich mit Tastaturnavigation"
+                activatesWithKeyboardNav: "Aktiviert sich mit Tastaturnavigation",
+                
+                // Hide Interface Modal
+                hideInterfaceModalTitle: "Barrierefreiheits-Interface ausblenden?",
+                hideInterfaceModalText: "Bitte beachten Sie: Wenn Sie sich entscheiden, das Barrierefreiheits-Interface auszublenden, können Sie es nicht mehr sehen, es sei denn, Sie löschen Ihren Browserverlauf und Ihre Daten. Sind Sie sicher, dass Sie das Interface ausblenden möchten?",
+                hideInterfaceModalAccept: "Akzeptieren",
+                hideInterfaceModalCancel: "Abbrechen",
+
+                // Toggle switch text
+                toggleOn: "EIN",
+                toggleOff: "AUS"
 
             },
 
@@ -6715,7 +7327,11 @@ html body.big-white-cursor * {
     hideInterfaceModalTitle: "Masquer l'Interface d'Accessibilité?",
     hideInterfaceModalText: "Veuillez noter: Si vous choisissez de masquer l'interface d'accessibilité, vous ne pourrez plus la voir, sauf si vous effacez votre historique de navigation et vos données. Êtes-vous sûr de vouloir masquer l'interface?",
     hideInterfaceModalAccept: "Accepter",
-    hideInterfaceModalCancel: "Annuler"
+    hideInterfaceModalCancel: "Annuler",
+
+    // Toggle switch text
+    toggleOn: "OUI",
+    toggleOff: "NON"
 },
 
             pt: {
@@ -6806,7 +7422,17 @@ html body.big-white-cursor * {
                 screenReaderDetailed: "Este perfil ajusta o site para ser compatível com leitores de tela como JAWS, NVDA, VoiceOver e TalkBack. O software leitor de tela está instalado no computador e smartphone do usuário cego, e os sites devem garantir compatibilidade.",
     screenReaderNote: "Nota: Este perfil é ativado automaticamente com leitores de tela.",
                 activatesWithScreenReader: "Ativa com Leitor de Tela",
-                activatesWithKeyboardNav: "Ativa com Navegação por Teclado"
+                activatesWithKeyboardNav: "Ativa com Navegação por Teclado",
+                
+                // Hide Interface Modal
+                hideInterfaceModalTitle: "Ocultar Interface de Acessibilidade?",
+                hideInterfaceModalText: "Por favor, note: Se você escolher ocultar a interface de acessibilidade, não conseguirá vê-la novamente, a menos que limpe o histórico de navegação e os dados. Tem certeza de que deseja ocultar a interface?",
+                hideInterfaceModalAccept: "Aceitar",
+                hideInterfaceModalCancel: "Cancelar",
+
+                // Toggle switch text
+                toggleOn: "SIM",
+                toggleOff: "NÃO"
             },
 
             it: {
@@ -6897,7 +7523,17 @@ html body.big-white-cursor * {
                 screenReaderDetailed: "Questo profilo regola il sito web per essere compatibile con i lettori di schermo come JAWS, NVDA, VoiceOver e TalkBack. Il software lettore di schermo è installato sul computer e smartphone dell'utente cieco, e i siti web devono garantire la compatibilità.",
     screenReaderNote: "Nota: Questo profilo si attiva automaticamente con i lettori di schermo.",
                 activatesWithScreenReader: "Si attiva con Lettore di Schermo",
-                activatesWithKeyboardNav: "Si attiva con Navigazione da Tastiera"
+                activatesWithKeyboardNav: "Si attiva con Navigazione da Tastiera",
+                
+                // Hide Interface Modal
+                hideInterfaceModalTitle: "Nascondere l'Interfaccia di Accessibilità?",
+                hideInterfaceModalText: "Si prega di notare: Se scegli di nascondere l'interfaccia di accessibilità, non potrai più vederla, a meno che non cancelli la cronologia di navigazione e i dati. Sei sicuro di voler nascondere l'interfaccia?",
+                hideInterfaceModalAccept: "Accetta",
+                hideInterfaceModalCancel: "Annulla",
+
+                // Toggle switch text
+                toggleOn: "SÌ",
+                toggleOff: "NO"
 },
 
             il: {
@@ -6988,7 +7624,17 @@ html body.big-white-cursor * {
     screenReaderDetailed: "פרופיל זה מתאים את האתר להיות תואם לקוראי מסך כמו JAWS, NVDA, VoiceOver ו-TalkBack. תוכנת קורא מסך מותקנת במחשב ובסמארטפון של המשתמש העיוור, ואתרים צריכים להבטיח תאימות.",
     screenReaderNote: "הערה: פרופיל זה מופעל אוטומטית עם קוראי מסך.",
     activatesWithScreenReader: "מופעל עם קורא מסך",
-    activatesWithKeyboardNav: "מופעל עם ניווט במקלדת"
+    activatesWithKeyboardNav: "מופעל עם ניווט במקלדת",
+    
+    // Hide Interface Modal
+    hideInterfaceModalTitle: "להסתיר את ממשק הנגישות?",
+    hideInterfaceModalText: "שימו לב: אם תבחרו להסתיר את ממשק הנגישות, לא תוכלו לראות אותו יותר, אלא אם תמחקו את היסטוריית הגלישה והנתונים. האם אתם בטוחים שברצונכם להסתיר את הממשק?",
+    hideInterfaceModalAccept: "קבל",
+    hideInterfaceModalCancel: "בטל",
+
+    // Toggle switch text
+    toggleOn: "כן",
+    toggleOff: "לא"
             },
 
             he: {
@@ -7165,7 +7811,17 @@ html body.big-white-cursor * {
 
                 activatesWithScreenReader: "מופעל עם קורא מסך",
 
-                activatesWithKeyboardNav: "מופעל עם ניווט במקלדת"
+                activatesWithKeyboardNav: "מופעל עם ניווט במקלדת",
+                
+                // Hide Interface Modal
+                hideInterfaceModalTitle: "להסתיר את ממשק הנגישות?",
+                hideInterfaceModalText: "שימו לב: אם תבחרו להסתיר את ממשק הנגישות, לא תוכלו לראות אותו יותר, אלא אם תמחקו את היסטוריית הגלישה והנתונים. האם אתם בטוחים שברצונכם להסתיר את הממשק?",
+                hideInterfaceModalAccept: "קבל",
+                hideInterfaceModalCancel: "בטל",
+
+                // Toggle switch text
+                toggleOn: "כן",
+                toggleOff: "לא"
 
             },
 
@@ -7257,7 +7913,17 @@ html body.big-white-cursor * {
     screenReaderDetailed: "Этот профиль настраивает сайт для совместимости со скрин-ридерами, такими как JAWS, NVDA, VoiceOver и TalkBack. Программное обеспечение скрин-ридера установлено на компьютере и смартфоне слепого пользователя, и веб-сайты должны обеспечивать совместимость.",
     screenReaderNote: "Примечание: Этот профиль автоматически активируется со скрин-ридерами.",
     activatesWithScreenReader: "Активируется со скрин-ридером",
-    activatesWithKeyboardNav: "Активируется с навигацией по клавиатуре"
+    activatesWithKeyboardNav: "Активируется с навигацией по клавиатуре",
+    
+    // Hide Interface Modal
+    hideInterfaceModalTitle: "Скрыть интерфейс доступности?",
+    hideInterfaceModalText: "Обратите внимание: Если вы решите скрыть интерфейс доступности, вы больше не сможете его видеть, если только не очистите историю браузера и данные. Вы уверены, что хотите скрыть интерфейс?",
+    hideInterfaceModalAccept: "Принять",
+    hideInterfaceModalCancel: "Отмена",
+
+    // Toggle switch text
+    toggleOn: "ВКЛ",
+    toggleOff: "ВЫКЛ"
 },
             tw: {
     title: "無障礙調整",
@@ -7347,7 +8013,17 @@ html body.big-white-cursor * {
     screenReaderDetailed: "此設定檔調整網站以與JAWS、NVDA、VoiceOver和TalkBack等螢幕閱讀器相容。螢幕閱讀器軟體安裝在盲人用戶的電腦和智慧型手機上，網站應確保相容性。",
     screenReaderNote: "注意：此設定檔會自動與螢幕閱讀器一起啟用。",
     activatesWithScreenReader: "與螢幕閱讀器一起啟用",
-    activatesWithKeyboardNav: "與鍵盤導航一起啟用"
+    activatesWithKeyboardNav: "與鍵盤導航一起啟用",
+    
+    // Hide Interface Modal
+    hideInterfaceModalTitle: "隱藏無障礙介面？",
+    hideInterfaceModalText: "請注意：如果您選擇隱藏無障礙介面，除非清除瀏覽歷史記錄和數據，否則將無法再看到它。您確定要隱藏介面嗎？",
+    hideInterfaceModalAccept: "接受",
+    hideInterfaceModalCancel: "取消",
+
+    // Toggle switch text
+    toggleOn: "開啟",
+    toggleOff: "關閉"
 },
             ar: {
 
@@ -7523,7 +8199,17 @@ html body.big-white-cursor * {
 
                 activatesWithScreenReader: "يتفعل مع قارئ الشاشة",
 
-                activatesWithKeyboardNav: "يتفعل مع التنقل بلوحة المفاتيح"
+                activatesWithKeyboardNav: "يتفعل مع التنقل بلوحة المفاتيح",
+                
+                // Hide Interface Modal
+                hideInterfaceModalTitle: "إخفاء واجهة إمكانية الوصول؟",
+                hideInterfaceModalText: "يرجى ملاحظة: إذا اخترت إخفاء واجهة إمكانية الوصول، لن تتمكن من رؤيتها مرة أخرى، إلا إذا قمت بمسح سجل التصفح والبيانات. هل أنت متأكد من أنك تريد إخفاء الواجهة؟",
+                hideInterfaceModalAccept: "قبول",
+                hideInterfaceModalCancel: "إلغاء",
+
+                // Toggle switch text
+                toggleOn: "نعم",
+                toggleOff: "لا"
 
             },
             ae: {
@@ -7614,11 +8300,21 @@ html body.big-white-cursor * {
     screenReaderDetailed: "هذا الملف يعدل الموقع ليكون متوافقاً مع قارئات الشاشة مثل JAWS وNVDA وVoiceOver وTalkBack. برنامج قارئ الشاشة مثبت على حاسوب وهاتف المستخدم المكفوف، والمواقع يجب أن تضمن التوافق.",
     screenReaderNote: "ملاحظة: هذا الملف يُفعل تلقائياً مع قارئات الشاشة.",
     activatesWithScreenReader: "يُفعل مع قارئ الشاشة",
-    activatesWithKeyboardNav: "يُفعل مع التنقل بلوحة المفاتيح"
-},
-            zh: { title: "无障碍调整", seizureSafe: "癫痫安全配置文件", seizureSafeDesc: "清除闪烁并减少颜色", visionImpaired: "视力障碍配置文件", visionImpairedDesc: "增强网站的视觉效果", adhdFriendly: "多动症友好配置文件", adhdFriendlyDesc: "减少干扰并帮助集中注意力", fontSizing: "字体大小", fontSizingDesc: "增加或减少字体大小", adjustLineHeight: "调整行高", adjustLineHeightDesc: "增加或减少行高", adjustLetterSpacing: "调整字母间距", adjustLetterSpacingDesc: "增加或减少字母间距", contentScaling: "内容缩放", contentScalingDesc: "增加或减少内容大小", resetSettings: "重置设置", statement: "声明", hideInterface: "隐藏界面", accessibilityFeatures: "无障碍功能" },
+    activatesWithKeyboardNav: "يُفعل مع التنقل بلوحة المفاتيح",
+    
+    // Hide Interface Modal
+    hideInterfaceModalTitle: "إخفاء واجهة إمكانية الوصول؟",
+    hideInterfaceModalText: "يرجى ملاحظة: إذا اخترت إخفاء واجهة إمكانية الوصول، لن تتمكن من رؤيتها مرة أخرى، إلا إذا قمت بمسح سجل التصفح والبيانات. هل أنت متأكد من أنك تريد إخفاء الواجهة؟",
+    hideInterfaceModalAccept: "قبول",
+    hideInterfaceModalCancel: "إلغاء",
 
-            ja: { title: "アクセシビリティ調整", seizureSafe: "発作安全プロファイル", seizureSafeDesc: "フラッシュを除去し、色を減らします", visionImpaired: "視覚障害者プロファイル", visionImpairedDesc: "ウェブサイトの視覚要素を向上させます", adhdFriendly: "ADHDフレンドリープロファイル", adhdFriendlyDesc: "注意散漫を減らし、集中力を高めます", fontSizing: "フォントサイズ", fontSizingDesc: "フォントサイズを増減します", adjustLineHeight: "行の高さを調整", adjustLineHeightDesc: "行の高さを増減します", adjustLetterSpacing: "文字間隔を調整", adjustLetterSpacingDesc: "文字間隔を増減します", contentScaling: "コンテンツスケーリング", contentScalingDesc: "コンテンツサイズを増減します", resetSettings: "設定をリセット", statement: "ステートメント", hideInterface: "インターフェースを非表示", accessibilityFeatures: "アクセシビリティ機能" },
+    // Toggle switch text
+    toggleOn: "نعم",
+    toggleOff: "لا"
+},
+            zh: { title: "无障碍调整", seizureSafe: "癫痫安全配置文件", seizureSafeDesc: "清除闪烁并减少颜色", visionImpaired: "视力障碍配置文件", visionImpairedDesc: "增强网站的视觉效果", adhdFriendly: "多动症友好配置文件", adhdFriendlyDesc: "减少干扰并帮助集中注意力", fontSizing: "字体大小", fontSizingDesc: "增加或减少字体大小", adjustLineHeight: "调整行高", adjustLineHeightDesc: "增加或减少行高", adjustLetterSpacing: "调整字母间距", adjustLetterSpacingDesc: "增加或减少字母间距", contentScaling: "内容缩放", contentScalingDesc: "增加或减少内容大小", resetSettings: "重置设置", statement: "声明", hideInterface: "隐藏界面", accessibilityFeatures: "无障碍功能", toggleOn: "开启", toggleOff: "关闭" },
+
+            ja: { title: "アクセシビリティ調整", seizureSafe: "発作安全プロファイル", seizureSafeDesc: "フラッシュを除去し、色を減らします", visionImpaired: "視覚障害者プロファイル", visionImpairedDesc: "ウェブサイトの視覚要素を向上させます", adhdFriendly: "ADHDフレンドリープロファイル", adhdFriendlyDesc: "注意散漫を減らし、集中力を高めます", fontSizing: "フォントサイズ", fontSizingDesc: "フォントサイズを増減します", adjustLineHeight: "行の高さを調整", adjustLineHeightDesc: "行の高さを増減します", adjustLetterSpacing: "文字間隔を調整", adjustLetterSpacingDesc: "文字間隔を増減します", contentScaling: "コンテンツスケーリング", contentScalingDesc: "コンテンツサイズを増減します", resetSettings: "設定をリセット", statement: "ステートメント", hideInterface: "インターフェースを非表示", accessibilityFeatures: "アクセシビリティ機能", toggleOn: "オン", toggleOff: "オフ" },
 
             pl: { title: "Ustawienia dostępności", seizureSafe: "Profil bezpieczny dla napadów", seizureSafeDesc: "Usuwa błyski i zmniejsza kolory", visionImpaired: "Profil dla osób niedowidzących", visionImpairedDesc: "Poprawia elementy wizualne strony", adhdFriendly: "Profil przyjazny dla ADHD", adhdFriendlyDesc: "Zmniejsza rozpraszanie i pomaga się skupić", fontSizing: "Rozmiar czcionki", fontSizingDesc: "Zwiększ lub zmniejsz rozmiar czcionki", adjustLineHeight: "Dostosuj wysokość linii", adjustLineHeightDesc: "Zwiększ lub zmniejsz wysokość linii", adjustLetterSpacing: "Dostosuj odstępy między literami", adjustLetterSpacingDesc: "Zwiększ lub zmniejsz odstępy między literami", contentScaling: "Skalowanie treści", contentScalingDesc: "Zwiększ lub zmniejsz rozmiar treści", resetSettings: "Resetuj ustawienia", statement: "Oświadczenie", hideInterface: "Ukryj interfejs", accessibilityFeatures: "Funkcje dostępności" },
 
@@ -7897,8 +8593,9 @@ html body.big-white-cursor * {
             
 
             // Mark current language as selected
-
+            setTimeout(() => {
             this.updateSelectedLanguage();
+            }, 100);
 
             // Announce to screen reader
 
@@ -7933,30 +8630,72 @@ html body.big-white-cursor * {
 
 
     updateSelectedLanguage() {
+        console.log('🎯 [LANGUAGE SELECTION] updateSelectedLanguage() called');
 
         const currentLang = this.getCurrentLanguage();
+        console.log('🎯 [LANGUAGE SELECTION] Current language:', currentLang);
 
         const languageOptions = this.shadowRoot.querySelectorAll('.language-option');
+        console.log('🎯 [LANGUAGE SELECTION] Found language options:', languageOptions.length);
 
-        
+        // Normalize language value to a two-letter code used in data-lang
+        const normalizeLang = (lang) => {
+            if (!lang) return 'en';
+            const lower = String(lang).toLowerCase();
+            // Map common name variants to codes
+            const map = {
+                'english': 'en', 'en': 'en',
+                'german': 'de', 'deutsch': 'de', 'de': 'de',
+                'french': 'fr', 'français': 'fr', 'fr': 'fr',
+                'spanish': 'es', 'español': 'es', 'es': 'es',
+                'português': 'pt', 'portuguese': 'pt', 'pt': 'pt',
+                'italian': 'it', 'italiano': 'it', 'it': 'it',
+                'hebrew': 'he', 'il': 'he', 'he': 'he',
+                'russian': 'ru', 'русский': 'ru', 'ru': 'ru',
+                'chinese (traditional)': 'tw', '繁體中文': 'tw', 'tw': 'tw',
+                'arabic': 'ae', 'ar': 'ae', 'ae': 'ae'
+            };
+            return map[lower] || (lower.length === 2 ? lower : 'en');
+        };
+
+        const normalizedCurrent = normalizeLang(currentLang);
 
         languageOptions.forEach(option => {
-
+            // clear previous state
             option.classList.remove('selected');
+            option.setAttribute('aria-selected', 'false');
+            option.setAttribute('data-selected', 'false');
+            // clear any inline fallback styles
+            option.style.background = '';
+            option.style.color = '';
 
-            if (option.dataset.lang === currentLang) {
-
+            // apply selected state
+            if (normalizeLang(option.dataset.lang) === normalizedCurrent) {
+                console.log('🎯 [LANGUAGE SELECTION] Setting option as selected:', option.dataset.lang);
                 option.classList.add('selected');
-
+                option.setAttribute('aria-selected', 'true');
+                option.setAttribute('data-selected', 'true');
+                // Fallback inline styles to guarantee visibility over external CSS
+                option.style.background = '#6366f1';
+                option.style.color = '#ffffff';
+                console.log('🎯 [LANGUAGE SELECTION] Option classes after setting:', option.className);
+                console.log('🎯 [LANGUAGE SELECTION] Option aria-selected:', option.getAttribute('aria-selected'));
+            } else {
+                console.log('🎯 [LANGUAGE SELECTION] Option not selected:', option.dataset.lang);
             }
-
         });
 
+        // Also reflect the selected state on the header for consistency
+        const header = this.shadowRoot.getElementById('language-selector-header');
+        if (header) {
+            header.setAttribute('data-current-lang', normalizedCurrent);
+        }
     }
 
 
 
     selectLanguage(langCode, flag) {
+        console.log('🎯 [LANGUAGE SELECTION] selectLanguage() called with:', langCode);
 
         // Update current language display in header
 
@@ -8007,8 +8746,9 @@ html body.big-white-cursor * {
 
 
         // Update selected state in dropdown
-
+        console.log('🎯 [LANGUAGE SELECTION] About to call updateSelectedLanguage()');
         this.updateSelectedLanguage();
+        console.log('🎯 [LANGUAGE SELECTION] updateSelectedLanguage() completed');
 
 
 
@@ -8733,9 +9473,10 @@ html body.big-white-cursor * {
 
 
     getCurrentLanguage() {
-
-        return this.currentLanguage || localStorage.getItem('accessibility-widget-language') || 'en';
-
+        const stored = localStorage.getItem('accessibility-widget-language');
+        const current = this.currentLanguage || stored || 'en';
+        console.log('🎯 [LANGUAGE SELECTION] getCurrentLanguage() - stored:', stored, 'current:', current);
+        return current;
     }
 
 
@@ -8788,19 +9529,10 @@ html body.big-white-cursor * {
 
     hideInterface() {
 
-        const icon = this.shadowRoot.getElementById('accessibility-icon');
-
-        const panel = this.shadowRoot.getElementById('accessibility-panel');
-
+        console.log('[CK] hideInterface() called - showing modal instead of hiding immediately');
         
-
-        if (icon) icon.style.display = 'none';
-
-        if (panel) panel.style.display = 'none';
-
-        
-
-        
+        // Show the confirmation modal instead of hiding immediately
+        this.showHideInterfaceModal();
     }
 
 
@@ -8993,6 +9725,17 @@ html body.big-white-cursor * {
             this.keyboardShortcutHandler = null;
 
             console.log('Accessibility Widget: Keyboard shortcuts removed');
+        }
+
+        if (this.mouseHandler) {
+
+            document.removeEventListener('mousedown', this.mouseHandler);
+
+            document.removeEventListener('click', this.mouseHandler);
+
+            this.mouseHandler = null;
+
+            console.log('Accessibility Widget: Mouse detection removed');
 
         }
 
@@ -9158,7 +9901,7 @@ html body.big-white-cursor * {
 
             border-radius: 4px;
 
-            /* Font size controlled by JavaScript */
+            font-size: 12px;
 
             font-weight: bold;
 
@@ -9510,6 +10253,12 @@ html body.big-white-cursor * {
 
                     break;
 
+                case 'hide-images':
+
+                    this.enableHideImages();
+
+                    break;
+
                 case 'read-mode':
 
                     this.enableReadMode();
@@ -9847,6 +10596,12 @@ html body.big-white-cursor * {
                 case 'mute-sound':
 
                     this.disableMuteSound();
+
+                    break;
+
+                case 'hide-images':
+
+                    this.disableHideImages();
 
                     break;
 
@@ -11220,11 +11975,28 @@ html body.big-white-cursor * {
 
     toggleContentScalingControls(enabled) {
 
+        console.log('🎛️ [CONTENT SCALING] toggleContentScalingControls called with enabled:', enabled);
+
         const controls = this.shadowRoot.getElementById('content-scaling-controls');
+
+        console.log('🎛️ [CONTENT SCALING] Controls element found:', !!controls);
+        console.log('🎛️ [CONTENT SCALING] Shadow root exists:', !!this.shadowRoot);
+        console.log('🎛️ [CONTENT SCALING] Controls element:', controls);
 
         if (controls) {
 
             controls.style.display = enabled ? 'block' : 'none';
+
+            console.log('🎛️ [CONTENT SCALING] Controls display set to:', enabled ? 'block' : 'none');
+
+            // Force the display with !important
+            if (enabled) {
+                controls.style.setProperty('display', 'block', 'important');
+                console.log('🎛️ [CONTENT SCALING] Forced display: block with !important');
+            } else {
+                controls.style.setProperty('display', 'none', 'important');
+                console.log('🎛️ [CONTENT SCALING] Forced display: none with !important');
+            }
 
         }
 
@@ -11292,11 +12064,28 @@ html body.big-white-cursor * {
 
     toggleFontSizingControls(enabled) {
 
+        console.log('🔤 [FONT SIZING] toggleFontSizingControls called with enabled:', enabled);
+
         const controls = this.shadowRoot.getElementById('font-sizing-controls');
+
+        console.log('🔤 [FONT SIZING] Controls element found:', !!controls);
+        console.log('🔤 [FONT SIZING] Shadow root exists:', !!this.shadowRoot);
+        console.log('🔤 [FONT SIZING] Controls element:', controls);
 
         if (controls) {
 
             controls.style.display = enabled ? 'block' : 'none';
+
+            console.log('🔤 [FONT SIZING] Controls display set to:', enabled ? 'block' : 'none');
+
+            // Force the display with !important
+            if (enabled) {
+                controls.style.setProperty('display', 'block', 'important');
+                console.log('🔤 [FONT SIZING] Forced display: block with !important');
+            } else {
+                controls.style.setProperty('display', 'none', 'important');
+                console.log('🔤 [FONT SIZING] Forced display: none with !important');
+            }
 
         }
 
@@ -11381,6 +12170,8 @@ html body.big-white-cursor * {
         const controls = this.shadowRoot.getElementById('line-height-controls');
 
         console.log('Accessibility Widget: Line height controls found:', !!controls);
+        console.log('Accessibility Widget: Shadow root exists:', !!this.shadowRoot);
+        console.log('Accessibility Widget: Controls element:', controls);
 
         if (controls) {
 
@@ -11388,11 +12179,24 @@ html body.big-white-cursor * {
 
             console.log('Accessibility Widget: Controls display set to:', enabled ? 'block' : 'none');
 
+            // Force the display with !important
+            if (enabled) {
+                controls.style.setProperty('display', 'block', 'important');
+                console.log('📏 [LINE HEIGHT] Forced display: block with !important');
+            } else {
+                controls.style.setProperty('display', 'none', 'important');
+                console.log('📏 [LINE HEIGHT] Forced display: none with !important');
+            }
+
         }
 
         
 
         if (enabled) {
+            console.log('📏 [TOGGLE CONTROLS] Enabling line height controls, binding events...');
+            // Bind the line height events when controls are enabled
+            this.bindLineHeightEvents();
+            
             // Check if line height was actually used (not just toggled on)
             const wasLineHeightUsed = localStorage.getItem('line-height-used') === 'true';
             
@@ -11433,6 +12237,12 @@ html body.big-white-cursor * {
             // Bind events to the line height buttons when they become visible
 
             this.bindLineHeightEvents();
+            this.bindLineHeightEventsDirect();
+            
+            // Test the functionality
+            setTimeout(() => {
+                this.testLineHeight();
+            }, 1000);
 
             
 
@@ -11465,6 +12275,10 @@ html body.big-white-cursor * {
         if (controls) {
 
             controls.style.display = 'block';
+            
+            // Bind events when controls are shown
+            this.bindLineHeightEvents();
+            this.bindLineHeightEventsDirect();
 
         }
 
@@ -11493,6 +12307,12 @@ html body.big-white-cursor * {
         console.log('Accessibility Widget: this context in bindLineHeightEvents:', this);
 
         console.log('Accessibility Widget: this.shadowRoot exists:', !!this.shadowRoot);
+        
+        // Prevent duplicate event binding
+        if (this.lineHeightEventsBound) {
+            console.log('Accessibility Widget: Line height events already bound, skipping...');
+            return;
+        }
 
         
 
@@ -11500,21 +12320,34 @@ html body.big-white-cursor * {
 
         setTimeout(() => {
 
+            // Check if controls are visible first
+            const controls = this.shadowRoot.getElementById('line-height-controls');
+            console.log('Accessibility Widget: Line height controls element:', controls);
+            console.log('Accessibility Widget: Controls display style:', controls ? controls.style.display : 'not found');
+            
+            if (!controls) {
+                console.log('Accessibility Widget: Controls not found, retrying in 200ms...');
+                setTimeout(() => this.bindLineHeightEvents(), 200);
+                return;
+            }
+            
+            // Force controls to be visible if they exist
+            if (controls.style.display === 'none') {
+                controls.style.display = 'block';
+                console.log('Accessibility Widget: Forced controls to be visible');
+            }
+
             // Line height control buttons - using Shadow DOM
 
             const decreaseLineHeightBtn = this.shadowRoot.getElementById('decrease-line-height-btn');
 
             console.log('Accessibility Widget: Decrease line height button found:', !!decreaseLineHeightBtn);
+            console.log('Accessibility Widget: Shadow root exists:', !!this.shadowRoot);
+            console.log('Accessibility Widget: All buttons in shadow root:', this.shadowRoot.querySelectorAll('button'));
 
             if (decreaseLineHeightBtn) {
 
                 console.log('Accessibility Widget: Decrease button HTML:', decreaseLineHeightBtn.outerHTML);
-
-                
-
-                // Remove any existing event listeners first
-
-                decreaseLineHeightBtn.removeEventListener('click', this.decreaseLineHeightHandler);
 
                 
 
@@ -11561,16 +12394,11 @@ html body.big-white-cursor * {
             const increaseLineHeightBtn = this.shadowRoot.getElementById('increase-line-height-btn');
 
             console.log('Accessibility Widget: Increase line height button found:', !!increaseLineHeightBtn);
+            console.log('Accessibility Widget: Increase button element:', increaseLineHeightBtn);
 
             if (increaseLineHeightBtn) {
 
                 console.log('Accessibility Widget: Increase button HTML:', increaseLineHeightBtn.outerHTML);
-
-                
-
-                // Remove any existing event listeners first
-
-                increaseLineHeightBtn.removeEventListener('click', this.increaseLineHeightHandler);
 
                 
 
@@ -11611,9 +12439,93 @@ html body.big-white-cursor * {
                 console.error('Accessibility Widget: Increase line height button NOT found!');
 
             }
+            
+            // Mark events as bound
+            this.lineHeightEventsBound = true;
 
-        }, 100); // Small delay to ensure DOM is ready
+        }, 500); // Increased delay to ensure DOM is ready and controls are visible
 
+    }
+    
+    // Alternative method to bind line height events directly
+    bindLineHeightEventsDirect() {
+        console.log('Accessibility Widget: Binding line height events directly...');
+        console.log('Accessibility Widget: Shadow root exists:', !!this.shadowRoot);
+        
+        const decreaseBtn = this.shadowRoot.getElementById('decrease-line-height-btn');
+        const increaseBtn = this.shadowRoot.getElementById('increase-line-height-btn');
+        
+        console.log('Accessibility Widget: Decrease button found:', !!decreaseBtn);
+        console.log('Accessibility Widget: Increase button found:', !!increaseBtn);
+        
+        if (decreaseBtn) {
+            console.log('Accessibility Widget: Decrease button HTML:', decreaseBtn.outerHTML);
+            decreaseBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('📏 [BUTTON CLICK] Decrease button clicked directly');
+                console.log('📏 [BUTTON CLICK] Current lineHeight before decrease:', this.lineHeight);
+                console.log('📏 [BUTTON CLICK] Calling decreaseLineHeight()...');
+                this.decreaseLineHeight();
+            };
+            console.log('Accessibility Widget: Direct decrease button handler attached');
+        } else {
+            console.error('Accessibility Widget: Decrease button NOT found in direct binding!');
+        }
+        
+        if (increaseBtn) {
+            console.log('Accessibility Widget: Increase button HTML:', increaseBtn.outerHTML);
+            increaseBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('📏 [BUTTON CLICK] Increase button clicked directly');
+                console.log('📏 [BUTTON CLICK] Current lineHeight before increase:', this.lineHeight);
+                console.log('📏 [BUTTON CLICK] Calling increaseLineHeight()...');
+                this.increaseLineHeight();
+            };
+            console.log('Accessibility Widget: Direct increase button handler attached');
+        } else {
+            console.error('Accessibility Widget: Increase button NOT found in direct binding!');
+        }
+    }
+    
+    // Test method to verify line height functionality
+    testLineHeight() {
+        console.log('Accessibility Widget: Testing line height functionality...');
+        console.log('Accessibility Widget: Current lineHeight:', this.lineHeight);
+        console.log('Accessibility Widget: Shadow root exists:', !!this.shadowRoot);
+        
+        const decreaseBtn = this.shadowRoot.getElementById('decrease-line-height-btn');
+        const increaseBtn = this.shadowRoot.getElementById('increase-line-height-btn');
+        const controls = this.shadowRoot.getElementById('line-height-controls');
+        
+        console.log('Accessibility Widget: Controls found:', !!controls);
+        console.log('Accessibility Widget: Controls display:', controls ? controls.style.display : 'not found');
+        console.log('Accessibility Widget: Decrease button found:', !!decreaseBtn);
+        console.log('Accessibility Widget: Increase button found:', !!increaseBtn);
+        
+        if (controls) {
+            controls.style.display = 'block';
+            console.log('Accessibility Widget: Forced controls to be visible');
+        }
+        
+        // Test the methods directly
+        console.log('Accessibility Widget: Testing increaseLineHeight method...');
+        this.increaseLineHeight();
+        
+        console.log('Accessibility Widget: Testing decreaseLineHeight method...');
+        this.decreaseLineHeight();
+        
+        // Test clicking the buttons programmatically
+        if (increaseBtn) {
+            console.log('Accessibility Widget: Testing programmatic click on increase button...');
+            increaseBtn.click();
+        }
+        
+        if (decreaseBtn) {
+            console.log('Accessibility Widget: Testing programmatic click on decrease button...');
+            decreaseBtn.click();
+        }
     }
 
 
@@ -11621,6 +12533,9 @@ html body.big-white-cursor * {
     // Line Height Methods
 
     updateLineHeight() {
+
+        console.log('📏 [UPDATE LINE HEIGHT] Starting updateLineHeight()');
+        console.log('📏 [UPDATE LINE HEIGHT] Current lineHeight:', this.lineHeight);
 
         // Store original line-height if not already stored
 
@@ -11630,7 +12545,7 @@ html body.big-white-cursor * {
 
             this.originalLineHeight = parseFloat(computedStyle.lineHeight);
 
-            console.log('Accessibility Widget: Stored original line-height:', this.originalLineHeight);
+            console.log('📏 [UPDATE LINE HEIGHT] Stored original line-height:', this.originalLineHeight);
 
         }
 
@@ -11672,53 +12587,36 @@ html body.big-white-cursor * {
 
         
 
-        // Apply line-height directly to body and html
+        // Add CSS rules for line height if not already added
+        if (!document.getElementById('line-height-css')) {
+            const style = document.createElement('style');
+            style.id = 'line-height-css';
+            document.head.appendChild(style);
+        }
 
-        document.body.style.setProperty('line-height', lineHeightValue);
+        // Update the CSS with the new line height value
+        const existingStyle = document.getElementById('line-height-css');
+        if (existingStyle) {
+            existingStyle.textContent = `
+                body, html {
+                    line-height: ${lineHeightValue} !important;
+                }
+                
+                body *, html * {
+                    line-height: ${lineHeightValue} !important;
+                }
+                
+                p, span, div, li, td, th, label, small, em, strong, i, b, h1, h2, h3, h4, h5, h6, a, button, input, textarea, select, article, section, aside, nav, header, footer, main {
+                    line-height: ${lineHeightValue} !important;
+                }
+            `;
+        }
 
-        document.documentElement.style.setProperty('line-height', lineHeightValue);
+        console.log('📏 [UPDATE LINE HEIGHT] Applied lineHeight via CSS injection:', lineHeightValue);
+        console.log('📏 [UPDATE LINE HEIGHT] CSS element found:', !!existingStyle);
+        console.log('📏 [UPDATE LINE HEIGHT] CSS content length:', existingStyle ? existingStyle.textContent.length : 0);
 
-        console.log('Accessibility Widget: Applied lineHeight to body and html:', lineHeightValue + ' (important)');
-
-        console.log('Accessibility Widget: Body computed line-height after application:', window.getComputedStyle(document.body).lineHeight);
-
-        console.log('Accessibility Widget: Body style line-height:', document.body.style.lineHeight);
-
-        
-
-        // Apply to all text elements except accessibility panel with more specific targeting
-
-        const textElements = document.querySelectorAll('p, span, div, li, td, th, label, small, em, strong, i, b, h1, h2, h3, h4, h5, h6, a, button, input, textarea, select, article, section, aside, nav, header, footer, main');
-
-        console.log('Accessibility Widget: Found', textElements.length, 'text elements to update');
-
-        
-
-        let updatedCount = 0;
-
-        textElements.forEach(element => {
-
-            // Skip if element is inside accessibility panel
-
-            if (!element.closest('.accessibility-panel, #accessibility-icon, .accessibility-icon')) {
-
-                // Use multiple approaches to ensure the line height is applied
-
-                element.style.setProperty('line-height', lineHeightValue);
-
-                element.style.lineHeight = lineHeightValue + '';
-
-                updatedCount++;
-
-            }
-
-        });
-
-        
-
-        console.log('Accessibility Widget: Updated', updatedCount, 'elements with lineHeight:', lineHeightValue);
-
-        console.log('Accessibility Widget: Line height updated to', this.lineHeight + '% (value:', lineHeightValue + ')');
+        console.log('📏 [UPDATE LINE HEIGHT] Line height updated to', this.lineHeight + '% (value:', lineHeightValue + ') - COMPLETED');
 
     }
 
@@ -11726,7 +12624,8 @@ html body.big-white-cursor * {
 
     increaseLineHeight() {
 
-        console.log('Accessibility Widget: increaseLineHeight called - Current lineHeight:', this.lineHeight);
+        console.log('📏 [LINE HEIGHT] increaseLineHeight called - Current lineHeight:', this.lineHeight);
+        console.log('📏 [LINE HEIGHT] Settings before increase:', this.settings);
 
         const oldLineHeight = this.lineHeight;
 
@@ -11737,15 +12636,18 @@ html body.big-white-cursor * {
         // Mark line height feature as used
         localStorage.setItem('line-height-used', 'true');
 
-        console.log('Accessibility Widget: Line height changed from', oldLineHeight + '% to', this.lineHeight + '%');
+        console.log('📏 [LINE HEIGHT] Line height changed from', oldLineHeight + '% to', this.lineHeight + '%');
 
+        console.log('📏 [LINE HEIGHT] Calling updateLineHeight()...');
         this.updateLineHeight();
 
+        console.log('📏 [LINE HEIGHT] Calling updateLineHeightDisplay()...');
         this.updateLineHeightDisplay();
 
+        console.log('📏 [LINE HEIGHT] Saving settings...');
         this.saveSettings(); // Persist to localStorage
 
-        console.log('Accessibility Widget: Line height increased to', this.lineHeight + '%');
+        console.log('📏 [LINE HEIGHT] Line height increased to', this.lineHeight + '% - COMPLETED');
 
     }
 
@@ -11753,7 +12655,8 @@ html body.big-white-cursor * {
 
     decreaseLineHeight() {
 
-        console.log('Accessibility Widget: decreaseLineHeight called - Current lineHeight:', this.lineHeight);
+        console.log('📏 [LINE HEIGHT] decreaseLineHeight called - Current lineHeight:', this.lineHeight);
+        console.log('📏 [LINE HEIGHT] Settings before decrease:', this.settings);
 
         const oldLineHeight = this.lineHeight;
 
@@ -11761,15 +12664,18 @@ html body.big-white-cursor * {
 
         this.settings['line-height'] = this.lineHeight; // Save to settings
 
-        console.log('Accessibility Widget: Line height changed from', oldLineHeight + '% to', this.lineHeight + '%');
+        console.log('📏 [LINE HEIGHT] Line height changed from', oldLineHeight + '% to', this.lineHeight + '%');
 
+        console.log('📏 [LINE HEIGHT] Calling updateLineHeight()...');
         this.updateLineHeight();
 
+        console.log('📏 [LINE HEIGHT] Calling updateLineHeightDisplay()...');
         this.updateLineHeightDisplay();
 
+        console.log('📏 [LINE HEIGHT] Saving settings...');
         this.saveSettings(); // Persist to localStorage
 
-        console.log('Accessibility Widget: Line height decreased to', this.lineHeight + '%');
+        console.log('📏 [LINE HEIGHT] Line height decreased to', this.lineHeight + '% - COMPLETED');
 
     }
 
@@ -11777,23 +12683,17 @@ html body.big-white-cursor * {
 
     updateLineHeightDisplay() {
 
-        console.log('Accessibility Widget: updateLineHeightDisplay called, lineHeight:', this.lineHeight);
-
-        console.log('Accessibility Widget: shadowRoot exists:', !!this.shadowRoot);
-
-        
+        console.log('📏 [UPDATE DISPLAY] updateLineHeightDisplay called, lineHeight:', this.lineHeight);
+        console.log('📏 [UPDATE DISPLAY] shadowRoot exists:', !!this.shadowRoot);
 
         const display = this.shadowRoot.getElementById('line-height-value');
-
-        console.log('Accessibility Widget: line-height-value element found:', !!display);
-
-        
+        console.log('📏 [UPDATE DISPLAY] line-height-value element found:', !!display);
 
         if (display) {
-
+            console.log('📏 [UPDATE DISPLAY] Previous display value:', display.textContent);
             display.textContent = this.lineHeight + '%';
-
-            console.log('Accessibility Widget: Updated line height display to', this.lineHeight + '%');
+            console.log('📏 [UPDATE DISPLAY] Updated line height display to', this.lineHeight + '%');
+            console.log('📏 [UPDATE DISPLAY] Current display value after update:', display.textContent);
 
         } else {
 
@@ -11824,13 +12724,15 @@ html body.big-white-cursor * {
     resetLineHeight() {
 
         console.log('Accessibility Widget: Starting line height reset...');
-
         
+        // Remove CSS rules for line height
+        const existingStyle = document.getElementById('line-height-css');
+        if (existingStyle) {
+            existingStyle.remove();
+        }
 
         // Reset line height back to original website styling
-
         document.body.style.removeProperty('line-height');
-
         document.documentElement.style.removeProperty('line-height');
 
         
@@ -11884,12 +12786,24 @@ html body.big-white-cursor * {
         console.log('Accessibility Widget: toggleLetterSpacingControls called with enabled:', enabled);
 
         const controls = this.shadowRoot.getElementById('letter-spacing-controls');
+        console.log('Accessibility Widget: Letter spacing controls found:', !!controls);
+        console.log('Accessibility Widget: Shadow root exists:', !!this.shadowRoot);
+        console.log('Accessibility Widget: Controls element:', controls);
 
         if (controls) {
 
             controls.style.display = enabled ? 'block' : 'none';
 
             console.log('Accessibility Widget: Letter spacing controls display set to:', enabled ? 'block' : 'none');
+
+            // Force the display with !important
+            if (enabled) {
+                controls.style.setProperty('display', 'block', 'important');
+                console.log('📝 [LETTER SPACING] Forced display: block with !important');
+            } else {
+                controls.style.setProperty('display', 'none', 'important');
+                console.log('📝 [LETTER SPACING] Forced display: none with !important');
+            }
 
         }
 
@@ -12281,7 +13195,9 @@ html body.big-white-cursor * {
         
 
         // Apply to body using original size
+
         const bodyOriginalSize = this.originalFontSizes.get(document.body) || 16;
+
         document.body.style.setProperty('font-size', `${bodyOriginalSize * scale}px`);
         
         // Also apply to html element to ensure it takes precedence
@@ -12305,7 +13221,7 @@ html body.big-white-cursor * {
 
                 if (originalSize && !isNaN(originalSize)) {
 
-                    // Apply the scale to the original size with to override CSS
+                    // Apply the scale to the original size
 
                     element.style.setProperty('font-size', `${originalSize * scale}px`);
 
@@ -12883,33 +13799,24 @@ html body.big-white-cursor * {
 
             
 
-            // Force block layout with inline styles to override any CSS
-
-            usefulLinksModule.style.display = 'block';
-
-            usefulLinksModule.style.flexDirection = 'unset';
-
-            usefulLinksModule.style.alignItems = 'unset';
-
-            usefulLinksModule.style.justifyContent = 'unset';
-
-            usefulLinksModule.style.flexWrap = 'unset';
-
-            usefulLinksModule.style.flexFlow = 'unset';
-
-            usefulLinksModule.style.flex = 'unset';
+            // Keep flexbox layout - don't override with block
+            // usefulLinksModule.style.display = 'block'; // REMOVED - this was breaking the layout
+            // usefulLinksModule.style.flexDirection = 'unset'; // REMOVED
+            // usefulLinksModule.style.alignItems = 'unset'; // REMOVED
+            // usefulLinksModule.style.justifyContent = 'unset'; // REMOVED
+            // usefulLinksModule.style.flexWrap = 'unset'; // REMOVED
+            // usefulLinksModule.style.flexFlow = 'unset'; // REMOVED
+            // usefulLinksModule.style.flex = 'unset'; // REMOVED
 
             
 
-            // Move toggle inside profile-info to keep them together
-
-            profileInfo.appendChild(toggleSwitch);
+            // Keep toggle in its original position - don't move it
+            // profileInfo.appendChild(toggleSwitch); // REMOVED - this was causing positioning issues
 
             
 
-            // Insert dropdown after profile-info
-
-            profileInfo.parentNode.insertBefore(dropdownContainer, profileInfo.nextSibling);
+            // Insert dropdown after the entire profile-item to avoid flex layout issues
+            usefulLinksModule.parentNode.insertBefore(dropdownContainer, usefulLinksModule.nextSibling);
 
             
 
@@ -13510,21 +14417,58 @@ html body.big-white-cursor * {
     // Highlight Hover Methods
 
     enableHighlightHover() {
-
+        this.settings['highlight-hover'] = true;
         document.body.classList.add('highlight-hover');
-
+        
+        // Add CSS rules for highlight hover if not already added
+        if (!document.getElementById('highlight-hover-css')) {
+            const style = document.createElement('style');
+            style.id = 'highlight-hover-css';
+            style.textContent = `
+                .highlight-hover *:hover {
+                    outline: 2px solid #0066ff !important;
+                    outline-offset: 2px !important;
+                }
+                
+                .highlight-hover a:hover {
+                    outline: 2px solid #0066ff !important;
+                    outline-offset: 2px !important;
+                }
+                
+                .highlight-hover button:hover,
+                .highlight-hover input:hover,
+                .highlight-hover select:hover,
+                .highlight-hover textarea:hover {
+                    outline: 2px solid #0066ff !important;
+                    outline-offset: 2px !important;
+                }
+                
+                .highlight-hover img:hover {
+                    outline: 3px solid #0066ff !important;
+                    outline-offset: 3px !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        this.saveSettings();
         console.log('Accessibility Widget: Highlight hover enabled');
-
     }
 
 
 
     disableHighlightHover() {
-
+        this.settings['highlight-hover'] = false;
         document.body.classList.remove('highlight-hover');
-
+        
+        // Remove CSS rules for highlight hover
+        const existingStyle = document.getElementById('highlight-hover-css');
+        if (existingStyle) {
+            existingStyle.remove();
+        }
+        
+        this.saveSettings();
         console.log('Accessibility Widget: Highlight hover disabled');
-
     }
 
 
@@ -13579,11 +14523,9 @@ html body.big-white-cursor * {
 
             
 
-            // Skip if element is not interactive or is part of accessibility widget
+            // Apply to interactive elements not inside the panel (allow the icon itself)
 
             if (!activeElement.closest('.accessibility-panel') && 
-
-                !activeElement.closest('#accessibility-icon') && 
 
                 isInteractiveElement) {
 
@@ -13618,8 +14560,29 @@ html body.big-white-cursor * {
             console.log('Accessibility Widget: Focus event triggered on:', e.target);
 
             console.log('Accessibility Widget: Body has highlight-focus class:', document.body.classList.contains('highlight-focus'));
+            console.log('Accessibility Widget: Is keyboard navigation:', this.isKeyboardNavigation);
+            console.log('Accessibility Widget: Last interaction method:', this.lastInteractionMethod);
+            
+            // Special debugging for accessibility icon
+            if (e.target.classList && e.target.classList.contains('accessibility-icon')) {
+                console.log('🎯 [FOCUS] Accessibility icon focused!');
+                console.log('🎯 [FOCUS] Icon classes:', e.target.className);
+                console.log('🎯 [FOCUS] Icon ID:', e.target.id);
+                console.log('🎯 [FOCUS] Body has highlight-focus:', document.body.classList.contains('highlight-focus'));
+                console.log('🎯 [FOCUS] Is keyboard navigation:', this.isKeyboardNavigation);
+                console.log('🎯 [FOCUS] Applying focus styles to accessibility icon');
+                
+                // Always apply focus styles to accessibility icon when focused
+                e.target.style.outline = '3px solid #6366f1';
+                e.target.style.outlineOffset = '2px';
+                e.target.style.background = 'rgba(99, 102, 241, 0.1)';
+                e.target.style.borderRadius = '4px';
+                e.target.style.transition = 'outline 0.2s ease, background 0.2s ease';
+                e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.3)';
+                return; // Exit early to prevent other focus handling
+            }
 
-            if (document.body.classList.contains('highlight-focus')) {
+            if (document.body.classList.contains('highlight-focus') && this.isKeyboardNavigation) {
 
                 const focusedElement = e.target;
 
@@ -13645,15 +14608,13 @@ html body.big-white-cursor * {
 
                 
 
-                // Skip if element is not interactive or is part of accessibility widget
+                // Skip if element is not interactive or is part of accessibility panel (but allow accessibility icon)
 
                 if (focusedElement === document.body || 
 
                     focusedElement === document.documentElement ||
 
                     focusedElement.closest('.accessibility-panel') ||
-
-                    focusedElement.closest('#accessibility-icon') ||
 
                     !isInteractiveElement) {
 
@@ -13687,9 +14648,9 @@ html body.big-white-cursor * {
 
                 console.log('Accessibility Widget: Interactive element focused, applying styles:', focusedElement);
 
-                focusedElement.style.outline = 'none';
+                focusedElement.style.outline = '3px solid #6366f1';
 
-                focusedElement.style.outlineOffset = '0px';
+                focusedElement.style.outlineOffset = '2px';
 
                 focusedElement.style.background = 'rgba(99, 102, 241, 0.1)';
 
@@ -13712,6 +14673,20 @@ html body.big-white-cursor * {
         // Add the focus event listener
 
         document.addEventListener('focusin', this.highlightFocusHandler, true);
+        
+        // Add focusout handler to clean up accessibility icon styles
+        this.highlightFocusOutHandler = (e) => {
+            if (e.target.classList && e.target.classList.contains('accessibility-icon')) {
+                console.log('🎯 [FOCUS] Accessibility icon lost focus - removing styles');
+                e.target.style.outline = '';
+                e.target.style.outlineOffset = '';
+                e.target.style.background = '';
+                e.target.style.borderRadius = '';
+                e.target.style.transition = '';
+            }
+        };
+        
+        document.addEventListener('focusout', this.highlightFocusOutHandler, true);
 
         console.log('Accessibility Widget: Focus event listener added');
 
@@ -13828,6 +14803,12 @@ html body.big-white-cursor * {
             this.highlightFocusHandler = null;
 
         }
+        
+        // Remove the focusout handler
+        if (this.highlightFocusOutHandler) {
+            document.removeEventListener('focusout', this.highlightFocusOutHandler, true);
+            this.highlightFocusOutHandler = null;
+        }
 
         
 
@@ -13857,9 +14838,7 @@ html body.big-white-cursor * {
 
 
     resetSettings() {
-        // Preserve the current language before resetting
-        const currentLanguage = localStorage.getItem('accessibility-widget-language') || 'English';
-        console.log('[CK] resetSettings() - Preserving language:', currentLanguage);
+        console.log('[CK] resetSettings() - Resetting all settings including language to English');
 
         this.settings = {};
 
@@ -13874,9 +14853,9 @@ html body.big-white-cursor * {
         localStorage.removeItem('letter-spacing-used');
         console.log('[CK] resetSettings() - Cleared usage tracking flags');
         
-        // Restore the language after reset
-        this.applyLanguage(currentLanguage);
-        console.log('[CK] resetSettings() - Language restored:', currentLanguage);
+        // Reset language to English
+        this.applyLanguage('en');
+        console.log('[CK] resetSettings() - Language reset to English');
 
         
 
@@ -14143,9 +15122,9 @@ html body.big-white-cursor * {
                 console.error('Accessibility Widget: Icon missing after reset!');
             } else {
                 // Force icon to be visible
-                icon.style.setProperty('display', 'flex');
-                icon.style.setProperty('visibility', 'visible');
-                icon.style.setProperty('opacity', '1');
+                icon.style.setProperty('display', 'flex', 'important');
+                icon.style.setProperty('visibility', 'visible', 'important');
+                icon.style.setProperty('opacity', '1', 'important');
                 console.log('Accessibility Widget: Icon visibility ensured');
             }
             
@@ -14390,9 +15369,120 @@ html body.big-white-cursor * {
 
 
     saveSettings() {
-
+        // Save to localStorage (existing functionality)
         localStorage.setItem('accessibility-settings', JSON.stringify(this.settings));
-
+        
+        // Also save to KV storage for persistence across devices
+        this.saveSettingsToKV();
+    }
+    
+    // Save settings to KV storage
+    async saveSettingsToKV() {
+        console.log('[CK] saveSettingsToKV() - Starting...');
+        
+        try {
+            // Get siteId first
+            const siteId = await this.getSiteId();
+            if (!siteId) {
+                console.error('[CK] saveSettingsToKV() - No siteId available, cannot save to KV');
+                return;
+            }
+            
+            if (!this.kvApiUrl) {
+                console.error('[CK] saveSettingsToKV() - kvApiUrl is not set!');
+                return;
+            }
+            
+            // Prepare settings data for KV
+            const settingsData = {
+                siteId: siteId,
+                settings: this.settings,
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                url: window.location.href
+            };
+            
+            console.log('[CK] saveSettingsToKV() - Saving settings to KV:', settingsData);
+            
+            const response = await fetch(`${this.kvApiUrl}/api/accessibility/save-settings`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(settingsData)
+            });
+            
+            console.log('[CK] saveSettingsToKV() - Response status:', response.status);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[CK] saveSettingsToKV() - Failed to save to KV:', response.status, errorText);
+                return;
+            }
+            
+            const result = await response.json();
+            console.log('[CK] saveSettingsToKV() - Successfully saved to KV:', result);
+            
+        } catch (error) {
+            console.error('[CK] saveSettingsToKV() - Error saving to KV:', error);
+        }
+    }
+    
+    // Load user settings from KV storage
+    async loadSettingsFromKV() {
+        console.log('[CK] loadSettingsFromKV() - Starting...');
+        
+        try {
+            // Get siteId first
+            const siteId = await this.getSiteId();
+            if (!siteId) {
+                console.log('[CK] loadSettingsFromKV() - No siteId available, skipping KV load');
+                return;
+            }
+            
+            if (!this.kvApiUrl) {
+                console.log('[CK] loadSettingsFromKV() - kvApiUrl is not set, skipping KV load');
+                return;
+            }
+            
+            console.log('[CK] loadSettingsFromKV() - Fetching user settings from KV...');
+            
+            const response = await fetch(`${this.kvApiUrl}/api/accessibility/user-settings?siteId=${siteId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            console.log('[CK] loadSettingsFromKV() - Response status:', response.status);
+            
+            if (!response.ok) {
+                console.log('[CK] loadSettingsFromKV() - No user settings found in KV or error:', response.status);
+                return;
+            }
+            
+            const data = await response.json();
+            console.log('[CK] loadSettingsFromKV() - Loaded user settings from KV:', data);
+            
+            if (data.settings) {
+                // Merge KV settings with existing settings (KV takes precedence)
+                const kvSettings = data.settings;
+                console.log('[CK] loadSettingsFromKV() - Applying KV settings:', kvSettings);
+                
+                // Update settings object
+                Object.keys(kvSettings).forEach(key => {
+                    this.settings[key] = kvSettings[key];
+                });
+                
+                // Save merged settings back to localStorage
+                localStorage.setItem('accessibility-settings', JSON.stringify(this.settings));
+                
+                console.log('[CK] loadSettingsFromKV() - Successfully loaded and applied KV settings');
+            }
+            
+        } catch (error) {
+            console.error('[CK] loadSettingsFromKV() - Error loading from KV:', error);
+        }
     }
 
 
@@ -14440,6 +15530,11 @@ html body.big-white-cursor * {
 
                 if (shouldApply) {
                 this.applyFeature(feature, true);
+
+                // Update displays for numeric features
+                if (feature === 'adjust-line-height') {
+                    this.updateLineHeightDisplay();
+                }
 
                 const toggle = this.shadowRoot.getElementById(feature);
 
@@ -14580,6 +15675,10 @@ html body.big-white-cursor * {
             if (lineHeightControls) {
 
                 lineHeightControls.style.display = 'block';
+                
+                // Bind events when controls are shown
+                this.bindLineHeightEvents();
+                this.bindLineHeightEventsDirect();
 
             }
 
@@ -14906,9 +16005,9 @@ html body.big-white-cursor * {
 
             body.monochrome *:not(.accessibility-icon):not(.accessibility-panel):not(#accessibility-icon):not(#accessibility-panel) {
 
-                filter: grayscale(100%);
+                filter: grayscale(100%) !important;
 
-                transition: filter 0.3s ease;
+                transition: filter 0.3s ease !important;
 
             }
 
@@ -14920,7 +16019,7 @@ html body.big-white-cursor * {
 
             body.monochrome #accessibility-widget {
 
-                z-index: 99998;
+                z-index: 99998 !important;
 
             }
 
@@ -15916,7 +17015,65 @@ html body.big-white-cursor * {
 
     }
 
+    // Hide Images Methods
+    enableHideImages() {
+        this.settings['hide-images'] = true;
+        document.body.classList.add('hide-images');
+        
+        // Add CSS rules for hiding images if not already added
+        if (!document.getElementById('hide-images-css')) {
+            const style = document.createElement('style');
+            style.id = 'hide-images-css';
+            style.textContent = `
+                .hide-images img {
+                    display: none !important;
+                    visibility: hidden !important;
+                }
+                
+                .hide-images picture {
+                    display: none !important;
+                    visibility: hidden !important;
+                }
+                
+                .hide-images svg {
+                    display: none !important;
+                    visibility: hidden !important;
+                }
+                
+                .hide-images video {
+                    display: none !important;
+                    visibility: hidden !important;
+                }
+                
+                .hide-images canvas {
+                    display: none !important;
+                    visibility: hidden !important;
+                }
+                
+                .hide-images [style*="background-image"] {
+                    background-image: none !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        this.saveSettings();
+        console.log('Accessibility Widget: Hide images enabled');
+    }
 
+    disableHideImages() {
+        this.settings['hide-images'] = false;
+        document.body.classList.remove('hide-images');
+        
+        // Remove CSS rules for hiding images
+        const existingStyle = document.getElementById('hide-images-css');
+        if (existingStyle) {
+            existingStyle.remove();
+        }
+        
+        this.saveSettings();
+        console.log('Accessibility Widget: Hide images disabled');
+    }
 
     // Read Mode Methods
 
@@ -15954,27 +17111,27 @@ html body.big-white-cursor * {
 
             <div id="read-mode-overlay" style="
 
-                position: fixed;
+                position: fixed !important;
 
-                top: 0;
+                top: 0 !important;
 
-                left: 0;
+                left: 0 !important;
 
-                width: 100%;
+                width: 100% !important;
 
-                height: 100%;
+                height: 100% !important;
 
-                background: #e8f4f8;
+                background: #e8f4f8 !important;
 
-                z-index: 99997;
+                z-index: 99997 !important;
 
-                overflow-y: auto;
+                overflow-y: auto !important;
 
-                padding: 20px;
+                padding: 20px !important;
 
-                font-family: Arial, sans-serif;
+                font-family: Arial, sans-serif !important;
 
-                display: block;
+                display: block !important;
 
             ">
 
@@ -16418,11 +17575,9 @@ html body.big-white-cursor * {
 
             
 
-            // Skip if element is not interactive or is part of accessibility widget
+            // Apply to interactive elements not inside the panel (allow the icon itself)
 
             if (!activeElement.closest('.accessibility-panel') && 
-
-                !activeElement.closest('#accessibility-icon') && 
 
                 isInteractiveElement) {
 
@@ -16457,8 +17612,29 @@ html body.big-white-cursor * {
             console.log('Accessibility Widget: Focus event triggered on:', e.target);
 
             console.log('Accessibility Widget: Body has highlight-focus class:', document.body.classList.contains('highlight-focus'));
+            console.log('Accessibility Widget: Is keyboard navigation:', this.isKeyboardNavigation);
+            console.log('Accessibility Widget: Last interaction method:', this.lastInteractionMethod);
+            
+            // Special debugging for accessibility icon
+            if (e.target.classList && e.target.classList.contains('accessibility-icon')) {
+                console.log('🎯 [FOCUS] Accessibility icon focused!');
+                console.log('🎯 [FOCUS] Icon classes:', e.target.className);
+                console.log('🎯 [FOCUS] Icon ID:', e.target.id);
+                console.log('🎯 [FOCUS] Body has highlight-focus:', document.body.classList.contains('highlight-focus'));
+                console.log('🎯 [FOCUS] Is keyboard navigation:', this.isKeyboardNavigation);
+                console.log('🎯 [FOCUS] Applying focus styles to accessibility icon');
+                
+                // Always apply focus styles to accessibility icon when focused
+                e.target.style.outline = '3px solid #6366f1';
+                e.target.style.outlineOffset = '2px';
+                e.target.style.background = 'rgba(99, 102, 241, 0.1)';
+                e.target.style.borderRadius = '4px';
+                e.target.style.transition = 'outline 0.2s ease, background 0.2s ease';
+                e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.3)';
+                return; // Exit early to prevent other focus handling
+            }
 
-            if (document.body.classList.contains('highlight-focus')) {
+            if (document.body.classList.contains('highlight-focus') && this.isKeyboardNavigation) {
 
                 const focusedElement = e.target;
 
@@ -16484,15 +17660,13 @@ html body.big-white-cursor * {
 
                 
 
-                // Skip if element is not interactive or is part of accessibility widget
+                // Skip if element is not interactive or is part of accessibility panel (but allow accessibility icon)
 
                 if (focusedElement === document.body || 
 
                     focusedElement === document.documentElement ||
 
                     focusedElement.closest('.accessibility-panel') ||
-
-                    focusedElement.closest('#accessibility-icon') ||
 
                     !isInteractiveElement) {
 
@@ -16551,6 +17725,20 @@ html body.big-white-cursor * {
         // Add the focus event listener
 
         document.addEventListener('focusin', this.highlightFocusHandler, true);
+        
+        // Add focusout handler to clean up accessibility icon styles
+        this.highlightFocusOutHandler = (e) => {
+            if (e.target.classList && e.target.classList.contains('accessibility-icon')) {
+                console.log('🎯 [FOCUS] Accessibility icon lost focus - removing styles');
+                e.target.style.outline = '';
+                e.target.style.outlineOffset = '';
+                e.target.style.background = '';
+                e.target.style.borderRadius = '';
+                e.target.style.transition = '';
+            }
+        };
+        
+        document.addEventListener('focusout', this.highlightFocusOutHandler, true);
 
         console.log('Accessibility Widget: Focus event listener added');
 
@@ -16667,6 +17855,12 @@ html body.big-white-cursor * {
             this.highlightFocusHandler = null;
 
         }
+        
+        // Remove the focusout handler
+        if (this.highlightFocusOutHandler) {
+            document.removeEventListener('focusout', this.highlightFocusOutHandler, true);
+            this.highlightFocusOutHandler = null;
+        }
 
         
 
@@ -16715,45 +17909,88 @@ html body.big-white-cursor * {
 
 
     enableReadableFont() {
-
         this.settings['readable-font'] = true;
-
         document.body.classList.add('readable-font');
-
+        
         // Also add to the widget host element
-
         if (this.shadowRoot && this.shadowRoot.host) {
-
             this.shadowRoot.host.classList.add('readable-font');
-
         }
-
+        
+        // Add CSS rules for readable font if not already added
+        if (!document.getElementById('readable-font-css')) {
+            const style = document.createElement('style');
+            style.id = 'readable-font-css';
+            style.textContent = `
+                .readable-font {
+                    font-family: 'Arial', 'Open Sans', 'Helvetica', sans-serif !important;
+                }
+                
+                .readable-font * {
+                    font-family: 'Arial', 'Open Sans', 'Helvetica', sans-serif !important;
+                    font-weight: 500 !important;
+                    letter-spacing: 0.5px !important;
+                }
+                
+                .readable-font h1,
+                .readable-font h2,
+                .readable-font h3,
+                .readable-font h4,
+                .readable-font h5,
+                .readable-font h6 {
+                    font-family: 'Arial', 'Open Sans', 'Helvetica', sans-serif !important;
+                    font-weight: 600 !important;
+                    letter-spacing: 0.8px !important;
+                }
+                
+                .readable-font p,
+                .readable-font span,
+                .readable-font div,
+                .readable-font li,
+                .readable-font td,
+                .readable-font th,
+                .readable-font label,
+                .readable-font small,
+                .readable-font em,
+                .readable-font strong,
+                .readable-font i,
+                .readable-font b,
+                .readable-font a,
+                .readable-font button,
+                .readable-font input,
+                .readable-font textarea,
+                .readable-font select {
+                    font-family: 'Arial', 'Open Sans', 'Helvetica', sans-serif !important;
+                    font-weight: 500 !important;
+                    letter-spacing: 0.5px !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
         this.saveSettings();
-
         console.log('Accessibility Widget: Readable font enabled');
-
     }
 
 
 
     disableReadableFont() {
-
         this.settings['readable-font'] = false;
-
         document.body.classList.remove('readable-font');
-
+        
         // Also remove from the widget host element
-
         if (this.shadowRoot && this.shadowRoot.host) {
-
             this.shadowRoot.host.classList.remove('readable-font');
-
         }
-
+        
+        // Remove CSS rules for readable font
+        const existingStyle = document.getElementById('readable-font-css');
+        if (existingStyle) {
+            existingStyle.remove();
+        }
+        
         this.saveSettings();
-
         console.log('Accessibility Widget: Readable font disabled');
-
     }
 
 
@@ -16762,16 +17999,16 @@ html body.big-white-cursor * {
 
     enableAlignLeft() {
 
+        // First, completely clear all alignment classes
+        this.clearAllAlignmentClasses();
+
         this.settings['align-left'] = true;
 
         document.body.classList.add('align-left');
 
         // Also add to the widget host element
-
         if (this.shadowRoot && this.shadowRoot.host) {
-
             this.shadowRoot.host.classList.add('align-left');
-
         }
 
         this.saveSettings();
@@ -16806,16 +18043,16 @@ html body.big-white-cursor * {
 
     enableAlignCenter() {
 
+        // First, completely clear all alignment classes
+        this.clearAllAlignmentClasses();
+
         this.settings['align-center'] = true;
 
         document.body.classList.add('align-center');
 
         // Also add to the widget host element
-
         if (this.shadowRoot && this.shadowRoot.host) {
-
             this.shadowRoot.host.classList.add('align-center');
-
         }
 
         this.saveSettings();
@@ -16850,16 +18087,16 @@ html body.big-white-cursor * {
 
     enableAlignRight() {
 
+        // First, completely clear all alignment classes
+        this.clearAllAlignmentClasses();
+
         this.settings['align-right'] = true;
 
         document.body.classList.add('align-right');
 
         // Also add to the widget host element
-
         if (this.shadowRoot && this.shadowRoot.host) {
-
             this.shadowRoot.host.classList.add('align-right');
-
         }
 
         this.saveSettings();
@@ -16877,17 +18114,32 @@ html body.big-white-cursor * {
         document.body.classList.remove('align-right');
 
         // Also remove from the widget host element
-
         if (this.shadowRoot && this.shadowRoot.host) {
-
             this.shadowRoot.host.classList.remove('align-right');
-
         }
 
         this.saveSettings();
 
         console.log('Accessibility Widget: Align right disabled');
 
+    }
+
+    // Helper method to clear all alignment classes
+    clearAllAlignmentClasses() {
+        // Remove all alignment classes from body
+        document.body.classList.remove('align-left', 'align-center', 'align-right');
+        
+        // Remove all alignment classes from widget host
+        if (this.shadowRoot && this.shadowRoot.host) {
+            this.shadowRoot.host.classList.remove('align-left', 'align-center', 'align-right');
+        }
+        
+        // Reset all alignment settings
+        this.settings['align-left'] = false;
+        this.settings['align-center'] = false;
+        this.settings['align-right'] = false;
+        
+        console.log('Accessibility Widget: Cleared all alignment classes');
     }
 
 
@@ -17203,7 +18455,7 @@ html body.big-white-cursor * {
             body:not(.big-white-cursor):not(.big-black-cursor) .accessibility-widget *,
             body:not(.big-white-cursor):not(.big-black-cursor) #accessibility-widget * {
 
-                cursor: auto;
+                cursor: auto !important;
 
             }
 
@@ -17335,13 +18587,13 @@ html body.big-white-cursor * {
 
             color: white;
 
-            padding: 15px 25px;
+            padding: 15px 12px;
 
             border-radius: 8px;
 
             font-family: 'DM Sans', sans-serif;
 
-            /* Font size controlled by JavaScript */
+            font-size: 14px;
 
             z-index: 1000000;
 
@@ -17382,6 +18634,50 @@ html body.big-white-cursor * {
         this.settings['stop-animation'] = true;
 
         this.saveSettings();
+
+        
+
+        // Add CSS rules for stop animation if not already added
+
+        if (!document.getElementById('stop-animation-css')) {
+
+            const style = document.createElement('style');
+
+            style.id = 'stop-animation-css';
+
+            style.textContent = `
+
+                .stop-animation *,
+
+                .stop-animation *::before,
+
+                .stop-animation *::after {
+
+                    animation-duration: 0.01ms !important;
+
+                    animation-iteration-count: 1 !important;
+
+                    animation-delay: 0s !important;
+
+                    transition-duration: 0.01ms !important;
+
+                    scroll-behavior: auto !important;
+
+                }
+
+                
+
+                .stop-animation * {
+
+                    animation-play-state: paused !important;
+
+                }
+
+            `;
+
+            document.head.appendChild(style);
+
+        }
 
         
 
@@ -17426,6 +18722,18 @@ html body.big-white-cursor * {
         this.settings['stop-animation'] = false;
 
         this.saveSettings();
+
+        
+
+        // Remove CSS rules for stop animation
+
+        const existingStyle = document.getElementById('stop-animation-css');
+
+        if (existingStyle) {
+
+            existingStyle.remove();
+
+        }
 
         
 
@@ -18217,7 +19525,8 @@ html body.big-white-cursor * {
 
         this.addSeizureSafeStyles();
 
-        
+        // Stop autoplay videos to prevent seizures
+        this.stopAutoplayVideos();
 
         // Stop any JavaScript-based animations (like the slider auto-slide)
 
@@ -18315,6 +19624,57 @@ html body.big-white-cursor * {
 
     }
 
+    // Stop autoplay videos to prevent seizures
+    stopAutoplayVideos() {
+        console.log('Accessibility Widget: Stopping autoplay videos for seizure safety');
+        
+        // Find all video and audio elements
+        const videos = document.querySelectorAll('video');
+        const audios = document.querySelectorAll('audio');
+        
+        // Stop and pause all videos
+        videos.forEach((video, index) => {
+            if (video.autoplay || video.getAttribute('autoplay') !== null) {
+                video.pause();
+                video.currentTime = 0;
+                video.removeAttribute('autoplay');
+                video.setAttribute('data-seizure-safe-paused', 'true');
+                console.log(`Accessibility Widget: Stopped autoplay video ${index + 1}`);
+            }
+        });
+        
+        // Stop and pause all audio
+        audios.forEach((audio, index) => {
+            if (audio.autoplay || audio.getAttribute('autoplay') !== null) {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.removeAttribute('autoplay');
+                audio.setAttribute('data-seizure-safe-paused', 'true');
+                console.log(`Accessibility Widget: Stopped autoplay audio ${index + 1}`);
+            }
+        });
+        
+        // Add CSS to prevent future autoplay
+        if (!document.getElementById('seizure-safe-autoplay-css')) {
+            const style = document.createElement('style');
+            style.id = 'seizure-safe-autoplay-css';
+            style.textContent = `
+                .seizure-safe video[autoplay],
+                .seizure-safe audio[autoplay] {
+                    animation-play-state: paused !important;
+                }
+                .seizure-safe video,
+                .seizure-safe audio {
+                    animation: none !important;
+                    transition: none !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        console.log('Accessibility Widget: Autoplay videos stopped for seizure safety');
+    }
+
 
 
     addSeizureSafeStyles() {
@@ -18337,47 +19697,104 @@ html body.big-white-cursor * {
 
             
 
-            /* Stop all animations and transitions, but preserve slider functionality */
-
-            body.seizure-safe *:not(.slider-track):not(.slide):not(.slider-btn):not(.dot):not(.slider-wrapper):not(.slider-container),
-
-            body.seizure-safe *::before,
-
-            body.seizure-safe *::after {
-
-                animation: none;
-
-                transition: none;
-
-                transform: none;
-
-                animation-duration: 0s;
-
-                animation-delay: 0s;
-
-                animation-iteration-count: 0;
-
-                transition-duration: 0s;
-
-                transition-delay: 0s;
-
+            /* Stop only seizure-triggering animations, preserve essential functionality */
+            
+            /* Target specific seizure-triggering elements */
+            body.seizure-safe [class*="animate"],
+            body.seizure-safe [class*="fade"],
+            body.seizure-safe [class*="slide"],
+            body.seizure-safe [class*="bounce"],
+            body.seizure-safe [class*="pulse"],
+            body.seizure-safe [class*="shake"],
+            body.seizure-safe [class*="flash"],
+            body.seizure-safe [class*="blink"],
+            body.seizure-safe [class*="glow"],
+            body.seizure-safe [class*="spin"],
+            body.seizure-safe [class*="rotate"],
+            body.seizure-safe [class*="scale"],
+            body.seizure-safe [class*="zoom"],
+            body.seizure-safe [class*="wiggle"],
+            body.seizure-safe [class*="jiggle"],
+            body.seizure-safe [class*="twist"],
+            body.seizure-safe [class*="flip"],
+            body.seizure-safe [class*="swing"],
+            body.seizure-safe [class*="wobble"],
+            body.seizure-safe [class*="tilt"],
+            body.seizure-safe [class*="shake"],
+            body.seizure-safe [class*="bounce"],
+            body.seizure-safe [class*="pulse"],
+            body.seizure-safe [class*="flash"],
+            body.seizure-safe [class*="blink"],
+            body.seizure-safe [class*="glow"],
+            body.seizure-safe [class*="spin"],
+            body.seizure-safe [class*="rotate"],
+            body.seizure-safe [class*="scale"],
+            body.seizure-safe [class*="zoom"],
+            body.seizure-safe [class*="wiggle"],
+            body.seizure-safe [class*="jiggle"],
+            body.seizure-safe [class*="twist"],
+            body.seizure-safe [class*="flip"],
+            body.seizure-safe [class*="swing"],
+            body.seizure-safe [class*="wobble"],
+            body.seizure-safe [class*="tilt"] {
+                animation: none !important;
+                transition: none !important;
+                animation-duration: 0s !important;
+                animation-delay: 0s !important;
+                animation-iteration-count: 0 !important;
+                transition-duration: 0s !important;
+                transition-delay: 0s !important;
+            }
+            
+            /* Stop common seizure-triggering animations */
+            body.seizure-safe *[style*="animation"],
+            body.seizure-safe *[style*="transition"] {
+                animation: none !important;
+                transition: none !important;
             }
 
             
+
+            /* Preserve portfolio functionality while maintaining seizure safety */
+            body.seizure-safe .portfolio-card,
+            body.seizure-safe .hover-circle,
+            body.seizure-safe .bg-overlay,
+            body.seizure-safe .portfolio-hover-img,
+            body.seizure-safe .portfolio-desc-wrapper,
+            body.seizure-safe .portfolio-filters,
+            body.seizure-safe .curved-text-container {
+                /* Allow essential portfolio animations but reduce intensity */
+                transition: opacity 0.2s ease, transform 0.2s ease !important;
+                animation: none !important;
+            }
+            
+            /* Preserve accessibility widget functionality */
+            body.seizure-safe .accessibility-icon,
+            body.seizure-safe .accessibility-panel,
+            body.seizure-safe .toggle-switch,
+            body.seizure-safe .slider,
+            body.seizure-safe .profile-item,
+            body.seizure-safe .action-btn,
+            body.seizure-safe .close-btn,
+            body.seizure-safe .language-selector {
+                /* Allow essential UI animations */
+                transition: opacity 0.2s ease, transform 0.2s ease !important;
+                animation: none !important;
+            }
 
             /* Allow slider track to maintain its left positioning for navigation */
 
             body.seizure-safe .slider-track {
 
-                animation: none;
+                animation: none !important;
 
-                animation-name: none;
+                animation-name: none !important;
 
-                animation-duration: 0s;
+                animation-duration: 0s !important;
 
-                animation-iteration-count: 0;
+                animation-iteration-count: 0 !important;
 
-                transition: left 0.5s ease-in-out;
+                transition: left 0.5s ease-in-out !important;
 
                 /* left positioning is controlled by JavaScript, don't override it */
 
@@ -18391,15 +19808,15 @@ html body.big-white-cursor * {
 
             body.seizure-safe .slider-track * {
 
-                animation: none;
+                animation: none !important;
 
-                animation-name: none;
+                animation-name: none !important;
 
-                animation-duration: 0s;
+                animation-duration: 0s !important;
 
-                animation-iteration-count: 0;
+                animation-iteration-count: 0 !important;
 
-                animation-delay: 0s;
+                animation-delay: 0s !important;
 
             }
 
@@ -18411,7 +19828,7 @@ html body.big-white-cursor * {
 
             body.seizure-safe .dot {
 
-                transition: all 0.3s ease;
+                transition: all 0.3s ease !important;
 
                 /* Allow hover effects and clicks to work */
 
@@ -18419,13 +19836,21 @@ html body.big-white-cursor * {
 
             
 
-            /* Reduce color intensity (muted colors) for seizure safety */
+            /* Reduce color intensity (muted colors) for seizure safety - more targeted approach */
 
-            body.seizure-safe *:not(.accessibility-icon):not(.accessibility-panel):not(#accessibility-icon):not(#accessibility-panel) {
+            body.seizure-safe img,
+            body.seizure-safe video,
+            body.seizure-safe canvas,
+            body.seizure-safe svg,
+            body.seizure-safe [class*="hero"],
+            body.seizure-safe [class*="banner"],
+            body.seizure-safe [class*="background"],
+            body.seizure-safe [class*="bg-"],
+            body.seizure-safe [style*="background"] {
 
-                filter: saturate(0.4) brightness(0.95);
+                filter: saturate(0.6) brightness(0.9) !important;
 
-                transition: filter 0.3s ease;
+                transition: filter 0.3s ease !important;
 
             }
 
@@ -18435,7 +19860,7 @@ html body.big-white-cursor * {
 
             body.seizure-safe {
 
-                cursor: url('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjgwMHB4IiB3aWR0aD0iODAwcHgiIHZlcnNpb249IjEuMSIgaWQ9IkNhcGFfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgdmlld0JveD0iMCAwIDE2LjQ5OSAxNi40OTkiIHhtbDpzcGFjZT0icHJlc2VydmUiIGZpbGw9IiMwMDAwMDAiPjxnIGlkPSJTVkdSZXBvX2JnQ2FycmllciIgc3Ryb2tlLXdpZHRoPSIwIi8+PGcgaWQ9IlNWR1JlcG9fdHJhY2VyQ2FycmllciIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGcgaWQ9IlNWR1JlcG9faWNvbkNhcnJpZXIiPjxnPjxwYXRoIHN0eWxlPSJmaWxsOiNmZmZmZmY7IiBkPSJNMTQuNTExLDQuMDM3Yy0wLjAxOC0wLjA0NS0wLjA0LTAuMDgyLTAuMDcyLTAuMTE1Yy0wLjA1LTAuMDQ3LTAuMTE1LTAuMDgtMC4xODgtMC4wODJMMC4zMzUsMC4wMDIgQzAuMjQzLTAuMDEsMC4xNTQsMC4wMjcsMC4wOSwwLjA5QzAuMDI0LDAuMTU2LTAuMDA3LDAuMjQsMC4wMDMsMC4zMzRsNC42MzQsMTQuMTdjMC4wMTMsMC4xMTksMC4wODksMC4yMTcsMC4yLDAuMjU4IHMwLjIzNSwwLjAxLDAuMzE4LTAuMDc2bDEuMTExLTUuNjExbDcuMzM0LDcuMzMyYzAuMTIxLDAuMTIzLDAuMzEyLDAuMTIzLDAuNDMxLDBsMi4zNzgtMi4zNzVjMC4xMTktMC4xMjEsMC4xMTktMC4zMTIsMC0wLjQzMiBMOS4wNzUsNi4yNjZsNS4zNjMtMS45MUMxNC41MjIsNC4yNzUsMTQuNTQ5LDQuMTUsMTQuNTExLDQuMDM3eiIvPjwvZz48L2c+PC9zdmc+'), auto;
+                cursor: url('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjgwMHB4IiB3aWR0aD0iODAwcHgiIHZlcnNpb249IjEuMSIgaWQ9IkNhcGFfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgdmlld0JveD0iMCAwIDE2LjQ5OSAxNi40OTkiIHhtbDpzcGFjZT0icHJlc2VydmUiIGZpbGw9IiMwMDAwMDAiPjxnIGlkPSJTVkdSZXBvX2JnQ2FycmllciIgc3Ryb2tlLXdpZHRoPSIwIi8+PGcgaWQ9IlNWR1JlcG9fdHJhY2VyQ2FycmllciIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGcgaWQ9IlNWR1JlcG9faWNvbkNhcnJpZXIiPjxnPjxwYXRoIHN0eWxlPSJmaWxsOiNmZmZmZmY7IiBkPSJNMTQuNTExLDQuMDM3Yy0wLjAxOC0wLjA0NS0wLjA0LTAuMDgyLTAuMDcyLTAuMTE1Yy0wLjA1LTAuMDQ3LTAuMTE1LTAuMDgtMC4xODgtMC4wODJMMC4zMzUsMC4wMDIgQzAuMjQzLTAuMDEsMC4xNTQsMC4wMjcsMC4wOSwwLjA5QzAuMDI0LDAuMTU2LTAuMDA3LDAuMjQsMC4wMDMsMC4zMzRsNC42MzQsMTQuMTdjMC4wMTMsMC4xMTksMC4wODksMC4yMTcsMC4yLDAuMjU4IHMwLjIzNSwwLjAxLDAuMzE4LTAuMDc2bDEuMTExLTUuNjExbDcuMzM0LDcuMzMyYzAuMTIxLDAuMTIzLDAuMzEyLDAuMTIzLDAuNDMxLDBsMi4zNzgtMi4zNzVjMC4xMTktMC4xMjEsMC4xMTktMC4zMTIsMC0wLjQzMiBMOS4wNzUsNi4yNjZsNS4zNjMtMS45MUMxNC41MjIsNC4yNzUsMTQuNTQ5LDQuMTUsMTQuNTExLDQuMDM3eiIvPjwvZz48L2c+PC9zdmc+'), auto !important;
 
             }
 
@@ -18443,19 +19868,49 @@ html body.big-white-cursor * {
 
             body.seizure-safe * {
 
-                cursor: url('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjgwMHB4IiB3aWR0aD0iODAwcHgiIHZlcnNpb249IjEuMSIgaWQ9IkNhcGFfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgdmlld0JveD0iMCAwIDE2LjQ5OSAxNi40OTkiIHhtbDpzcGFjZT0icHJlc2VydmUiIGZpbGw9IiMwMDAwMDAiPjxnIGlkPSJTVkdSZXBvX2JnQ2FycmllciIgc3Ryb2tlLXdpZHRoPSIwIi8+PGcgaWQ9IlNWR1JlcG9fdHJhY2VyQ2FycmllciIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGcgaWQ9IlNWR1JlcG9faWNvbkNhcnJpZXIiPjxnPjxwYXRoIHN0eWxlPSJmaWxsOiNmZmZmZmY7IiBkPSJNMTQuNTExLDQuMDM3Yy0wLjAxOC0wLjA0NS0wLjA0LTAuMDgyLTAuMDcyLTAuMTE1Yy0wLjA1LTAuMDQ3LTAuMTE1LTAuMDgtMC4xODgtMC4wODJMMC4zMzUsMC4wMDIgQzAuMjQzLTAuMDEsMC4xNTQsMC4wMjcsMC4wOSwwLjA5QzAuMDI0LDAuMTU2LTAuMDA3LDAuMjQsMC4wMDMsMC4zMzRsNC42MzQsMTQuMTdjMC4wMTMsMC4xMTksMC4wODksMC4yMTcsMC4yLDAuMjU4IHMwLjIzNSwwLjAxLDAuMzE4LTAuMDc2bDEuMTExLTUuNjExbDcuMzM0LDcuMzMyYzAuMTIxLDAuMTIzLDAuMzEyLDAuMTIzLDAuNDMxLDBsMi4zNzgtMi4zNzVjMC4xMTktMC4xMjEsMC4xMTktMC4zMTIsMC0wLjQzMiBMOS4wNzUsNi4yNjZsNS4zNjMtMS45MUMxNC41MjIsNC4yNzUsMTQuNTQ5LDQuMTUsMTQuNTExLDQuMDM3eiIvPjwvZz48L2c+PC9zdmc+'), auto;
+                cursor: url('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjgwMHB4IiB3aWR0aD0iODAwcHgiIHZlcnNpb249IjEuMSIgaWQ9IkNhcGFfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgdmlld0JveD0iMCAwIDE2LjQ5OSAxNi40OTkiIHhtbDpzcGFjZT0icHJlc2VydmUiIGZpbGw9IiMwMDAwMDAiPjxnIGlkPSJTVkdSZXBvX2JnQ2FycmllciIgc3Ryb2tlLXdpZHRoPSIwIi8+PGcgaWQ9IlNWR1JlcG9fdHJhY2VyQ2FycmllciIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGcgaWQ9IlNWR1JlcG9faWNvbkNhcnJpZXIiPjxnPjxwYXRoIHN0eWxlPSJmaWxsOiNmZmZmZmY7IiBkPSJNMTQuNTExLDQuMDM3Yy0wLjAxOC0wLjA0NS0wLjA0LTAuMDgyLTAuMDcyLTAuMTE1Yy0wLjA1LTAuMDQ3LTAuMTE1LTAuMDgtMC4xODgtMC4wODJMMC4zMzUsMC4wMDIgQzAuMjQzLTAuMDEsMC4xNTQsMC4wMjcsMC4wOSwwLjA5QzAuMDI0LDAuMTU2LTAuMDA3LDAuMjQsMC4wMDMsMC4zMzRsNC42MzQsMTQuMTdjMC4wMTMsMC4xMTksMC4wODksMC4yMTcsMC4yLDAuMjU4IHMwLjIzNSwwLjAxLDAuMzE4LTAuMDc2bDEuMTExLTUuNjExbDcuMzM0LDcuMzMyYzAuMTIxLDAuMTIzLDAuMzEyLDAuMTIzLDAuNDMxLDBsMi4zNzgtMi4zNzVjMC4xMTktMC4xMjEsMC4xMTktMC4zMTIsMC0wLjQzMiBMOS4wNzUsNi4yNjZsNS4zNjMtMS45MUMxNC41MjIsNC4yNzUsMTQuNTQ5LDQuMTUsMTQuNTExLDQuMDM3eiIvPjwvZz48L2c+PC9zdmc+'), auto !important;
 
             }
 
             
 
+            /* Fix black screen issues by overriding problematic seizure safety */
+            body.seizure-safe {
+                background: transparent !important;
+                background-color: transparent !important;
+            }
+            
+            body.seizure-safe * {
+                background: inherit !important;
+                background-color: inherit !important;
+                filter: none !important;
+            }
+            
+            /* Only apply filters to specific media elements */
+            body.seizure-safe img,
+            body.seizure-safe video,
+            body.seizure-safe canvas {
+                filter: saturate(0.6) brightness(0.9) !important;
+            }
+            
+            /* Fix stop animation causing black screens */
+            body.stop-animation {
+                background: transparent !important;
+                background-color: transparent !important;
+            }
+            
+            body.stop-animation * {
+                background: inherit !important;
+                background-color: inherit !important;
+            }
+            
             /* Ensure accessibility widget stays above overlay */
 
             body.seizure-safe .accessibility-widget,
 
             body.seizure-safe #accessibility-widget {
 
-                z-index: 99998;
+                z-index: 99998 !important;
 
             }
 
@@ -18469,23 +19924,23 @@ html body.big-white-cursor * {
 
             .adhd-friendly #adhd-spotlight {
 
-                z-index: 99998;
+                z-index: 99998 !important;
 
-                background: rgba(255, 255, 255, 0.1);
+                background: rgba(255, 255, 255, 0.1) !important;
 
-                backdrop-filter: brightness(2.0) contrast(1.2);
+                backdrop-filter: brightness(2.0) contrast(1.2) !important;
 
-                box-shadow: inset 0 0 60px rgba(255, 255, 255, 0.4);
+                box-shadow: inset 0 0 60px rgba(255, 255, 255, 0.4) !important;
 
-                filter: none;
+                filter: none !important;
 
-                position: fixed;
+                position: fixed !important;
 
-                pointer-events: none;
+                pointer-events: none !important;
 
-                border-radius: 8px;
+                border-radius: 8px !important;
 
-                transition: all 0.1s ease;
+                transition: all 0.1s ease !important;
 
             }
 
@@ -18497,7 +19952,7 @@ html body.big-white-cursor * {
 
             .adhd-friendly #accessibility-widget {
 
-                z-index: 1000000;
+                z-index: 1000000 !important;
 
             }
 
@@ -18507,13 +19962,13 @@ html body.big-white-cursor * {
 
             .adhd-friendly .adhd-focus {
 
-                outline: 4px solid var(--primary-color);
+                outline: 4px solid var(--primary-color) !important;
 
-                outline-offset: 3px;
+                outline-offset: 3px !important;
 
-                background: rgba(99, 102, 241, 0.15);
+                background: rgba(99, 102, 241, 0.15) !important;
 
-                filter: contrast(1.3) brightness(1.1);
+                filter: contrast(1.3) brightness(1.1) !important;
 
             }
 
@@ -19015,7 +20470,7 @@ html body.big-white-cursor * {
 
         // Apply to document body first
 
-        document.body.style.setProperty('text-align', alignment, 'important');
+        document.body.style.setProperty('text-align', alignment);
 
         
 
@@ -19045,7 +20500,7 @@ html body.big-white-cursor * {
 
             if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'span', 'section', 'article', 'main', 'header', 'footer', 'nav', 'li', 'td', 'th', 'blockquote', 'cite', 'address', 'label', 'a'].includes(tagName)) {
 
-                element.style.setProperty('text-align', alignment, 'important');
+                element.style.setProperty('text-align', alignment);
 
                 count++;
 
@@ -19083,7 +20538,7 @@ html body.big-white-cursor * {
 
                 if (!element.closest('.accessibility-panel, #accessibility-icon, .accessibility-icon, .text-alignment-panel, #text-alignment-panel, .alignment-toggle-btn')) {
 
-                    element.style.setProperty('text-align', alignment, 'important');
+                    element.style.setProperty('text-align', alignment);
 
                     count++;
 
@@ -19312,37 +20767,37 @@ html body.big-white-cursor * {
 
 
     applyVisionImpairedStyles() {
-
-        // Vision impaired styles are now handled by CSS classes
-
-        // The body class 'vision-impaired' will apply all the necessary styles
-
-        console.log('Accessibility Widget: Vision impaired styles applied via CSS classes');
-
+        // Add CSS rules for vision impaired if not already added
+        if (!document.getElementById('vision-impaired-css')) {
+            const style = document.createElement('style');
+            style.id = 'vision-impaired-css';
+            style.textContent = `
+                .vision-impaired * {
+                    font-size: 105% !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
         
-
+        console.log('Accessibility Widget: Vision impaired styles applied - font size increased by 5%');
+        
         // Ensure the Shadow DOM host gets the vision-impaired class
-
         this.updateWidgetAppearance();
-
     }
 
 
 
     removeVisionImpairedStyles() {
-
-        // Vision impaired styles are now handled by CSS classes
-
-        // Removing the body class 'vision-impaired' will remove all styles
-
-        console.log('Accessibility Widget: Vision impaired styles removed via CSS classes');
-
+        // Remove CSS rules for vision impaired
+        const existingStyle = document.getElementById('vision-impaired-css');
+        if (existingStyle) {
+            existingStyle.remove();
+        }
         
-
+        console.log('Accessibility Widget: Vision impaired styles removed via CSS classes');
+        
         // Ensure the Shadow DOM host gets updated
-
         this.updateWidgetAppearance();
-
     }
 
 
@@ -19353,7 +20808,9 @@ html body.big-white-cursor * {
 
         console.log('Accessibility Widget: Enabling center alignment');
 
-        
+        // Disable other alignment options first
+        this.disableAlignLeft();
+        this.disableAlignRight();
 
         // Apply center alignment to body first
 
@@ -19471,21 +20928,26 @@ html body.big-white-cursor * {
 
     enableAlignLeft() {
 
-        console.log('Accessibility Widget: Enabling left alignment');
+        console.log('🔧 [ALIGN LEFT] Starting enableAlignLeft()');
+        console.log('🔧 [ALIGN LEFT] Current settings:', this.settings);
 
-        
+        // Disable other alignment options first
+        console.log('🔧 [ALIGN LEFT] Disabling other alignment options...');
+        this.disableAlignCenter();
+        this.disableAlignRight();
 
         // Apply left alignment to body first
-
+        console.log('🔧 [ALIGN LEFT] Setting body textAlign to left...');
         document.body.style.textAlign = 'left';
-
-        
+        console.log('🔧 [ALIGN LEFT] Body textAlign set to:', document.body.style.textAlign);
 
         // Then apply to specific content elements, excluding accessibility widget
+        console.log('🔧 [ALIGN LEFT] Querying content elements...');
+        const contentElements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span:not([class*="icon"]):not([class*="button"]), div:not([class*="icon"]):not([class*="button"]):not([class*="nav"]):not([class*="menu"]), li, td, th, label, small, em, strong, i, b, a, button, input, textarea, select, article, section, aside, nav, header, footer');
+        console.log('🔧 [ALIGN LEFT] Found', contentElements.length, 'content elements');
 
-        const contentElements = document.querySelectorAll('p, span, div, li, td, th, label, small, em, strong, i, b, h1, h2, h3, h4, h5, h6, a, button, input, textarea, select, article, section, aside, nav, header, footer');
-
-        
+        let processedCount = 0;
+        let skippedCount = 0;
 
         contentElements.forEach(element => {
 
@@ -19517,13 +20979,16 @@ html body.big-white-cursor * {
 
             
 
+            console.log('🔧 [ALIGN LEFT] Setting textAlign to left for element:', element.tagName, element.className);
             element.style.textAlign = 'left';
+            processedCount++;
 
         });
-
         
+        console.log('🔧 [ALIGN LEFT] Processed', processedCount, 'elements, skipped', skippedCount, 'elements');
 
-        console.log('Accessibility Widget: Left alignment enabled');
+        console.log('🔧 [ALIGN LEFT] Left alignment enabled - COMPLETED');
+        console.log('🔧 [ALIGN LEFT] Final body textAlign:', document.body.style.textAlign);
 
     }
 
@@ -19569,7 +21034,9 @@ html body.big-white-cursor * {
 
         console.log('Accessibility Widget: Enabling right alignment');
 
-        
+        // Disable other alignment options first
+        this.disableAlignLeft();
+        this.disableAlignCenter();
 
         // Apply right alignment to body first, then to specific content elements
 
@@ -19952,6 +21419,7 @@ html body.big-white-cursor * {
                     console.log('Accessibility Widget: Panel hidden');
                 } else {
                     // Show panel
+                    this.ensureBasePanelCSS(); // Ensure base CSS is applied
                     this.updateInterfacePosition(); // Position panel next to icon
                     panel.style.display = 'block';
                     panel.style.visibility = 'visible';
@@ -19983,7 +21451,7 @@ html body.big-white-cursor * {
                 } else {
 
                     // Open panel
-
+                    this.ensureBasePanelCSS(); // Ensure base CSS is applied
                     panel.classList.add('active');
 
                     panel.setAttribute('aria-hidden', 'false');
@@ -20258,10 +21726,12 @@ applyCustomizations(customizationData) {
         }
         
         if (customizationData.triggerButtonShape) {
-            console.log('[CK] applyCustomizations() - Setting trigger button shape:', customizationData.triggerButtonShape);
-            console.log('[CK] applyCustomizations() - About to call updateTriggerButtonShape...');
+            console.log('🔧 [CUSTOMIZATION] Setting trigger button shape:', customizationData.triggerButtonShape);
+            console.log('🔧 [CUSTOMIZATION] Shape type:', typeof customizationData.triggerButtonShape);
+            console.log('🔧 [CUSTOMIZATION] Shape length:', customizationData.triggerButtonShape?.length);
+            console.log('🔧 [CUSTOMIZATION] About to call updateTriggerButtonShape...');
             this.updateTriggerButtonShape(customizationData.triggerButtonShape);
-            console.log('[CK] applyCustomizations() - updateTriggerButtonShape called');
+            console.log('🔧 [CUSTOMIZATION] updateTriggerButtonShape called');
         }
         
         if (customizationData.triggerButtonSize) {
@@ -20337,14 +21807,23 @@ applyCustomizations(customizationData) {
             this.updateMobileVisibility(customizationData.showOnMobile === 'Show');
         }
         
-        if (customizationData.mobileTriggerHorizontalPosition) {
-            console.log('[CK] applyCustomizations() - Setting mobile trigger horizontal position:', customizationData.mobileTriggerHorizontalPosition);
-            this.updateMobileTriggerPosition('horizontal', customizationData.mobileTriggerHorizontalPosition);
-        }
-        
-        if (customizationData.mobileTriggerVerticalPosition) {
-            console.log('[CK] applyCustomizations() - Setting mobile trigger vertical position:', customizationData.mobileTriggerVerticalPosition);
-            this.updateMobileTriggerPosition('vertical', customizationData.mobileTriggerVerticalPosition);
+        // Handle combined positioning for mobile trigger
+        if (customizationData.mobileTriggerHorizontalPosition && customizationData.mobileTriggerVerticalPosition) {
+            console.log('📱 [APPLY CUSTOMIZATIONS] Setting combined mobile trigger position:', customizationData.mobileTriggerHorizontalPosition, customizationData.mobileTriggerVerticalPosition);
+            console.log('📱 [APPLY CUSTOMIZATIONS] Window width at time of application:', window.innerWidth);
+            console.log('📱 [APPLY CUSTOMIZATIONS] Is mobile at application time:', window.innerWidth <= 768);
+            this.updateMobileTriggerCombinedPosition(customizationData.mobileTriggerHorizontalPosition, customizationData.mobileTriggerVerticalPosition);
+        } else {
+            // Handle individual positioning
+            if (customizationData.mobileTriggerHorizontalPosition) {
+                console.log('[CK] applyCustomizations() - Setting mobile trigger horizontal position:', customizationData.mobileTriggerHorizontalPosition);
+                this.updateMobileTriggerPosition('horizontal', customizationData.mobileTriggerHorizontalPosition);
+            }
+            
+            if (customizationData.mobileTriggerVerticalPosition) {
+                console.log('[CK] applyCustomizations() - Setting mobile trigger vertical position:', customizationData.mobileTriggerVerticalPosition);
+                this.updateMobileTriggerPosition('vertical', customizationData.mobileTriggerVerticalPosition);
+            }
         }
         
         if (customizationData.mobileTriggerSize) {
@@ -20353,21 +21832,52 @@ applyCustomizations(customizationData) {
         }
         
         if (customizationData.mobileTriggerShape) {
-            console.log('[CK] applyCustomizations() - Setting mobile trigger shape:', customizationData.mobileTriggerShape);
+            console.log('📱 [CUSTOMIZATION] Setting mobile trigger shape:', customizationData.mobileTriggerShape);
+            console.log('📱 [CUSTOMIZATION] Mobile shape type:', typeof customizationData.mobileTriggerShape);
+            console.log('📱 [CUSTOMIZATION] Mobile shape length:', customizationData.mobileTriggerShape?.length);
+            console.log('📱 [CUSTOMIZATION] Window width at shape application:', window.innerWidth);
+            console.log('📱 [CUSTOMIZATION] Is mobile at shape application:', window.innerWidth <= 768);
             this.updateMobileTriggerShape(customizationData.mobileTriggerShape);
+            
+            // Final verification for mobile shape
+            if (window.innerWidth <= 768) {
+                setTimeout(() => {
+                    const icon = this.shadowRoot?.getElementById('accessibility-icon');
+                    if (icon) {
+                        const computedBorderRadius = window.getComputedStyle(icon).borderRadius;
+                        console.log('📱 [FINAL VERIFICATION] Mobile shape verification:');
+                        console.log('📱 [FINAL VERIFICATION] - Expected shape:', customizationData.mobileTriggerShape);
+                        console.log('📱 [FINAL VERIFICATION] - Computed border-radius:', computedBorderRadius);
+                        console.log('📱 [FINAL VERIFICATION] - Data-shape attribute:', icon.getAttribute('data-shape'));
+                        console.log('📱 [FINAL VERIFICATION] - Icon classes:', icon.className);
+                    }
+                }, 200);
+            }
         }
         
+        // Store mobile offsets to be applied after positioning
         if (customizationData.mobileTriggerHorizontalOffset) {
-            console.log('[CK] applyCustomizations() - Setting mobile trigger horizontal offset:', customizationData.mobileTriggerHorizontalOffset);
-            this.updateMobileTriggerOffset('horizontal', customizationData.mobileTriggerHorizontalOffset);
+            console.log('[CK] applyCustomizations() - Storing mobile trigger horizontal offset for later application:', customizationData.mobileTriggerHorizontalOffset);
+            this.mobileHorizontalOffset = customizationData.mobileTriggerHorizontalOffset;
         }
         
         if (customizationData.mobileTriggerVerticalOffset) {
-            console.log('[CK] applyCustomizations() - Setting mobile trigger vertical offset:', customizationData.mobileTriggerVerticalOffset);
-            this.updateMobileTriggerOffset('vertical', customizationData.mobileTriggerVerticalOffset);
+            console.log('[CK] applyCustomizations() - Storing mobile trigger vertical offset for later application:', customizationData.mobileTriggerVerticalOffset);
+            this.mobileVerticalOffset = customizationData.mobileTriggerVerticalOffset;
         }
         
         console.log('[CK] applyCustomizations() - Successfully applied all customization data');
+        
+        // Apply mobile offsets after all positioning has been applied
+        if (this.mobileHorizontalOffset !== undefined) {
+            console.log('[CK] applyCustomizations() - Applying stored mobile horizontal offset:', this.mobileHorizontalOffset);
+            this.updateMobileTriggerOffset('horizontal', this.mobileHorizontalOffset);
+        }
+        
+        if (this.mobileVerticalOffset !== undefined) {
+            console.log('[CK] applyCustomizations() - Applying stored mobile vertical offset:', this.mobileVerticalOffset);
+            this.updateMobileTriggerOffset('vertical', this.mobileVerticalOffset);
+        }
         
         // Show the icon now that customizations have been applied
         this.showIcon();
@@ -20383,14 +21893,50 @@ applyCustomizations(customizationData) {
     // Show the icon after customizations are loaded
     showIcon() {
         const icon = this.shadowRoot?.getElementById('accessibility-icon');
-        if (icon) {
-            console.log('[CK] showIcon() - Showing icon with customizations applied');
+        if (!icon) {
+            console.warn('[CK] showIcon() - Icon not found in shadow DOM');
+            return;
+        }
+
+        // Check device type
+        const isMobile = window.innerWidth <= 768;
+        const hideTrigger = this.customizationData?.hideTriggerButton === 'Yes';
+        const mobileVisibility = this.customizationData?.showOnMobile; // 'Show' | 'Hide' | undefined
+
+        console.log('[CK] showIcon() - Device check:', { isMobile, hideTrigger, mobileVisibility });
+
+        // Desktop/Tablet logic: hide if hideTriggerButton is Yes
+        if (!isMobile && hideTrigger) {
+            console.log('[CK] showIcon() - Desktop/Tablet: hideTriggerButton is Yes; hiding icon');
+            icon.style.display = 'none';
+            icon.style.visibility = 'hidden';
+            icon.style.opacity = '0';
+            return;
+        }
+
+        // Mobile logic: hide if showOnMobile is Hide
+        if (isMobile && mobileVisibility === 'Hide') {
+            console.log('[CK] showIcon() - Mobile: showOnMobile is Hide; hiding icon on mobile');
+            icon.style.display = 'none';
+            icon.style.visibility = 'hidden';
+            icon.style.opacity = '0';
+            return;
+        }
+
+        // Show icon if visibility rules pass
+        console.log('[CK] showIcon() - Showing icon (visibility rules passed)');
             icon.style.display = 'flex';
             icon.style.visibility = 'visible';
             icon.style.opacity = '1';
             icon.style.transition = 'opacity 0.3s ease';
-        } else {
-            console.warn('[CK] showIcon() - Icon not found in shadow DOM');
+        
+        // Apply mobile positioning if on mobile and we have mobile position data
+        if (isMobile && this.customizationData?.mobileTriggerHorizontalPosition && this.customizationData?.mobileTriggerVerticalPosition) {
+            console.log('[CK] showIcon() - Applying mobile positioning on show');
+            this.updateMobileTriggerCombinedPosition(
+                this.customizationData.mobileTriggerHorizontalPosition, 
+                this.customizationData.mobileTriggerVerticalPosition
+            );
     }
 }
 
@@ -20403,6 +21949,14 @@ applyCustomizations(customizationData) {
         console.log('[CK] applyLanguage() - Language saved to localStorage:', language);
         
         const content = this.translations[language] || this.translations.en;
+        
+        // Ensure toggle text is always available
+        if (!content.toggleOn) {
+            content.toggleOn = "ON";
+        }
+        if (!content.toggleOff) {
+            content.toggleOff = "OFF";
+        }
         console.log('[CK] applyLanguage() - Using content for language:', language);
         console.log('[CK] applyLanguage() - Content keys:', Object.keys(content));
         
@@ -20497,6 +22051,9 @@ applyCustomizations(customizationData) {
         // Update detailed descriptions and notes
         this.updateDetailedDescriptions(content);
         
+        // Update toggle switch text
+        this.updateToggleText(content);
+        
         console.log('[CK] applyLanguage() - Language applied successfully');
     }
     
@@ -20528,7 +22085,7 @@ applyCustomizations(customizationData) {
         // Update keyboard navigation note
         const keyboardNavNote = this.shadowRoot?.querySelector('#keyboard-nav')?.closest('.profile-item')?.querySelector('.profile-description p:last-child');
         if (keyboardNavNote && content.keyboardNavNote) {
-            keyboardNavNote.innerHTML = `<strong>Note:</strong> ${content.keyboardNavNote.replace('Note: ', '')}`;
+            keyboardNavNote.innerHTML = `<strong></strong> ${content.keyboardNavNote.replace('Note: ', '')}`;
             console.log('[CK] Updated keyboard nav note');
         }
         
@@ -20542,7 +22099,7 @@ applyCustomizations(customizationData) {
         // Update screen reader note
         const screenReaderNote = this.shadowRoot?.querySelector('#screen-reader')?.closest('.profile-item')?.querySelector('.profile-description p:last-child');
         if (screenReaderNote && content.screenReaderNote) {
-            screenReaderNote.innerHTML = `<strong>Note:</strong> ${content.screenReaderNote.replace('Note: ', '')}`;
+            screenReaderNote.innerHTML = `<strong></strong> ${content.screenReaderNote.replace('Note: ', '')}`;
             console.log('[CK] Updated screen reader note');
         }
         
@@ -20558,6 +22115,58 @@ applyCustomizations(customizationData) {
         if (screenReaderActivates && content.activatesWithKeyboardNav) {
             screenReaderActivates.textContent = content.activatesWithKeyboardNav;
             console.log('[CK] Updated screen reader activates text');
+        }
+    }
+    
+    updateToggleText(content) {
+        console.log('[CK] updateToggleText() - Updating toggle switch text');
+        console.log('[CK] updateToggleText() - Content received:', content);
+        console.log('[CK] updateToggleText() - ToggleOn:', content.toggleOn);
+        console.log('[CK] updateToggleText() - ToggleOff:', content.toggleOff);
+        
+        // Update CSS custom properties for toggle text
+        if (content.toggleOn && content.toggleOff) {
+            // Create style element for shadow DOM
+            const style = document.createElement('style');
+            style.id = 'toggle-text-translation';
+            style.textContent = `
+                .slider::after {
+                    content: "${content.toggleOff}" !important;
+                }
+                input:checked + .slider::after {
+                    content: "${content.toggleOn}" !important;
+                }
+            `;
+            
+            console.log('[CK] updateToggleText() - CSS to be applied:', style.textContent);
+            
+            // Remove existing toggle text style if it exists from shadow DOM
+            const existingStyle = this.shadowRoot?.getElementById('toggle-text-translation');
+            if (existingStyle) {
+                console.log('[CK] updateToggleText() - Removing existing style');
+                existingStyle.remove();
+            }
+            
+            // Add the new style to shadow DOM
+            if (this.shadowRoot) {
+                this.shadowRoot.appendChild(style);
+                console.log('[CK] updateToggleText() - Toggle text updated in shadow DOM:', {
+                    toggleOn: content.toggleOn,
+                    toggleOff: content.toggleOff
+                });
+                
+                // Force a re-render to ensure the changes take effect
+                const toggles = this.shadowRoot.querySelectorAll('.slider');
+                toggles.forEach(toggle => {
+                    toggle.style.display = 'none';
+                    toggle.offsetHeight; // Trigger reflow
+                    toggle.style.display = '';
+                });
+            } else {
+                console.log('[CK] updateToggleText() - Shadow DOM not found');
+            }
+        } else {
+            console.log('[CK] updateToggleText() - Toggle text not found in content');
         }
     }
     
@@ -20615,7 +22224,10 @@ applyCustomizations(customizationData) {
         
         if (modalCancel) {
             modalCancel.addEventListener('click', () => {
+                console.log('[CK] Cancel button clicked - ensuring icon is visible');
                 this.hideHideInterfaceModal();
+                // Ensure icon is visible after canceling
+                this.ensureIconVisible();
             });
         }
         
@@ -20677,6 +22289,587 @@ applyCustomizations(customizationData) {
             modal.style.display = 'none';
             console.log('[CK] Hide interface modal hidden');
         }
+    }
+    
+    ensureIconVisible() {
+        console.log('[CK] ensureIconVisible() called');
+        const icon = this.shadowRoot?.querySelector('#accessibility-icon');
+        const panel = this.shadowRoot?.querySelector('#accessibility-panel');
+        
+        if (icon) {
+            icon.style.display = 'flex';
+            icon.style.visibility = 'visible';
+            icon.style.opacity = '1';
+            console.log('[CK] Icon made visible');
+        }
+        
+        if (panel) {
+            panel.style.display = 'none'; // Keep panel hidden unless opened
+            console.log('[CK] Panel kept hidden (as expected)');
+        }
+    }
+    
+    debugFontSizeConflicts(element) {
+        console.log('🔍 [FONT DEBUG] debugFontSizeConflicts() called');
+        
+        if (!element) {
+            console.log('🔍 [FONT DEBUG] No element provided');
+            return;
+        }
+        
+        // Get computed styles
+        const computedStyle = window.getComputedStyle(element);
+        const fontSize = computedStyle.fontSize;
+        const fontFamily = computedStyle.fontFamily;
+        
+        console.log('🔍 [FONT DEBUG] Element computed font-size:', fontSize);
+        console.log('🔍 [FONT DEBUG] Element computed font-family:', fontFamily);
+        
+        // Check inline styles
+        const inlineFontSize = element.style.fontSize;
+        console.log('🔍 [FONT DEBUG] Element inline font-size:', inlineFontSize || 'none');
+        
+        // Check for any CSS rules that might be affecting font-size
+        const allStyles = document.styleSheets;
+        console.log('🔍 [FONT DEBUG] Total stylesheets found:', allStyles.length);
+        
+        // Check if element has any classes that might affect font-size
+        const classes = element.className;
+        console.log('🔍 [FONT DEBUG] Element classes:', classes);
+        
+        // Check parent element font-size
+        const parent = element.parentElement;
+        if (parent) {
+            const parentFontSize = window.getComputedStyle(parent).fontSize;
+            console.log('🔍 [FONT DEBUG] Parent element font-size:', parentFontSize);
+        }
+    }
+    
+    applyMobileButtonStacking() {
+        console.log('📱 [BUTTON STACKING] applyMobileButtonStacking() called');
+        
+        // Find the action buttons container
+        const actionButtons = this.shadowRoot?.querySelector('.action-buttons');
+        const buttonRows = this.shadowRoot?.querySelectorAll('.button-row');
+        
+        console.log('📱 [BUTTON STACKING] Action buttons found:', !!actionButtons);
+        console.log('📱 [BUTTON STACKING] Button rows found:', buttonRows?.length || 0);
+        
+        if (actionButtons) {
+            // Stack all buttons vertically on mobile
+            actionButtons.style.setProperty('flex-direction', 'column', 'important');
+            actionButtons.style.setProperty('gap', '8px', 'important');
+            actionButtons.style.setProperty('align-items', 'stretch', 'important');
+            console.log('📱 [BUTTON STACKING] Applied vertical stacking to action-buttons');
+        }
+        
+        if (buttonRows && buttonRows.length > 0) {
+            buttonRows.forEach((row, index) => {
+                // Make each button row stack vertically
+                row.style.setProperty('flex-direction', 'column', 'important');
+                row.style.setProperty('gap', '8px', 'important');
+                row.style.setProperty('width', '100%', 'important');
+                console.log(`📱 [BUTTON STACKING] Applied vertical stacking to button-row ${index + 1}`);
+            });
+        }
+        
+        // Also ensure individual buttons take full width
+        const actionBtns = this.shadowRoot?.querySelectorAll('.action-btn');
+        if (actionBtns && actionBtns.length > 0) {
+            actionBtns.forEach((btn, index) => {
+                btn.style.setProperty('width', '100%', 'important');
+                btn.style.setProperty('justify-content', 'center', 'important');
+                console.log(`📱 [BUTTON STACKING] Applied full width to action-btn ${index + 1}`);
+            });
+        }
+    }
+    
+    applyMobileSizeReductions() {
+        console.log('📱 [MOBILE SIZES] applyMobileSizeReductions() called');
+        
+        // Reduce action button sizes
+        const actionBtns = this.shadowRoot?.querySelectorAll('.action-btn');
+        if (actionBtns && actionBtns.length > 0) {
+            actionBtns.forEach((btn, index) => {
+                btn.style.setProperty('font-size', '11px', 'important');
+                btn.style.setProperty('padding', '6px 10px', 'important');
+                btn.style.setProperty('min-height', '30px', 'important');
+                console.log(`📱 [MOBILE SIZES] Reduced action-btn ${index + 1} size`);
+            });
+        }
+        
+        // Reduce toggle switch sizes (label.toggle-switch contains input + span.slider)
+        const toggles = this.shadowRoot?.querySelectorAll('label.toggle-switch');
+        if (toggles && toggles.length > 0) {
+            toggles.forEach((toggle, index) => {
+                toggle.style.setProperty('width', '38px', 'important');
+                toggle.style.setProperty('height', '22px', 'important');
+                console.log(`📱 [MOBILE SIZES] Reduced toggle ${index + 1} size`);
+            });
+        }
+        
+        // Reduce toggle slider knob (.slider and its pseudo knob)
+        const sliders = this.shadowRoot?.querySelectorAll('label.toggle-switch > span.slider');
+        if (sliders && sliders.length > 0) {
+            sliders.forEach((slider, index) => {
+                // Track and bar
+                slider.style.setProperty('height', '22px', 'important');
+                slider.style.setProperty('border-radius', '22px', 'important');
+                slider.style.setProperty('padding', '0', 'important');
+                slider.style.setProperty('box-sizing', 'border-box', 'important');
+                // Inject a tiny stylesheet to shrink the knob (:before)
+                const style = document.createElement('style');
+                style.textContent = `
+                    @media (max-width: 768px) {
+                        .toggle-switch > input + .slider:before { width: 18px !important; height: 18px !important; top: 2px !important; left: 2px !important; }
+                    }
+                `;
+                this.shadowRoot?.appendChild(style);
+                console.log(`📱 [MOBILE SIZES] Reduced toggle slider ${index + 1} size`);
+            });
+        }
+        
+        // Reduce profile item sizes
+        const profileItems = this.shadowRoot?.querySelectorAll('.profile-item');
+        if (profileItems && profileItems.length > 0) {
+            profileItems.forEach((item, index) => {
+                item.style.setProperty('padding', '8px 10px', 'important');
+                item.style.setProperty('margin-bottom', '6px', 'important');
+                console.log(`📱 [MOBILE SIZES] Reduced profile-item ${index + 1} size`);
+            });
+        }
+        
+        // Reduce headings and profile titles
+        const headerH2 = this.shadowRoot?.querySelector('.panel-header h2');
+        if (headerH2) {
+            headerH2.style.setProperty('font-size', '16px', 'important');
+            headerH2.style.setProperty('line-height', '20px', 'important');
+            console.log('📱 [MOBILE SIZES] Reduced main title size');
+        }
+        const profileTitles = this.shadowRoot?.querySelectorAll('.profile-item h4');
+        if (profileTitles && profileTitles.length > 0) {
+            profileTitles.forEach((title, index) => {
+                title.style.setProperty('font-size', '12px', 'important');
+                title.style.setProperty('line-height', '1.3', 'important');
+                console.log(`📱 [MOBILE SIZES] Reduced profile-title ${index + 1} size`);
+            });
+        }
+        
+        // Reduce profile descriptions
+        const profileDescs = this.shadowRoot?.querySelectorAll('.profile-item p');
+        if (profileDescs && profileDescs.length > 0) {
+            profileDescs.forEach((desc, index) => {
+                desc.style.setProperty('font-size', '10px', 'important');
+                desc.style.setProperty('line-height', '1.2', 'important');
+                console.log(`📱 [MOBILE SIZES] Reduced profile-description ${index + 1} size`);
+            });
+        }
+        
+        // Reduce section titles
+        const sectionTitles = this.shadowRoot?.querySelectorAll('h3');
+        if (sectionTitles && sectionTitles.length > 0) {
+            sectionTitles.forEach((title, index) => {
+                title.style.setProperty('font-size', '13px', 'important');
+                title.style.setProperty('margin-bottom', '8px', 'important');
+                console.log(`📱 [MOBILE SIZES] Reduced section title ${index + 1} size`);
+            });
+        }
+        
+        // Reduce language selector size
+        const languageSelector = this.shadowRoot?.querySelector('.language-selector');
+        if (languageSelector) {
+            languageSelector.style.setProperty('font-size', '11px', 'important');
+            languageSelector.style.setProperty('padding', '6px 8px', 'important');
+            console.log('📱 [MOBILE SIZES] Reduced language selector size');
+        }
+        
+        // Reduce close button size and fix position - match hide interface modal approach
+        const closeBtn = this.shadowRoot?.querySelector('.close-btn');
+        if (closeBtn) {
+            closeBtn.style.setProperty('font-size', '20px', 'important');
+            closeBtn.style.setProperty('width', '28px', 'important');
+            closeBtn.style.setProperty('height', '28px', 'important');
+            closeBtn.style.setProperty('min-width', '28px', 'important');
+            closeBtn.style.setProperty('min-height', '28px', 'important');
+            closeBtn.style.setProperty('max-width', '28px', 'important');
+            closeBtn.style.setProperty('max-height', '28px', 'important');
+            closeBtn.style.setProperty('top', '8px', 'important');
+            closeBtn.style.setProperty('left', '12px', 'important');
+            closeBtn.style.setProperty('display', 'flex', 'important');
+            closeBtn.style.setProperty('align-items', 'center', 'important');
+            closeBtn.style.setProperty('justify-content', 'center', 'important');
+            closeBtn.style.setProperty('box-sizing', 'border-box', 'important');
+            console.log('📱 [MOBILE SIZES] Reduced close button size and fixed position');
+        }
+        
+        // Reduce increase/decrease buttons (arrow controls) more on mobile
+        const arrowBtns = this.shadowRoot?.querySelectorAll('button[class*="arrow"], button[class*="increase"], button[class*="decrease"], .arrow-btn, .control-btn, .scaling-btn');
+        if (arrowBtns && arrowBtns.length > 0) {
+            arrowBtns.forEach((btn, index) => {
+                btn.style.setProperty('height', '20px', 'important');
+                btn.style.setProperty('min-height', '20px', 'important');
+                btn.style.setProperty('padding', '1px 6px', 'important');
+                btn.style.setProperty('font-size', '9px', 'important');
+                btn.style.setProperty('border-radius', '4px', 'important');
+                btn.style.setProperty('line-height', '1', 'important');
+                btn.style.setProperty('width', 'auto', 'important');
+                btn.style.setProperty('min-width', '32px', 'important');
+                console.log(`📱 [MOBILE SIZES] Reduced arrow button ${index + 1} size (compact)`);
+            });
+        }
+        
+        // Add mobile-specific CSS for all control buttons
+        const mobileControlStyle = document.createElement('style');
+        mobileControlStyle.textContent = `
+            @media (max-width: 768px) {
+                .scaling-btn, button[class*="increase"], button[class*="decrease"], .arrow-btn, .control-btn {
+                    height: 20px !important;
+                    min-height: 20px !important;
+                    padding: 1px 6px !important;
+                    font-size: 9px !important;
+                    border-radius: 4px !important;
+                    line-height: 1 !important;
+                    width: auto !important;
+                    min-width: 32px !important;
+                }
+            }
+        `;
+        this.shadowRoot?.appendChild(mobileControlStyle);
+        console.log('📱 [MOBILE SIZES] Added mobile-specific CSS for control buttons');
+        
+        // Reduce color picker sizes
+        const colorPickers = this.shadowRoot?.querySelectorAll('.color-picker, .color-input, .color-preview, .color-picker-button, input[type="color"]');
+        if (colorPickers && colorPickers.length > 0) {
+            colorPickers.forEach((picker, index) => {
+                picker.style.setProperty('width', '24px', 'important');
+                picker.style.setProperty('height', '24px', 'important');
+                picker.style.setProperty('min-width', '24px', 'important');
+                picker.style.setProperty('min-height', '24px', 'important');
+                console.log(`📱 [MOBILE SIZES] Reduced color picker ${index + 1} size`);
+            });
+        }
+        
+        // Reduce useful links dropdown size more aggressively
+        const usefulLinksDropdown = this.shadowRoot?.querySelector('.useful-links-dropdown');
+        if (usefulLinksDropdown) {
+            usefulLinksDropdown.style.setProperty('font-size', '10px', 'important');
+            usefulLinksDropdown.style.setProperty('padding', '4px 6px', 'important');
+            usefulLinksDropdown.style.setProperty('min-height', '28px', 'important');
+            usefulLinksDropdown.style.setProperty('margin', '6px 0', 'important');
+            usefulLinksDropdown.style.setProperty('border-radius', '6px', 'important');
+            console.log('📱 [MOBILE SIZES] Reduced useful links dropdown size');
+        }
+        
+        // Reduce useful links content select size more aggressively
+        const usefulLinksSelect = this.shadowRoot?.querySelector('.useful-links-content select');
+        if (usefulLinksSelect) {
+            usefulLinksSelect.style.setProperty('font-size', '10px', 'important');
+            usefulLinksSelect.style.setProperty('padding', '4px 6px', 'important');
+            usefulLinksSelect.style.setProperty('min-height', '24px', 'important');
+            usefulLinksSelect.style.setProperty('height', '24px', 'important');
+            usefulLinksSelect.style.setProperty('line-height', '1.1', 'important');
+            usefulLinksSelect.style.setProperty('max-width', '100%', 'important');
+            usefulLinksSelect.style.setProperty('box-sizing', 'border-box', 'important');
+            usefulLinksSelect.style.setProperty('border-radius', '4px', 'important');
+            console.log('📱 [MOBILE SIZES] Reduced useful links select size');
+        }
+        
+        // Add mobile-specific CSS for Useful Links dropdown
+        const mobileUsefulLinksStyle = document.createElement('style');
+        mobileUsefulLinksStyle.textContent = `
+            @media (max-width: 768px) {
+                .useful-links-dropdown {
+                    font-size: 10px !important;
+                    padding: 4px 6px !important;
+                    min-height: 28px !important;
+                    margin: 6px 0 !important;
+                    border-radius: 6px !important;
+                }
+                .useful-links-content {
+                    padding: 6px !important;
+                }
+                .useful-links-content select {
+                    font-size: 10px !important;
+                    padding: 4px 6px !important;
+                    min-height: 24px !important;
+                    height: 24px !important;
+                    line-height: 1.1 !important;
+                    border-radius: 4px !important;
+                }
+                .useful-links-content select option {
+                    font-size: 10px !important;
+                    padding: 4px 6px !important;
+                    line-height: 1.1 !important;
+                }
+            }
+        `;
+        this.shadowRoot?.appendChild(mobileUsefulLinksStyle);
+        console.log('📱 [MOBILE SIZES] Added mobile-specific CSS for Useful Links dropdown');
+
+        // Prevent Useful Links title from shifting when toggle is ON (mobile)
+        const usefulLinksProfile = this.shadowRoot?.querySelector('.profile-item.has-dropdown');
+        if (usefulLinksProfile) {
+            const profileInfo = usefulLinksProfile.querySelector('.profile-info');
+            const toggle = usefulLinksProfile.querySelector('.toggle-switch');
+            if (profileInfo) {
+                // Keep text in normal flow - don't add excessive padding
+                profileInfo.style.setProperty('padding-left', '0', 'important');
+                profileInfo.style.setProperty('min-width', '0', 'important');
+            }
+            if (toggle) {
+                // Keep toggle in normal flow - don't use absolute positioning
+                toggle.style.setProperty('position', 'relative', 'important');
+                toggle.style.setProperty('left', 'auto', 'important');
+                toggle.style.setProperty('top', 'auto', 'important');
+                toggle.style.setProperty('transform', 'none', 'important');
+                toggle.style.setProperty('margin', '0', 'important');
+            }
+            console.log('📱 [MOBILE SIZES] Adjusted Useful Links layout to prevent text shift');
+        }
+        
+        // Increase toggle width when ON to fit text properly and fix text sliding
+        const style = document.createElement('style');
+        style.textContent = `
+            @media (max-width: 768px) {
+                .toggle-switch > input:checked + .slider { width: 100% !important; }
+            }
+            .profile-item .profile-info { 
+                min-width: 0 !important; 
+                word-wrap: break-word !important;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
+            }
+            .profile-item .profile-info h4, .profile-item .profile-info p { 
+                white-space: normal !important; 
+                overflow: visible !important; 
+                text-overflow: unset !important; 
+                max-width: 100% !important; 
+                word-wrap: break-word !important;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
+                hyphens: auto !important;
+            }
+            /* Ensure useful links toggle works correctly */
+            #useful-links:checked + .slider:before {
+                transform: translateX(26px) !important;
+            }
+            
+            /* Hide ON/OFF text on mobile screens */
+            @media (max-width: 768px) {
+                .toggle-switch > input + .slider::after {
+                    content: "" !important;
+                    display: none !important;
+                    visibility: hidden !important;
+                    opacity: 0 !important;
+                }
+                .toggle-switch > input:checked + .slider::after {
+                    content: "" !important;
+                    display: none !important;
+                    visibility: hidden !important;
+                    opacity: 0 !important;
+                }
+            }
+        `;
+        this.shadowRoot?.appendChild(style);
+        console.log('📱 [MOBILE SIZES] Added toggle width fix for ON state, text sliding fix, and smaller ON text');
+        
+        console.log('📱 [MOBILE SIZES] Mobile size reductions applied successfully');
+    }
+    
+    removeMobileButtonStacking() {
+        console.log('📱 [REMOVE BUTTON STACKING] removeMobileButtonStacking() called');
+        
+        // Find the action buttons container
+        const actionButtons = this.shadowRoot?.querySelector('.action-buttons');
+        const buttonRows = this.shadowRoot?.querySelectorAll('.button-row');
+        
+        console.log('📱 [REMOVE BUTTON STACKING] Action buttons found:', !!actionButtons);
+        console.log('📱 [REMOVE BUTTON STACKING] Button rows found:', buttonRows?.length || 0);
+        
+        if (actionButtons) {
+            // Restore desktop layout
+            actionButtons.style.removeProperty('flex-direction');
+            actionButtons.style.removeProperty('gap');
+            actionButtons.style.removeProperty('align-items');
+            console.log('📱 [REMOVE BUTTON STACKING] Removed mobile stacking from action-buttons');
+        }
+        
+        if (buttonRows && buttonRows.length > 0) {
+            buttonRows.forEach((row, index) => {
+                // Restore desktop button row layout
+                row.style.removeProperty('flex-direction');
+                row.style.removeProperty('gap');
+                row.style.removeProperty('width');
+                console.log(`📱 [REMOVE BUTTON STACKING] Removed mobile stacking from button-row ${index + 1}`);
+            });
+        }
+        
+        // Restore individual button styles
+        const actionBtns = this.shadowRoot?.querySelectorAll('.action-btn');
+        if (actionBtns && actionBtns.length > 0) {
+            actionBtns.forEach((btn, index) => {
+                btn.style.removeProperty('width');
+                btn.style.removeProperty('justify-content');
+                console.log(`📱 [REMOVE BUTTON STACKING] Removed mobile styles from action-btn ${index + 1}`);
+            });
+        }
+    }
+    
+    removeMobileSizeReductions() {
+        console.log('📱 [REMOVE MOBILE SIZES] removeMobileSizeReductions() called');
+        
+        // Restore action button sizes
+        const actionBtns = this.shadowRoot?.querySelectorAll('.action-btn');
+        if (actionBtns && actionBtns.length > 0) {
+            actionBtns.forEach((btn, index) => {
+                btn.style.removeProperty('font-size');
+                btn.style.removeProperty('padding');
+                btn.style.removeProperty('min-height');
+                console.log(`📱 [REMOVE MOBILE SIZES] Restored action-btn ${index + 1} size`);
+            });
+        }
+        
+        // Restore toggle switch sizes
+        const toggles = this.shadowRoot?.querySelectorAll('.toggle-switch');
+        if (toggles && toggles.length > 0) {
+            toggles.forEach((toggle, index) => {
+                toggle.style.removeProperty('width');
+                toggle.style.removeProperty('height');
+                console.log(`📱 [REMOVE MOBILE SIZES] Restored toggle ${index + 1} size`);
+            });
+        }
+        
+        // Restore toggle switch sliders
+        const sliders = this.shadowRoot?.querySelectorAll('.toggle-slider');
+        if (sliders && sliders.length > 0) {
+            sliders.forEach((slider, index) => {
+                slider.style.removeProperty('width');
+                slider.style.removeProperty('height');
+                console.log(`📱 [REMOVE MOBILE SIZES] Restored toggle slider ${index + 1} size`);
+            });
+        }
+        
+        // Restore profile item sizes
+        const profileItems = this.shadowRoot?.querySelectorAll('.profile-item');
+        if (profileItems && profileItems.length > 0) {
+            profileItems.forEach((item, index) => {
+                item.style.removeProperty('padding');
+                item.style.removeProperty('margin-bottom');
+                console.log(`📱 [REMOVE MOBILE SIZES] Restored profile-item ${index + 1} size`);
+            });
+        }
+        
+        // Restore profile titles
+        const profileTitles = this.shadowRoot?.querySelectorAll('.profile-title');
+        if (profileTitles && profileTitles.length > 0) {
+            profileTitles.forEach((title, index) => {
+                title.style.removeProperty('font-size');
+                title.style.removeProperty('line-height');
+                console.log(`📱 [REMOVE MOBILE SIZES] Restored profile-title ${index + 1} size`);
+            });
+        }
+        
+        // Restore profile descriptions
+        const profileDescs = this.shadowRoot?.querySelectorAll('.profile-description');
+        if (profileDescs && profileDescs.length > 0) {
+            profileDescs.forEach((desc, index) => {
+                desc.style.removeProperty('font-size');
+                desc.style.removeProperty('line-height');
+                console.log(`📱 [REMOVE MOBILE SIZES] Restored profile-description ${index + 1} size`);
+            });
+        }
+        
+        // Restore section titles
+        const sectionTitles = this.shadowRoot?.querySelectorAll('h3');
+        if (sectionTitles && sectionTitles.length > 0) {
+            sectionTitles.forEach((title, index) => {
+                title.style.removeProperty('font-size');
+                title.style.removeProperty('margin-bottom');
+                console.log(`📱 [REMOVE MOBILE SIZES] Restored section title ${index + 1} size`);
+            });
+        }
+        
+        // Restore language selector size
+        const languageSelector = this.shadowRoot?.querySelector('.language-selector');
+        if (languageSelector) {
+            languageSelector.style.removeProperty('font-size');
+            languageSelector.style.removeProperty('padding');
+            console.log('📱 [REMOVE MOBILE SIZES] Restored language selector size');
+        }
+        
+        // Restore close button size and position
+        const closeBtn = this.shadowRoot?.querySelector('.close-btn');
+        if (closeBtn) {
+            closeBtn.style.removeProperty('font-size');
+            closeBtn.style.removeProperty('width');
+            closeBtn.style.removeProperty('height');
+            closeBtn.style.removeProperty('min-width');
+            closeBtn.style.removeProperty('min-height');
+            closeBtn.style.removeProperty('max-width');
+            closeBtn.style.removeProperty('max-height');
+            closeBtn.style.removeProperty('top');
+            closeBtn.style.removeProperty('left');
+            closeBtn.style.removeProperty('display');
+            closeBtn.style.removeProperty('align-items');
+            closeBtn.style.removeProperty('justify-content');
+            closeBtn.style.removeProperty('box-sizing');
+            console.log('📱 [REMOVE MOBILE SIZES] Restored close button size and position');
+        }
+        
+        // Restore increase/decrease buttons
+        const arrowBtns = this.shadowRoot?.querySelectorAll('button[class*="arrow"], button[class*="increase"], button[class*="decrease"], .arrow-btn, .control-btn');
+        if (arrowBtns && arrowBtns.length > 0) {
+            arrowBtns.forEach((btn, index) => {
+                btn.style.removeProperty('height');
+                btn.style.removeProperty('min-height');
+                btn.style.removeProperty('padding');
+                btn.style.removeProperty('font-size');
+                console.log(`📱 [REMOVE MOBILE SIZES] Restored arrow button ${index + 1} size`);
+            });
+        }
+        
+        // Restore color picker sizes
+        const colorPickers = this.shadowRoot?.querySelectorAll('.color-picker, .color-input, .color-preview, .color-picker-button, input[type="color"]');
+        if (colorPickers && colorPickers.length > 0) {
+            colorPickers.forEach((picker, index) => {
+                picker.style.removeProperty('width');
+                picker.style.removeProperty('height');
+                picker.style.removeProperty('min-width');
+                picker.style.removeProperty('min-height');
+                console.log(`📱 [REMOVE MOBILE SIZES] Restored color picker ${index + 1} size`);
+            });
+        }
+        
+        // Restore useful links dropdown size
+        const usefulLinksDropdown = this.shadowRoot?.querySelector('.useful-links-dropdown');
+        if (usefulLinksDropdown) {
+            usefulLinksDropdown.style.removeProperty('font-size');
+            usefulLinksDropdown.style.removeProperty('padding');
+            usefulLinksDropdown.style.removeProperty('min-height');
+            console.log('📱 [REMOVE MOBILE SIZES] Restored useful links dropdown size');
+        }
+        
+        // Restore useful links content select size
+        const usefulLinksSelect = this.shadowRoot?.querySelector('.useful-links-content select');
+        if (usefulLinksSelect) {
+            usefulLinksSelect.style.removeProperty('font-size');
+            usefulLinksSelect.style.removeProperty('padding');
+            usefulLinksSelect.style.removeProperty('min-height');
+            console.log('📱 [REMOVE MOBILE SIZES] Restored useful links select size');
+        }
+        
+        // Remove injected toggle width styles
+        const injectedStyles = this.shadowRoot?.querySelectorAll('style');
+        if (injectedStyles && injectedStyles.length > 0) {
+            injectedStyles.forEach(style => {
+                if (style.textContent.includes('toggle-switch') || style.textContent.includes('slider:before')) {
+                    style.remove();
+                    console.log('📱 [REMOVE MOBILE SIZES] Removed injected toggle styles');
+                }
+            });
+        }
+        
+        console.log('📱 [REMOVE MOBILE SIZES] Mobile size reductions removed successfully');
     }
     
     acceptHideInterface() {
@@ -20765,6 +22958,16 @@ applyCustomizations(customizationData) {
             
             // Force the style to take effect
             icon.offsetHeight; // Trigger reflow
+            
+            // Apply stored desktop offsets if they exist
+            if (this.desktopHorizontalOffset !== undefined) {
+                console.log('[CK] updateTriggerPosition() - Applying stored horizontal offset:', this.desktopHorizontalOffset);
+                this.updateTriggerOffset('horizontal', this.desktopHorizontalOffset);
+            }
+            if (this.desktopVerticalOffset !== undefined) {
+                console.log('[CK] updateTriggerPosition() - Applying stored vertical offset:', this.desktopVerticalOffset);
+                this.updateTriggerOffset('vertical', this.desktopVerticalOffset);
+            }
         }
     }
     // Helper methods for applying customizations with actual DOM manipulation
@@ -20782,58 +22985,145 @@ applyCustomizations(customizationData) {
     }
     
     updateTriggerButtonShape(shape) {
-        console.log('[CK] updateTriggerButtonShape() - Shape:', shape);
+        console.log('🖥️ [DESKTOP SHAPE] updateTriggerButtonShape() - Shape:', shape);
+        console.log('🖥️ [DESKTOP SHAPE] Window width:', window.innerWidth);
+        console.log('🖥️ [DESKTOP SHAPE] Is mobile:', window.innerWidth <= 768);
+        console.log('🖥️ [DESKTOP SHAPE] Has mobile shape config:', !!this.customizationData?.mobileTriggerShape);
+        console.log('🖥️ [DESKTOP SHAPE] Mobile shape config value:', this.customizationData?.mobileTriggerShape);
         
         const icon = this.shadowRoot?.getElementById('accessibility-icon');
         
         if (icon) {
-            console.log('[CK] Icon found:', !!icon);
-            console.log('[CK] Current icon classes:', icon.className);
-            console.log('[CK] Current icon data-shape:', icon.getAttribute('data-shape'));
+            console.log('🖥️ [DESKTOP SHAPE] Icon found:', !!icon);
+            console.log('🖥️ [DESKTOP SHAPE] Current icon classes:', icon.className);
+            console.log('🖥️ [DESKTOP SHAPE] Current icon data-shape:', icon.getAttribute('data-shape'));
+            console.log('🖥️ [DESKTOP SHAPE] Current computed border-radius:', window.getComputedStyle(icon).borderRadius);
+            
+            // Check if we're on mobile and have mobile shape configuration
+            const isMobile = window.innerWidth <= 768;
+            const hasMobileShape = this.customizationData?.mobileTriggerShape;
+            
+            if (isMobile && hasMobileShape) {
+                console.log('🖥️ [DESKTOP SHAPE] SKIPPING DESKTOP SHAPE - Mobile device with mobile shape config detected');
+                console.log('🖥️ [DESKTOP SHAPE] Mobile shape will be applied by updateMobileTriggerShape()');
+                return;
+            }
+            
+            console.log('🖥️ [DESKTOP SHAPE] Proceeding with desktop shape application...');
             
             // Set data attribute for CSS targeting
             icon.setAttribute('data-shape', shape.toLowerCase());
-            console.log('[CK] Set data-shape to:', shape.toLowerCase());
+            console.log('🖥️ [DESKTOP SHAPE] Set data-shape to:', shape.toLowerCase());
         
             // Remove any existing border-radius properties
             icon.style.removeProperty('border-radius');
             icon.style.removeProperty('-webkit-border-radius');
             icon.style.removeProperty('-moz-border-radius');
-            console.log('[CK] Removed existing border-radius properties');
+            console.log('🖥️ [DESKTOP SHAPE] Removed existing border-radius properties');
             
             // Set the appropriate border-radius
             let borderRadius = '50%'; // Default circle
+            console.log('🖥️ [DESKTOP SHAPE] Shape comparison checks:');
+            console.log('🖥️ [DESKTOP SHAPE] - shape === "Circle":', shape === 'Circle');
+            console.log('🖥️ [DESKTOP SHAPE] - shape === "Rounded":', shape === 'Rounded');
+            console.log('🖥️ [DESKTOP SHAPE] - shape === "Square":', shape === 'Square');
             
             if (shape === 'Circle') {
                 borderRadius = '50%';
+                console.log('🖥️ [DESKTOP SHAPE] Detected Circle shape, setting border-radius to 50%');
             } else if (shape === 'Rounded') {
-                borderRadius = '25px';
+                borderRadius = '12px';
+                console.log('🖥️ [DESKTOP SHAPE] Detected Rounded shape, setting border-radius to 12px for rounded square');
             } else if (shape === 'Square') {
                 borderRadius = '0px';
+                console.log('🖥️ [DESKTOP SHAPE] Detected Square shape, setting border-radius to 0px');
+            } else {
+                console.warn('🖥️ [DESKTOP SHAPE] Unknown shape:', shape, 'defaulting to 50%');
             }
             
-            console.log('[CK] Target border-radius:', borderRadius);
+            console.log('🖥️ [DESKTOP SHAPE] Target border-radius:', borderRadius);
             
             // Apply the border-radius with maximum specificity
             icon.style.setProperty('border-radius', borderRadius, 'important');
             icon.style.setProperty('-webkit-border-radius', borderRadius, 'important');
             icon.style.setProperty('-moz-border-radius', borderRadius, 'important');
-            console.log('[CK] Applied border-radius with');
+            console.log('🖥️ [DESKTOP SHAPE] Applied border-radius with !important:', borderRadius);
             
             // Update CSS classes
             icon.classList.remove('circle', 'rounded', 'square');
             icon.classList.add(shape.toLowerCase());
-            console.log('[CK] Updated classes to:', icon.className);
+            console.log('🖥️ [DESKTOP SHAPE] Updated classes to:', icon.className);
+            
+            // Force the shape with direct style assignment as backup
+            icon.style.borderRadius = borderRadius;
+            icon.style.webkitBorderRadius = borderRadius;
+            icon.style.mozBorderRadius = borderRadius;
+            console.log('🖥️ [DESKTOP SHAPE] Applied direct style assignment as backup');
             
             // Force a reflow to ensure styles are applied
             icon.offsetHeight;
             
-            console.log('[CK] Applied shape:', shape, 'with border-radius:', borderRadius);
+            console.log('🖥️ [DESKTOP SHAPE] Applied shape:', shape, 'with border-radius:', borderRadius);
             
-            // Double-check the applied style
+            // Detailed verification
             const computedStyle = window.getComputedStyle(icon);
             const appliedBorderRadius = computedStyle.borderRadius;
-            console.log('[CK] Computed border-radius after application:', appliedBorderRadius);
+            console.log('🖥️ [DESKTOP SHAPE] Computed border-radius after application:', appliedBorderRadius);
+            console.log('🖥️ [DESKTOP SHAPE] Inline style border-radius:', icon.style.borderRadius);
+            console.log('🖥️ [DESKTOP SHAPE] Data-shape attribute:', icon.getAttribute('data-shape'));
+            console.log('🖥️ [DESKTOP SHAPE] Icon classes after update:', icon.className);
+            
+            if (appliedBorderRadius === borderRadius) {
+                console.log('🖥️ [DESKTOP SHAPE] ✅ SUCCESS: Desktop shape applied correctly!');
+            } else {
+                console.error('🖥️ [DESKTOP SHAPE] ❌ FAILED: Expected', borderRadius, 'but got', appliedBorderRadius);
+            }
+            
+            // Final verification after a delay
+            setTimeout(() => {
+                const finalComputed = window.getComputedStyle(icon).borderRadius;
+                console.log('🖥️ [DESKTOP SHAPE] Final verification after delay:', finalComputed);
+                if (finalComputed === borderRadius) {
+                    console.log('🖥️ [DESKTOP SHAPE] ✅ FINAL SUCCESS: Desktop shape maintained!');
+                } else {
+                    console.error('🖥️ [DESKTOP SHAPE] ❌ FINAL FAILED: Shape changed to', finalComputed);
+                    console.log('🖥️ [DESKTOP SHAPE] 🔧 FORCING SHAPE FIX...');
+                    
+                    // Ultra-aggressive force fix
+                    icon.style.setProperty('border-radius', borderRadius, 'important');
+                    icon.style.setProperty('-webkit-border-radius', borderRadius, 'important');
+                    icon.style.setProperty('-moz-border-radius', borderRadius, 'important');
+                    icon.style.borderRadius = borderRadius;
+                    icon.style.webkitBorderRadius = borderRadius;
+                    icon.style.mozBorderRadius = borderRadius;
+                    
+                    // Force reflow
+                    icon.offsetHeight;
+                    
+                    const finalFinalComputed = window.getComputedStyle(icon).borderRadius;
+                    console.log('🖥️ [DESKTOP SHAPE] After force fix:', finalFinalComputed);
+                    
+                    // Last resort: Create a new style element with maximum specificity
+                    if (finalFinalComputed !== borderRadius) {
+                        console.log('🖥️ [DESKTOP SHAPE] 🔧 LAST RESORT: Injecting external style element...');
+                        const style = document.createElement('style');
+                        style.textContent = `
+                            .accessibility-icon[data-shape="rounded"] {
+                                border-radius: ${borderRadius} !important;
+                                -webkit-border-radius: ${borderRadius} !important;
+                                -moz-border-radius: ${borderRadius} !important;
+                            }
+                            .accessibility-icon.rounded {
+                                border-radius: ${borderRadius} !important;
+                                -webkit-border-radius: ${borderRadius} !important;
+                                -moz-border-radius: ${borderRadius} !important;
+                            }
+                        `;
+                        document.head.appendChild(style);
+                        console.log('🖥️ [DESKTOP SHAPE] 🔧 External style element injected');
+                    }
+                }
+            }, 100);
             
             // Additional debugging
             console.log('[CK] Icon inline style border-radius:', icon.style.borderRadius);
@@ -20843,13 +23133,13 @@ applyCustomizations(customizationData) {
             setTimeout(() => {
                 console.log('[CK] === TIMEOUT FORCE APPLICATION ===');
                 if (shape === 'Rounded') {
-                    icon.style.setProperty('border-radius', '25px', 'important');
-                    icon.style.setProperty('-webkit-border-radius', '25px', 'important');
-                    icon.style.setProperty('-moz-border-radius', '25px', 'important');
-                    icon.style.setProperty('border-top-left-radius', '25px', 'important');
-                    icon.style.setProperty('border-top-right-radius', '25px', 'important');
-                    icon.style.setProperty('border-bottom-left-radius', '25px', 'important');
-                    icon.style.setProperty('border-bottom-right-radius', '25px', 'important');
+                    icon.style.setProperty('border-radius', '12px', 'important');
+                    icon.style.setProperty('-webkit-border-radius', '12px', 'important');
+                    icon.style.setProperty('-moz-border-radius', '12px', 'important');
+                    icon.style.setProperty('border-top-left-radius', '12px', 'important');
+                    icon.style.setProperty('border-top-right-radius', '12px', 'important');
+                    icon.style.setProperty('border-bottom-left-radius', '12px', 'important');
+                    icon.style.setProperty('border-bottom-right-radius', '12px', 'important');
                     console.log('[CK] Force applied rounded shape after timeout');
                 }
                 
@@ -20862,13 +23152,13 @@ applyCustomizations(customizationData) {
             setTimeout(() => {
                 console.log('[CK] === EXTERNAL CSS OVERRIDE FORCE ===');
                 if (shape === 'Rounded') {
-                    icon.style.setProperty('border-radius', '25px', 'important');
-                    icon.style.setProperty('-webkit-border-radius', '25px', 'important');
-                    icon.style.setProperty('-moz-border-radius', '25px', 'important');
-                    icon.style.setProperty('border-top-left-radius', '25px', 'important');
-                    icon.style.setProperty('border-top-right-radius', '25px', 'important');
-                    icon.style.setProperty('border-bottom-left-radius', '25px', 'important');
-                    icon.style.setProperty('border-bottom-right-radius', '25px', 'important');
+                    icon.style.setProperty('border-radius', '12px', 'important');
+                    icon.style.setProperty('-webkit-border-radius', '12px', 'important');
+                    icon.style.setProperty('-moz-border-radius', '12px', 'important');
+                    icon.style.setProperty('border-top-left-radius', '12px', 'important');
+                    icon.style.setProperty('border-top-right-radius', '12px', 'important');
+                    icon.style.setProperty('border-bottom-left-radius', '12px', 'important');
+                    icon.style.setProperty('border-bottom-right-radius', '12px', 'important');
                     console.log('[CK] External CSS override applied');
                 }
                 
@@ -20887,13 +23177,13 @@ applyCustomizations(customizationData) {
                     icon.style.removeProperty('-moz-border-radius');
                     
                     // Apply rounded shape with maximum force
-                    icon.style.setProperty('border-radius', '25px', 'important');
-                    icon.style.setProperty('-webkit-border-radius', '25px', 'important');
-                    icon.style.setProperty('-moz-border-radius', '25px', 'important');
-                    icon.style.setProperty('border-top-left-radius', '25px', 'important');
-                    icon.style.setProperty('border-top-right-radius', '25px', 'important');
-                    icon.style.setProperty('border-bottom-left-radius', '25px', 'important');
-                    icon.style.setProperty('border-bottom-right-radius', '25px', 'important');
+                    icon.style.setProperty('border-radius', '12px', 'important');
+                    icon.style.setProperty('-webkit-border-radius', '12px', 'important');
+                    icon.style.setProperty('-moz-border-radius', '12px', 'important');
+                    icon.style.setProperty('border-top-left-radius', '12px', 'important');
+                    icon.style.setProperty('border-top-right-radius', '12px', 'important');
+                    icon.style.setProperty('border-bottom-left-radius', '12px', 'important');
+                    icon.style.setProperty('border-bottom-right-radius', '12px', 'important');
                     
                     // Force reflow
                     icon.offsetHeight;
@@ -20910,61 +23200,138 @@ applyCustomizations(customizationData) {
         }
     }
     
+    // Ensure base panel CSS is always applied
+    ensureBasePanelCSS() {
+        const panel = this.shadowRoot?.getElementById('accessibility-panel');
+        if (panel) {
+            // Apply essential base CSS properties that should never be removed
+            panel.style.setProperty('position', 'fixed', 'important');
+            panel.style.setProperty('z-index', '100000', 'important');
+            panel.style.setProperty('background', '#ffffff', 'important');
+            panel.style.setProperty('box-shadow', '0 10px 15px -3px rgba(0, 0, 0, 0.1)', 'important');
+            panel.style.setProperty('border-radius', '8px', 'important');
+            panel.style.setProperty('font-family', "'DM Sans', sans-serif", 'important');
+            panel.style.setProperty('pointer-events', 'auto', 'important');
+            panel.style.setProperty('overflow-y', 'auto', 'important');
+            panel.style.setProperty('overflow-x', 'hidden', 'important');
+            panel.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
+            panel.style.setProperty('scroll-behavior', 'smooth', 'important');
+            panel.style.setProperty('overscroll-behavior', 'contain', 'important');
+            
+            // Add text wrapping to ensure all text is visible
+            panel.style.setProperty('word-wrap', 'break-word', 'important');
+            panel.style.setProperty('word-break', 'break-word', 'important');
+            panel.style.setProperty('overflow-wrap', 'break-word', 'important');
+            panel.style.setProperty('hyphens', 'auto', 'important');
+            
+            console.log('🔧 [BASE CSS] Applied essential panel CSS properties');
+        }
+    }
+    
     // Force apply mobile responsive styles
     applyMobileResponsiveStyles() {
         const panel = this.shadowRoot?.getElementById('accessibility-panel');
         const icon = this.shadowRoot?.getElementById('accessibility-icon');
         
+        console.log('📱 [MOBILE RESPONSIVE] applyMobileResponsiveStyles() called');
+        console.log('📱 [MOBILE RESPONSIVE] Panel found:', !!panel);
+        console.log('📱 [MOBILE RESPONSIVE] Icon found:', !!icon);
+        
         if (panel && icon) {
+            // First ensure base CSS is applied
+            this.ensureBasePanelCSS();
+            
             const screenWidth = window.innerWidth;
-            console.log('[CK] Applying mobile responsive styles - screen width:', screenWidth);
+            console.log('📱 [MOBILE RESPONSIVE] Screen width:', screenWidth);
+            
+            // Log current font sizes before changes
+            const currentPanelFontSize = window.getComputedStyle(panel).fontSize;
+            console.log('📱 [MOBILE RESPONSIVE] Current panel font-size:', currentPanelFontSize);
             
             if (screenWidth <= 480) {
                 // Mobile Portrait - Wider but compact
-                console.log('[CK] Applying mobile portrait styles');
-                panel.style.setProperty('width', '75vw');
-                panel.style.setProperty('max-width', '320px');
-                panel.style.setProperty('left', '12.5vw');
-                panel.style.setProperty('font-size', '12px');
-                panel.style.setProperty('padding', '12px');
-                panel.style.setProperty('max-height', '70vh');
+                console.log('📱 [MOBILE RESPONSIVE] Applying mobile portrait styles (≤480px)');
+                console.log('📱 [MOBILE RESPONSIVE] Setting panel font-size to 12px');
+                panel.style.setProperty('width', '75vw', 'important');
+                panel.style.setProperty('max-width', '320px', 'important');
+                panel.style.setProperty('left', '12.5vw', 'important');
+                panel.style.setProperty('font-size', '12px', 'important');
+                panel.style.setProperty('padding', '12px', 'important');
+                panel.style.setProperty('max-height', '70vh', 'important');
                 
-                icon.style.setProperty('width', '40px');
-                icon.style.setProperty('height', '40px');
+                // Verify font-size was applied
+                const newPanelFontSize = window.getComputedStyle(panel).fontSize;
+                console.log('📱 [MOBILE RESPONSIVE] New panel font-size after setting:', newPanelFontSize);
+                
+                // Apply mobile button stacking
+                this.applyMobileButtonStacking();
+                
+                // Apply mobile size reductions
+                this.applyMobileSizeReductions();
+                
+                // Debug any font-size conflicts
+                this.debugFontSizeConflicts(panel);
+                
+                icon.style.setProperty('width', '40px', 'important');
+                icon.style.setProperty('height', '40px', 'important');
                 
                 const iconI = icon.querySelector('i');
                 if (iconI) {
-                    iconI.style.setProperty('font-size', '16px');
+                    console.log('📱 [MOBILE RESPONSIVE] Setting icon font-size to 16px');
+                    iconI.style.setProperty('font-size', '16px', 'important');
+                    const newIconFontSize = window.getComputedStyle(iconI).fontSize;
+                    console.log('📱 [MOBILE RESPONSIVE] New icon font-size after setting:', newIconFontSize);
+                } else {
+                    console.log('📱 [MOBILE RESPONSIVE] Icon <i> element not found!');
                 }
             } else if (screenWidth <= 768) {
                 // Mobile Landscape - Wider panel
-                console.log('[CK] Applying mobile landscape styles');
-                panel.style.setProperty('width', '80vw');
-                panel.style.setProperty('max-width', '380px');
-                panel.style.setProperty('left', '10vw');
-                panel.style.setProperty('font-size', '13px');
-                panel.style.setProperty('padding', '14px');
-                panel.style.setProperty('max-height', '75vh');
+                console.log('📱 [MOBILE RESPONSIVE] Applying mobile landscape styles (≤768px)');
+                console.log('📱 [MOBILE RESPONSIVE] Setting panel font-size to 13px');
+                panel.style.setProperty('width', '80vw', 'important');
+                panel.style.setProperty('max-width', '380px', 'important');
+                panel.style.setProperty('left', '10vw', 'important');
+                panel.style.setProperty('font-size', '13px', 'important');
+                panel.style.setProperty('padding', '14px', 'important');
+                panel.style.setProperty('max-height', '75vh', 'important');
                 
-                icon.style.setProperty('width', '45px');
-                icon.style.setProperty('height', '45px');
+                // Apply mobile button stacking
+                this.applyMobileButtonStacking();
+                
+                // Apply mobile size reductions
+                this.applyMobileSizeReductions();
+                
+                // Verify font-size was applied
+                const newPanelFontSize = window.getComputedStyle(panel).fontSize;
+                console.log('📱 [MOBILE RESPONSIVE] New panel font-size after setting:', newPanelFontSize);
+                
+                // Debug any font-size conflicts
+                this.debugFontSizeConflicts(panel);
+                
+                icon.style.setProperty('width', '45px', 'important');
+                icon.style.setProperty('height', '45px', 'important');
                 
                 const iconI = icon.querySelector('i');
                 if (iconI) {
-                    iconI.style.setProperty('font-size', '18px');
+                    console.log('📱 [MOBILE RESPONSIVE] Setting icon font-size to 18px');
+                    iconI.style.setProperty('font-size', '18px', 'important');
+                    const newIconFontSize = window.getComputedStyle(iconI).fontSize;
+                    console.log('📱 [MOBILE RESPONSIVE] New icon font-size after setting:', newIconFontSize);
+                } else {
+                    console.log('📱 [MOBILE RESPONSIVE] Icon <i> element not found!');
                 }
             } else if (screenWidth >= 1025 && screenWidth <= 1366) {
                 // Large Tablets (iPad Air, iPad Pro, Surface Pro, etc.) - Position panel very close to icon
                 console.log('[CK] Applying large tablet styles - positioning very close to icon');
-                panel.style.setProperty('width', '65vw');
-                panel.style.setProperty('max-width', '450px');
-                panel.style.setProperty('left', '0.5vw');
+                panel.style.setProperty('width', '65vw', 'important');
+                panel.style.setProperty('max-width', '450px', 'important');
+                panel.style.setProperty('left', '0.5vw', 'important');
                 panel.style.setProperty('font-size', '15px');
-                panel.style.setProperty('padding', '18px');
-                panel.style.setProperty('max-height', '85vh');
+                panel.style.setProperty('padding', '18px', 'important');
+                panel.style.setProperty('max-height', '85vh', 'important');
                 
-                icon.style.setProperty('width', '55px');
-                icon.style.setProperty('height', '55px');
+                icon.style.setProperty('width', '55px', 'important');
+                icon.style.setProperty('height', '55px', 'important');
                 
                 const iconI = icon.querySelector('i');
                 if (iconI) {
@@ -20973,15 +23340,15 @@ applyCustomizations(customizationData) {
             } else if (screenWidth >= 820 && screenWidth <= 1024) {
                 // Tablet/iPad 820px+ - Position panel very close to icon
                 console.log('[CK] Applying tablet 820px+ styles - positioning very close to icon');
-                panel.style.setProperty('width', '75vw');
-                panel.style.setProperty('max-width', '380px');
-                panel.style.setProperty('left', '1vw');
+                panel.style.setProperty('width', '75vw', 'important');
+                panel.style.setProperty('max-width', '380px', 'important');
+                panel.style.setProperty('left', '1vw', 'important');
                 panel.style.setProperty('font-size', '14px');
-                panel.style.setProperty('padding', '16px');
-                panel.style.setProperty('max-height', '80vh');
+                panel.style.setProperty('padding', '16px', 'important');
+                panel.style.setProperty('max-height', '80vh', 'important');
                 
-                icon.style.setProperty('width', '50px');
-                icon.style.setProperty('height', '50px');
+                icon.style.setProperty('width', '50px', 'important');
+                icon.style.setProperty('height', '50px', 'important');
                 
                 const iconI = icon.querySelector('i');
                 if (iconI) {
@@ -20990,15 +23357,15 @@ applyCustomizations(customizationData) {
             } else if (screenWidth <= 1024) {
                 // iPad Mini - Much wider panel positioned close to icon
                 console.log('[CK] Applying iPad mini styles - positioning close to icon');
-                panel.style.setProperty('width', '85vw');
-                panel.style.setProperty('max-width', '450px');
-                panel.style.setProperty('left', '5vw');
+                panel.style.setProperty('width', '85vw', 'important');
+                panel.style.setProperty('max-width', '450px', 'important');
+                panel.style.setProperty('left', '5vw', 'important');
                 panel.style.setProperty('font-size', '14px');
-                panel.style.setProperty('padding', '16px');
-                panel.style.setProperty('max-height', '80vh');
+                panel.style.setProperty('padding', '16px', 'important');
+                panel.style.setProperty('max-height', '80vh', 'important');
                 
-                icon.style.setProperty('width', '50px');
-                icon.style.setProperty('height', '50px');
+                icon.style.setProperty('width', '50px', 'important');
+                icon.style.setProperty('height', '50px', 'important');
                 
                 const iconI = icon.querySelector('i');
                 if (iconI) {
@@ -21007,12 +23374,12 @@ applyCustomizations(customizationData) {
             }
             
             // Common mobile styles
-            panel.style.setProperty('right', 'auto');
-            panel.style.setProperty('top', '50%');
-            panel.style.setProperty('transform', 'translateY(-50%)');
-            panel.style.setProperty('overflow-y', 'auto');
-            panel.style.setProperty('position', 'fixed');
-            panel.style.setProperty('z-index', '9999');
+            panel.style.setProperty('right', 'auto', 'important');
+            panel.style.setProperty('top', '50%', 'important');
+            panel.style.setProperty('transform', 'translateY(-50%)', 'important');
+            panel.style.setProperty('overflow-y', 'auto', 'important');
+            panel.style.setProperty('position', 'fixed', 'important');
+            panel.style.setProperty('z-index', '9999', 'important');
         }
     }
     
@@ -21021,10 +23388,22 @@ applyCustomizations(customizationData) {
         const panel = this.shadowRoot?.getElementById('accessibility-panel');
         const icon = this.shadowRoot?.getElementById('accessibility-icon');
         
+        console.log('📱 [REMOVE MOBILE] removeMobileResponsiveStyles() called');
+        console.log('📱 [REMOVE MOBILE] Panel found:', !!panel);
+        console.log('📱 [REMOVE MOBILE] Icon found:', !!icon);
+        
         if (panel && icon) {
-            console.log('[CK] Removing mobile responsive styles - restoring desktop styles');
+            // First ensure base CSS is applied
+            this.ensureBasePanelCSS();
+            
+            // Log current font sizes before removing
+            const currentPanelFontSize = window.getComputedStyle(panel).fontSize;
+            console.log('📱 [REMOVE MOBILE] Current panel font-size before removal:', currentPanelFontSize);
+            
+            console.log('📱 [REMOVE MOBILE] Removing mobile responsive styles - restoring desktop styles');
             
             // Remove mobile-specific styles to allow desktop CSS to take over
+            console.log('📱 [REMOVE MOBILE] Removing panel font-size property');
             panel.style.removeProperty('width');
             panel.style.removeProperty('max-width');
             panel.style.removeProperty('left');
@@ -21032,9 +23411,21 @@ applyCustomizations(customizationData) {
             panel.style.removeProperty('top');
             panel.style.removeProperty('transform');
             panel.style.removeProperty('max-height');
-            panel.style.removeProperty('overflow-y');
             panel.style.removeProperty('font-size');
             panel.style.removeProperty('padding');
+            
+            // Check font-size after removal
+            const newPanelFontSize = window.getComputedStyle(panel).fontSize;
+            console.log('📱 [REMOVE MOBILE] Panel font-size after removal:', newPanelFontSize);
+            
+            // Check for any CSS rules that might be overriding font-size
+            this.debugFontSizeConflicts(panel);
+            
+            // Remove mobile button stacking
+            this.removeMobileButtonStacking();
+            
+            // Remove mobile size reductions
+            this.removeMobileSizeReductions();
             
             // Remove mobile icon styles
             icon.style.removeProperty('width');
@@ -21053,35 +23444,113 @@ applyCustomizations(customizationData) {
         
         const icon = this.shadowRoot?.getElementById('accessibility-icon');
         if (icon) {
-            if (direction === 'horizontal') {
-                const currentRight = icon.style.right || '20px';
-                const currentLeft = icon.style.left || 'auto';
+            const isMobile = window.innerWidth <= 768;
+            console.log('[CK] updateTriggerOffset() - Is mobile:', isMobile);
+            
+            // Only apply desktop offsets on desktop/tablet
+            if (!isMobile) {
+                console.log('[CK] updateTriggerOffset() - Applying desktop offset');
+                const cs = window.getComputedStyle(icon);
+                const currentLeftRaw = icon.style.left || cs.left;
+                const currentRightRaw = icon.style.right || cs.right;
+                const currentTopRaw = icon.style.top || cs.top;
+                const currentBottomRaw = icon.style.bottom || cs.bottom;
+                const currentTransformRaw = icon.style.transform || cs.transform || '';
+
+                console.log('[CK] updateTriggerOffset() - Current positioning (computed):');
+                console.log('[CK] updateTriggerOffset() - left:', currentLeftRaw);
+                console.log('[CK] updateTriggerOffset() - right:', currentRightRaw);
+                console.log('[CK] updateTriggerOffset() - top:', currentTopRaw);
+                console.log('[CK] updateTriggerOffset() - bottom:', currentBottomRaw);
+                console.log('[CK] updateTriggerOffset() - transform:', currentTransformRaw);
+
+                const normalizedOffset = (typeof offset === 'number' || /^-?\d+$/.test(String(offset))) ? `${offset}px` : String(offset);
                 
-                if (currentRight !== 'auto') {
-                    const rightValue = parseInt(currentRight) + parseInt(offset);
-                    icon.style.setProperty('right', `${rightValue}px`, 'important');
-                } else if (currentLeft !== 'auto') {
-                    const leftValue = parseInt(currentLeft) + parseInt(offset);
-                    icon.style.setProperty('left', `${leftValue}px`, 'important');
+            if (direction === 'horizontal') {
+                    // Check which side the icon is positioned on
+                    console.log('[CK] updateTriggerOffset() - Checking horizontal positioning...');
+                    console.log('[CK] updateTriggerOffset() - currentLeftRaw:', currentLeftRaw, 'is not auto:', currentLeftRaw !== 'auto', 'is not 0px:', currentLeftRaw !== '0px');
+                    console.log('[CK] updateTriggerOffset() - currentRightRaw:', currentRightRaw, 'is not auto:', currentRightRaw !== 'auto', 'is not 0px:', currentRightRaw !== '0px');
+                    
+                    if (currentLeftRaw && currentLeftRaw !== 'auto' && currentLeftRaw !== '0px' && currentLeftRaw !== '0') {
+                        // Icon is positioned from left
+                        const currentLeft = currentLeftRaw;
+                        const newLeft = currentLeft.includes('calc') ? 
+                            currentLeft.replace(')', ` + ${normalizedOffset})`) : 
+                            `calc(${currentLeft} + ${normalizedOffset})`;
+                        icon.style.setProperty('left', newLeft, 'important');
+                        console.log('[CK] updateTriggerOffset() - Applied horizontal offset to left:', newLeft);
+                    } else if (currentRightRaw && currentRightRaw !== 'auto' && currentRightRaw !== '0px' && currentRightRaw !== '0') {
+                        // Icon is positioned from right
+                        const currentRight = currentRightRaw;
+                        const newRight = currentRight.includes('calc') ? 
+                            currentRight.replace(')', ` + ${normalizedOffset})`) : 
+                            `calc(${currentRight} + ${normalizedOffset})`;
+                        icon.style.setProperty('right', newRight, 'important');
+                        console.log('[CK] updateTriggerOffset() - Applied horizontal offset to right:', newRight);
+                    } else {
+                        console.log('[CK] updateTriggerOffset() - No valid horizontal positioning found, trying to apply to left as default');
+                        // Default to left positioning if no clear positioning is found
+                        const defaultLeft = '20px';
+                        const newLeft = `calc(${defaultLeft} + ${normalizedOffset})`;
+                        icon.style.setProperty('left', newLeft, 'important');
+                        icon.style.setProperty('right', 'auto', 'important');
+                        console.log('[CK] updateTriggerOffset() - Applied horizontal offset to default left:', newLeft);
                 }
             } else if (direction === 'vertical') {
-                const currentTop = icon.style.top || '50%';
-                const currentBottom = icon.style.bottom || 'auto';
-                
-                if (currentTop !== 'auto') {
-                    if (currentTop.includes('%')) {
-                        // Handle percentage-based positioning
-                        const topPercent = parseInt(currentTop);
-                        const offsetPercent = (parseInt(offset) / window.innerHeight) * 100;
-                        icon.style.setProperty('top', `${topPercent + offsetPercent}%`, 'important');
+                    // Check which side the icon is positioned on
+                    console.log('[CK] updateTriggerOffset() - Checking vertical positioning...');
+                    console.log('[CK] updateTriggerOffset() - currentTopRaw:', currentTopRaw, 'is not auto:', currentTopRaw !== 'auto', 'is not 0px:', currentTopRaw !== '0px');
+                    console.log('[CK] updateTriggerOffset() - currentBottomRaw:', currentBottomRaw, 'is not auto:', currentBottomRaw !== 'auto', 'is not 0px:', currentBottomRaw !== '0px');
+                    
+                    if (currentTopRaw && currentTopRaw !== 'auto' && currentTopRaw !== '0px' && currentTopRaw !== '0') {
+                        // Icon is positioned from top
+                        const currentTop = currentTopRaw;
+                        if (currentTop === '50%') {
+                            // For middle position, adjust the transform
+                            const currentTransform = currentTransformRaw || 'translateY(-50%)';
+                            const newTransform = currentTransform.includes('calc') ? 
+                                currentTransform.replace(')', ` + ${normalizedOffset})`) : 
+                                `translateY(calc(-50% + ${normalizedOffset}))`;
+                            icon.style.setProperty('transform', newTransform, 'important');
+                            console.log('[CK] updateTriggerOffset() - Applied vertical offset to middle position:', newTransform);
                     } else {
-                        const topValue = parseInt(currentTop) + parseInt(offset);
-                        icon.style.setProperty('top', `${topValue}px`, 'important');
+                            const newTop = currentTop.includes('calc') ? 
+                                currentTop.replace(')', ` + ${normalizedOffset})`) : 
+                                `calc(${currentTop} + ${normalizedOffset})`;
+                            icon.style.setProperty('top', newTop, 'important');
+                            console.log('[CK] updateTriggerOffset() - Applied vertical offset to top:', newTop);
+                        }
+                    } else if (currentBottomRaw && currentBottomRaw !== 'auto' && currentBottomRaw !== '0px' && currentBottomRaw !== '0') {
+                        // Icon is positioned from bottom
+                        const currentBottom = currentBottomRaw;
+                        const newBottom = currentBottom.includes('calc') ? 
+                            currentBottom.replace(')', ` + ${normalizedOffset})`) : 
+                            `calc(${currentBottom} + ${normalizedOffset})`;
+                        icon.style.setProperty('bottom', newBottom, 'important');
+                        console.log('[CK] updateTriggerOffset() - Applied vertical offset to bottom:', newBottom);
+                    } else {
+                        console.log('[CK] updateTriggerOffset() - No valid vertical positioning found, trying to apply to top as default');
+                        // Default to top positioning if no clear positioning is found
+                        const defaultTop = '20px';
+                        const newTop = `calc(${defaultTop} + ${normalizedOffset})`;
+                        icon.style.setProperty('top', newTop, 'important');
+                        icon.style.setProperty('bottom', 'auto', 'important');
+                        console.log('[CK] updateTriggerOffset() - Applied vertical offset to default top:', newTop);
                     }
-                } else if (currentBottom !== 'auto') {
-                    const bottomValue = parseInt(currentBottom) + parseInt(offset);
-                    icon.style.setProperty('bottom', `${bottomValue}px`, 'important');
                 }
+                
+                console.log('[CK] updateTriggerOffset() - Final positioning after offset:');
+                console.log('[CK] updateTriggerOffset() - left:', icon.style.left);
+                console.log('[CK] updateTriggerOffset() - right:', icon.style.right);
+                console.log('[CK] updateTriggerOffset() - top:', icon.style.top);
+                console.log('[CK] updateTriggerOffset() - bottom:', icon.style.bottom);
+                console.log('[CK] updateTriggerOffset() - transform:', icon.style.transform);
+            } else {
+                console.log('[CK] updateTriggerOffset() - On mobile, storing offset for later application');
+                // Store the offset values for when desktop positioning is applied
+                this.desktopHorizontalOffset = direction === 'horizontal' ? offset : (this.desktopHorizontalOffset || 0);
+                this.desktopVerticalOffset = direction === 'vertical' ? offset : (this.desktopVerticalOffset || 0);
             }
         }
     }
@@ -21108,18 +23577,9 @@ applyCustomizations(customizationData) {
     
     updateTriggerVisibility(hidden) {
         console.log('[CK] updateTriggerVisibility() - Hidden:', hidden);
-        const icon = this.shadowRoot?.getElementById('accessibility-icon');
-        if (icon) {
-            if (hidden === 'Yes' || hidden === true) {
-                icon.style.display = 'none';
-                icon.style.visibility = 'hidden';
-                console.log('[CK] Trigger button hidden');
-            } else {
-                icon.style.display = 'flex';
-                icon.style.visibility = 'visible';
-                console.log('[CK] Trigger button shown');
-            }
-        }
+        // Instead of directly manipulating styles, call showIcon() to re-evaluate all visibility rules
+        console.log('[CK] updateTriggerVisibility() - Calling showIcon() to re-evaluate visibility');
+        this.showIcon();
     }
     
     updateInterfaceColor(color) {
@@ -21282,14 +23742,9 @@ applyCustomizations(customizationData) {
     
     updateMobileVisibility(visible) {
         console.log('[CK] updateMobileVisibility() - Visible:', visible);
-        const icon = this.shadowRoot?.getElementById('accessibility-icon');
-        if (icon) {
-            // Check if device is mobile
-            const isMobile = window.innerWidth <= 768;
-            if (isMobile) {
-                icon.style.display = visible ? 'block' : 'none';
-            }
-        }
+        // Instead of directly manipulating styles, call showIcon() to re-evaluate all visibility rules
+        console.log('[CK] updateMobileVisibility() - Calling showIcon() to re-evaluate visibility');
+        this.showIcon();
     }
     
     updateMobileTriggerPosition(direction, position) {
@@ -21339,6 +23794,135 @@ applyCustomizations(customizationData) {
         }
     }
     
+    // New method to handle combined positioning (e.g., "right middle")
+    updateMobileTriggerCombinedPosition(horizontalPos, verticalPos) {
+        console.log('📱 [MOBILE POSITION] updateMobileTriggerCombinedPosition() - Horizontal:', horizontalPos, 'Vertical:', verticalPos);
+        console.log('📱 [MOBILE POSITION] Window width:', window.innerWidth);
+        const icon = this.shadowRoot?.getElementById('accessibility-icon');
+        console.log('📱 [MOBILE POSITION] Icon element found:', !!icon);
+        if (icon) {
+            const isMobile = window.innerWidth <= 768;
+            console.log('📱 [MOBILE POSITION] Is mobile:', isMobile);
+            if (isMobile) {
+                console.log('📱 [MOBILE POSITION] BEFORE CLEARING - Current styles:');
+                console.log('📱 [MOBILE POSITION] - left:', icon.style.left);
+                console.log('📱 [MOBILE POSITION] - right:', icon.style.right);
+                console.log('📱 [MOBILE POSITION] - top:', icon.style.top);
+                console.log('📱 [MOBILE POSITION] - bottom:', icon.style.bottom);
+                console.log('📱 [MOBILE POSITION] - transform:', icon.style.transform);
+                console.log('📱 [MOBILE POSITION] - position:', icon.style.position);
+                console.log('📱 [MOBILE POSITION] - inset:', icon.style.inset);
+                
+                // Clear all existing positioning properties more aggressively
+                icon.style.removeProperty('top');
+                icon.style.removeProperty('bottom');
+                icon.style.removeProperty('left');
+                icon.style.removeProperty('right');
+                icon.style.removeProperty('transform');
+                icon.style.removeProperty('inset');
+                icon.style.removeProperty('position');
+                icon.style.removeProperty('z-index');
+                
+                console.log('📱 [MOBILE POSITION] AFTER CLEARING - Current styles:');
+                console.log('📱 [MOBILE POSITION] - left:', icon.style.left);
+                console.log('📱 [MOBILE POSITION] - right:', icon.style.right);
+                console.log('📱 [MOBILE POSITION] - top:', icon.style.top);
+                console.log('📱 [MOBILE POSITION] - bottom:', icon.style.bottom);
+                console.log('📱 [MOBILE POSITION] - transform:', icon.style.transform);
+                
+                // Set base positioning with higher specificity
+                icon.style.setProperty('position', 'fixed', 'important');
+                icon.style.setProperty('z-index', '9999', 'important');
+                
+                console.log('📱 [MOBILE POSITION] BASE POSITIONING SET:');
+                console.log('📱 [MOBILE POSITION] - position:', icon.style.position);
+                console.log('📱 [MOBILE POSITION] - z-index:', icon.style.zIndex);
+                
+                // Apply horizontal positioning with !important
+                console.log('📱 [MOBILE POSITION] Applying horizontal positioning:', horizontalPos);
+                if (horizontalPos === 'Left' || horizontalPos === 'left') {
+                    icon.style.setProperty('left', '20px', 'important');
+                    icon.style.setProperty('right', 'auto', 'important');
+                    console.log('📱 [MOBILE POSITION] Set left: 20px, right: auto with !important');
+                } else if (horizontalPos === 'Right' || horizontalPos === 'right') {
+                    icon.style.setProperty('right', '20px', 'important');
+                    icon.style.setProperty('left', 'auto', 'important');
+                    console.log('📱 [MOBILE POSITION] Set right: 20px, left: auto with !important');
+                }
+                
+                // Apply vertical positioning with !important
+                console.log('📱 [MOBILE POSITION] Applying vertical positioning:', verticalPos);
+                if (verticalPos === 'Top' || verticalPos === 'top') {
+                    icon.style.setProperty('top', '20px', 'important');
+                    icon.style.setProperty('bottom', 'auto', 'important');
+                    icon.style.setProperty('transform', 'none', 'important');
+                    console.log('📱 [MOBILE POSITION] Set top: 20px, bottom: auto, transform: none with !important');
+                } else if (verticalPos === 'Bottom' || verticalPos === 'bottom') {
+                    icon.style.setProperty('bottom', '20px', 'important');
+                    icon.style.setProperty('top', 'auto', 'important');
+                    icon.style.setProperty('transform', 'none', 'important');
+                    console.log('📱 [MOBILE POSITION] Set bottom: 20px, top: auto, transform: none with !important');
+                } else if (verticalPos === 'Middle' || verticalPos === 'middle') {
+                    icon.style.setProperty('top', '50%', 'important');
+                    icon.style.setProperty('bottom', 'auto', 'important');
+                    icon.style.setProperty('transform', 'translateY(-50%)', 'important');
+                    console.log('📱 [MOBILE POSITION] Set top: 50%, bottom: auto, transform: translateY(-50%) with !important');
+                }
+
+                // Force a reflow to ensure styles are applied
+                icon.offsetHeight;
+                
+                console.log('📱 [MOBILE POSITION] IMMEDIATELY AFTER SETTING - Current styles:');
+                console.log('📱 [MOBILE POSITION] - left:', icon.style.left);
+                console.log('📱 [MOBILE POSITION] - right:', icon.style.right);
+                console.log('📱 [MOBILE POSITION] - top:', icon.style.top);
+                console.log('📱 [MOBILE POSITION] - bottom:', icon.style.bottom);
+                console.log('📱 [MOBILE POSITION] - transform:', icon.style.transform);
+                console.log('📱 [MOBILE POSITION] - position:', icon.style.position);
+                console.log('📱 [MOBILE POSITION] - z-index:', icon.style.zIndex);
+                
+                // Additional force with a small delay to ensure positioning sticks
+                setTimeout(() => {
+                    // Re-apply positioning to ensure it sticks after any other CSS loads
+                    if (verticalPos === 'Middle' || verticalPos === 'middle') {
+                        icon.style.setProperty('top', '50%', 'important');
+                        icon.style.setProperty('bottom', 'auto', 'important');
+                        icon.style.setProperty('transform', 'translateY(-50%)', 'important');
+                        console.log('📱 [MOBILE POSITION] RE-APPLIED MIDDLE POSITIONING');
+                    }
+                    
+                    // Re-apply stored offsets after re-positioning
+                    if (this.mobileHorizontalOffset !== undefined) {
+                        console.log('📱 [MOBILE POSITION] Re-applying stored horizontal offset after timeout:', this.mobileHorizontalOffset);
+                        this.updateMobileTriggerOffset('horizontal', this.mobileHorizontalOffset);
+                    }
+                    if (this.mobileVerticalOffset !== undefined) {
+                        console.log('📱 [MOBILE POSITION] Re-applying stored vertical offset after timeout:', this.mobileVerticalOffset);
+                        this.updateMobileTriggerOffset('vertical', this.mobileVerticalOffset);
+                    }
+                    
+                    console.log('📱 [MOBILE POSITION] FINAL VERIFICATION:');
+                    console.log('📱 [MOBILE POSITION] - top:', icon.style.top);
+                    console.log('📱 [MOBILE POSITION] - transform:', icon.style.transform);
+                    console.log('📱 [MOBILE POSITION] - computed top:', window.getComputedStyle(icon).top);
+                    console.log('📱 [MOBILE POSITION] - computed transform:', window.getComputedStyle(icon).transform);
+                }, 100);
+                
+                // Apply stored offsets if they exist
+                if (this.mobileHorizontalOffset !== undefined) {
+                    console.log('📱 [MOBILE POSITION] Applying stored horizontal offset:', this.mobileHorizontalOffset);
+                    this.updateMobileTriggerOffset('horizontal', this.mobileHorizontalOffset);
+                }
+                if (this.mobileVerticalOffset !== undefined) {
+                    console.log('📱 [MOBILE POSITION] Applying stored vertical offset:', this.mobileVerticalOffset);
+                    this.updateMobileTriggerOffset('vertical', this.mobileVerticalOffset);
+                }
+                
+                console.log('📱 [MOBILE POSITION] Mobile icon positioned:', horizontalPos, verticalPos, '- COMPLETED');
+            }
+        }
+    }
+    
     updateMobileTriggerSize(size) {
         console.log('[CK] updateMobileTriggerSize() - Size:', size);
         const icon = this.shadowRoot?.getElementById('accessibility-icon');
@@ -21363,40 +23947,147 @@ applyCustomizations(customizationData) {
     }
     
     updateMobileTriggerShape(shape) {
-        console.log('[CK] updateMobileTriggerShape() - Shape:', shape);
-        console.log('[CK] updateMobileTriggerShape() - Window width:', window.innerWidth);
-        console.log('[CK] updateMobileTriggerShape() - Is mobile:', window.innerWidth <= 768);
+        console.log('📱 [MOBILE SHAPE] updateMobileTriggerShape() - Shape:', shape);
+        console.log('📱 [MOBILE SHAPE] Window width:', window.innerWidth);
+        console.log('📱 [MOBILE SHAPE] Is mobile:', window.innerWidth <= 768);
+        console.log('📱 [MOBILE SHAPE] Shape type check:');
+        console.log('📱 [MOBILE SHAPE] - shape === "Circle":', shape === 'Circle');
+        console.log('📱 [MOBILE SHAPE] - shape === "Rounded":', shape === 'Rounded');
+        console.log('📱 [MOBILE SHAPE] - shape === "Square":', shape === 'Square');
+        console.log('📱 [MOBILE SHAPE] - shape === "circle":', shape === 'circle');
+        console.log('📱 [MOBILE SHAPE] - shape === "rounded":', shape === 'rounded');
+        console.log('📱 [MOBILE SHAPE] - shape === "square":', shape === 'square');
         
         const icon = this.shadowRoot?.getElementById('accessibility-icon');
         if (icon) {
             const isMobile = window.innerWidth <= 768;
             if (isMobile) {
+                console.log('📱 [MOBILE SHAPE] BEFORE SHAPE CHANGE:');
+                console.log('📱 [MOBILE SHAPE] - Current classes:', icon.className);
+                console.log('📱 [MOBILE SHAPE] - Current data-shape:', icon.getAttribute('data-shape'));
+                console.log('📱 [MOBILE SHAPE] - Current border-radius:', icon.style.borderRadius);
+                console.log('📱 [MOBILE SHAPE] - Computed border-radius:', window.getComputedStyle(icon).borderRadius);
+                
                 console.log('[CK] Applying mobile shape:', shape);
+                
+                // Clear existing shape properties
+                icon.style.removeProperty('border-radius');
+                icon.style.removeProperty('-webkit-border-radius');
+                icon.style.removeProperty('-moz-border-radius');
+                
                 icon.setAttribute('data-shape', shape.toLowerCase());
                 
                 let borderRadius = '50%';
-                if (shape === 'Circle') {
+                if (shape === 'Circle' || shape === 'circle') {
                     borderRadius = '50%';
-                } else if (shape === 'Rounded') {
-                    borderRadius = '25px';
-                } else if (shape === 'Square') {
+                    console.log('📱 [MOBILE SHAPE] Detected Circle shape, setting border-radius to 50%');
+                } else if (shape === 'Rounded' || shape === 'rounded') {
+                    borderRadius = '12px';
+                    console.log('📱 [MOBILE SHAPE] Detected Rounded shape, setting border-radius to 12px for rounded square');
+                } else if (shape === 'Square' || shape === 'square') {
                     borderRadius = '0px';
+                    console.log('📱 [MOBILE SHAPE] Detected Square shape, setting border-radius to 0px');
+                } else {
+                    console.warn('📱 [MOBILE SHAPE] Unknown shape:', shape, 'defaulting to 50%');
                 }
                 
-                // Apply with maximum force
+                console.log('📱 [MOBILE SHAPE] AFTER CLEARING:');
+                console.log('📱 [MOBILE SHAPE] - Border-radius after clearing:', icon.style.borderRadius);
+                console.log('📱 [MOBILE SHAPE] - Computed after clearing:', window.getComputedStyle(icon).borderRadius);
+                console.log('📱 [MOBILE SHAPE] - Target border-radius:', borderRadius);
+                
+                // Apply with maximum force - multiple attempts to override any external CSS
                 icon.style.setProperty('border-radius', borderRadius, 'important');
+                icon.style.setProperty('-webkit-border-radius', borderRadius, 'important');
+                icon.style.setProperty('-moz-border-radius', borderRadius, 'important');
                 icon.style.setProperty('display', 'flex', 'important');
                 icon.style.setProperty('align-items', 'center', 'important');
                 icon.style.setProperty('justify-content', 'center', 'important');
+                
+                // Force the shape with multiple approaches
+                icon.setAttribute('data-shape', 'rounded');
+                icon.classList.remove('circle', 'square');
+                icon.classList.add('rounded');
+                
+                // Additional force with direct style assignment
+                icon.style.borderRadius = borderRadius;
+                icon.style.webkitBorderRadius = borderRadius;
+                icon.style.mozBorderRadius = borderRadius;
+                
+                console.log('📱 [MOBILE SHAPE] IMMEDIATELY AFTER SETTING:');
+                console.log('📱 [MOBILE SHAPE] - Inline border-radius:', icon.style.borderRadius);
+                console.log('📱 [MOBILE SHAPE] - Computed border-radius:', window.getComputedStyle(icon).borderRadius);
+                console.log('📱 [MOBILE SHAPE] - Expected border-radius:', borderRadius);
+                
+                // Force reapply after delay
+                setTimeout(() => {
+                    console.log('📱 [MOBILE SHAPE] REAPPLYING SHAPE AFTER DELAY...');
+                    icon.style.setProperty('border-radius', borderRadius, 'important');
+                    icon.style.setProperty('-webkit-border-radius', borderRadius, 'important');
+                    icon.style.setProperty('-moz-border-radius', borderRadius, 'important');
+                    
+                    console.log('📱 [MOBILE SHAPE] FINAL SHAPE AFTER DELAY:');
+                    console.log('📱 [MOBILE SHAPE] - Inline border-radius:', icon.style.borderRadius);
+                    console.log('📱 [MOBILE SHAPE] - Computed border-radius:', window.getComputedStyle(icon).borderRadius);
+                    console.log('📱 [MOBILE SHAPE] - Expected border-radius:', borderRadius);
+                    
+                // Final verification and force fix if needed
+                const finalComputed = window.getComputedStyle(icon).borderRadius;
+                if (finalComputed === borderRadius) {
+                    console.log('📱 [MOBILE SHAPE] ✅ SUCCESS: Shape applied correctly!');
+                } else {
+                    console.error('📱 [MOBILE SHAPE] ❌ FAILED: Expected', borderRadius, 'but got', finalComputed);
+                    console.log('📱 [MOBILE SHAPE] 🔧 FORCING SHAPE FIX...');
+                    
+                    // Force the shape with maximum aggression
+                    icon.style.setProperty('border-radius', borderRadius, 'important');
+                    icon.style.setProperty('-webkit-border-radius', borderRadius, 'important');
+                    icon.style.setProperty('-moz-border-radius', borderRadius, 'important');
+                    icon.style.borderRadius = borderRadius;
+                    icon.style.webkitBorderRadius = borderRadius;
+                    icon.style.mozBorderRadius = borderRadius;
+                    
+                    // Force reflow
+                    icon.offsetHeight;
+                    
+                    const finalComputedAfterFix = window.getComputedStyle(icon).borderRadius;
+                    if (finalComputedAfterFix === borderRadius) {
+                        console.log('📱 [MOBILE SHAPE] ✅ FIXED: Shape applied after force fix!');
+                    } else {
+                        console.error('📱 [MOBILE SHAPE] ❌ STILL FAILED: Shape could not be applied');
+                        
+                        // Last resort: Create a new style element with maximum specificity
+                        const style = document.createElement('style');
+                        style.textContent = `
+                            .accessibility-icon[data-shape="rounded"] {
+                                border-radius: ${borderRadius} !important;
+                                -webkit-border-radius: ${borderRadius} !important;
+                                -moz-border-radius: ${borderRadius} !important;
+                            }
+                            .accessibility-icon.rounded {
+                                border-radius: ${borderRadius} !important;
+                                -webkit-border-radius: ${borderRadius} !important;
+                                -moz-border-radius: ${borderRadius} !important;
+                            }
+                        `;
+                        document.head.appendChild(style);
+                        console.log('📱 [MOBILE SHAPE] 🔧 Added external style element as last resort');
+                    }
+                }
+                }, 100);
+                
                 // Check computed style
                 const computedStyle = window.getComputedStyle(icon).borderRadius;
-                console.log('[CK] Mobile shape applied:', shape, 'border-radius:', borderRadius);
-                console.log('[CK] Mobile computed border-radius:', computedStyle);
+                console.log('📱 [MOBILE SHAPE] Mobile shape applied:', shape, 'border-radius:', borderRadius);
+                console.log('📱 [MOBILE SHAPE] Mobile computed border-radius:', computedStyle);
+                console.log('📱 [MOBILE SHAPE] Mobile inline style border-radius:', icon.style.borderRadius);
+                console.log('📱 [MOBILE SHAPE] Mobile data-shape attribute:', icon.getAttribute('data-shape'));
+                console.log('📱 [MOBILE SHAPE] Mobile icon classes:', icon.className);
                 
                 if (computedStyle !== borderRadius) {
-                    console.error('[CK] MOBILE SHAPE FAILED! Expected:', borderRadius, 'Got:', computedStyle);
+                    console.error('📱 [MOBILE SHAPE] ❌ MOBILE SHAPE FAILED! Expected:', borderRadius, 'Got:', computedStyle);
                 } else {
-                    console.log('[CK] Mobile shape applied successfully!');
+                    console.log('📱 [MOBILE SHAPE] ✅ Mobile shape applied successfully!');
                 }
             } else {
                 console.log('[CK] Not mobile, skipping mobile shape application');
@@ -21409,20 +24100,87 @@ applyCustomizations(customizationData) {
         const icon = this.shadowRoot?.getElementById('accessibility-icon');
         if (icon) {
             const isMobile = window.innerWidth <= 768;
+            console.log('[CK] updateMobileTriggerOffset() - Is mobile:', isMobile);
+            
             if (isMobile) {
+                console.log('[CK] updateMobileTriggerOffset() - Applying mobile offset');
+                const cs = window.getComputedStyle(icon);
+                const currentLeftRaw = icon.style.left || cs.left;
+                const currentRightRaw = icon.style.right || cs.right;
+                const currentTopRaw = icon.style.top || cs.top;
+                const currentBottomRaw = icon.style.bottom || cs.bottom;
+                const currentTransformRaw = icon.style.transform || cs.transform || '';
+
+                console.log('[CK] updateMobileTriggerOffset() - Current positioning (computed):');
+                console.log('[CK] updateMobileTriggerOffset() - left:', currentLeftRaw);
+                console.log('[CK] updateMobileTriggerOffset() - right:', currentRightRaw);
+                console.log('[CK] updateMobileTriggerOffset() - top:', currentTopRaw);
+                console.log('[CK] updateMobileTriggerOffset() - bottom:', currentBottomRaw);
+                console.log('[CK] updateMobileTriggerOffset() - transform:', currentTransformRaw);
+
+                const normalizedOffset = (typeof offset === 'number' || /^-?\d+$/.test(String(offset))) ? `${offset}px` : String(offset);
+                
                 if (direction === 'horizontal') {
-                    if (icon.style.left !== 'auto') {
-                        icon.style.setProperty('left', `calc(10px + ${offset}px)`, 'important');
-                    } else if (icon.style.right !== 'auto') {
-                        icon.style.setProperty('right', `calc(10px + ${offset}px)`, 'important');
+                    // Check which side the icon is positioned on
+                    if (currentLeftRaw && currentLeftRaw !== 'auto' && currentLeftRaw !== '0px') {
+                        // Icon is positioned from left
+                        const currentLeft = currentLeftRaw;
+                        const newLeft = currentLeft.includes('calc') ? 
+                            currentLeft.replace(')', ` + ${normalizedOffset})`) : 
+                            `calc(${currentLeft} + ${normalizedOffset})`;
+                        icon.style.setProperty('left', newLeft, 'important');
+                        console.log('[CK] updateMobileTriggerOffset() - Applied horizontal offset to left:', newLeft);
+                    } else if (currentRightRaw && currentRightRaw !== 'auto' && currentRightRaw !== '0px') {
+                        // Icon is positioned from right
+                        const currentRight = currentRightRaw;
+                        const newRight = currentRight.includes('calc') ? 
+                            currentRight.replace(')', ` + ${normalizedOffset})`) : 
+                            `calc(${currentRight} + ${normalizedOffset})`;
+                        icon.style.setProperty('right', newRight, 'important');
+                        console.log('[CK] updateMobileTriggerOffset() - Applied horizontal offset to right:', newRight);
                     }
                 } else if (direction === 'vertical') {
-                    if (icon.style.top !== 'auto') {
-                        icon.style.setProperty('top', `calc(10px + ${offset}px)`, 'important');
-                    } else if (icon.style.bottom !== 'auto') {
-                        icon.style.setProperty('bottom', `calc(10px + ${offset}px)`, 'important');
+                    // Check which side the icon is positioned on
+                    if (currentTopRaw && currentTopRaw !== 'auto' && currentTopRaw !== '0px') {
+                        // Icon is positioned from top
+                        const currentTop = currentTopRaw;
+                        if (currentTop === '50%') {
+                            // For middle position, adjust the transform
+                            const currentTransform = currentTransformRaw || 'translateY(-50%)';
+                            const newTransform = currentTransform.includes('calc') ? 
+                                currentTransform.replace(')', ` + ${normalizedOffset})`) : 
+                                `translateY(calc(-50% + ${normalizedOffset}))`;
+                            icon.style.setProperty('transform', newTransform, 'important');
+                            console.log('[CK] updateMobileTriggerOffset() - Applied vertical offset to middle position:', newTransform);
+                        } else {
+                            const newTop = currentTop.includes('calc') ? 
+                                currentTop.replace(')', ` + ${normalizedOffset})`) : 
+                                `calc(${currentTop} + ${normalizedOffset})`;
+                            icon.style.setProperty('top', newTop, 'important');
+                            console.log('[CK] updateMobileTriggerOffset() - Applied vertical offset to top:', newTop);
+                        }
+                    } else if (currentBottomRaw && currentBottomRaw !== 'auto' && currentBottomRaw !== '0px') {
+                        // Icon is positioned from bottom
+                        const currentBottom = currentBottomRaw;
+                        const newBottom = currentBottom.includes('calc') ? 
+                            currentBottom.replace(')', ` + ${normalizedOffset})`) : 
+                            `calc(${currentBottom} + ${normalizedOffset})`;
+                        icon.style.setProperty('bottom', newBottom, 'important');
+                        console.log('[CK] updateMobileTriggerOffset() - Applied vertical offset to bottom:', newBottom);
                     }
                 }
+                
+                console.log('[CK] updateMobileTriggerOffset() - Final positioning after offset:');
+                console.log('[CK] updateMobileTriggerOffset() - left:', icon.style.left);
+                console.log('[CK] updateMobileTriggerOffset() - right:', icon.style.right);
+                console.log('[CK] updateMobileTriggerOffset() - top:', icon.style.top);
+                console.log('[CK] updateMobileTriggerOffset() - bottom:', icon.style.bottom);
+                console.log('[CK] updateMobileTriggerOffset() - transform:', icon.style.transform);
+            } else {
+                console.log('[CK] updateMobileTriggerOffset() - Not on mobile, storing offset for later application');
+                // Store the offset values for when mobile positioning is applied
+                this.mobileHorizontalOffset = direction === 'horizontal' ? offset : (this.mobileHorizontalOffset || 0);
+                this.mobileVerticalOffset = direction === 'vertical' ? offset : (this.mobileVerticalOffset || 0);
             }
         }
     }
@@ -21592,7 +24350,7 @@ applyCustomizations(customizationData) {
             console.log('Accessibility Widget: Positioning dropdown on RIGHT side of panel');
         }
 
-        // Apply positioning with to override any conflicting CSS
+        // Apply positioning with !important to override any conflicting CSS
         dropdown.style.setProperty('left', `${dropdownLeft}px`, 'important');
         dropdown.style.setProperty('top', `${dropdownTop}px`, 'important');
         dropdown.style.setProperty('position', 'absolute', 'important');
