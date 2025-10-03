@@ -449,7 +449,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -724,20 +723,20 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                   <div className="browser-content">
                     {hideTriggerButton === 'No' && (
                       <div
-                        className="trigger-widget"
+                        className="accessibility-widget"
                         style={{
                           left: triggerHorizontalPosition === 'Left' ?
-                            `calc(10px + ${parseInt(triggerHorizontalOffset)}px)` :
+                            `calc(9px + ${parseInt(triggerHorizontalOffset)* 0.2}px)` :
                             triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
                           right: triggerHorizontalPosition === 'Right' ?
-                            `calc(10px + ${parseInt(triggerHorizontalOffset)}px)` : 'auto',
+                            `calc(9px + ${parseInt(triggerHorizontalOffset)* 0.2}px)` : 'auto',
                           top: triggerVerticalPosition === 'Top' ?
-                            `calc(10px + ${parseInt(triggerVerticalOffset)}px)` : 'auto',
+                            `calc(9px + ${parseInt(triggerVerticalOffset) * 0.2}px)` : 'auto',
                           bottom: triggerVerticalPosition === 'Bottom' ?
-                            `calc(10px + ${parseInt(triggerVerticalOffset)}px)` : 'auto',
+                            `calc(9px + ${parseInt(triggerVerticalOffset) * 0.2}px)` : 'auto',
                           transform: triggerHorizontalPosition === 'Center' ?
                             (triggerVerticalPosition === 'Middle' ? 'translateX(-50%)' : 'translateX(-50%)') :
-                            (triggerVerticalPosition === 'Middle' ? 'translateY(-20%)' : 'none')
+                            (triggerVerticalPosition === 'Middle' ? 'translateY(-13%)' : 'none')
                         }}
                       >
                         <div
