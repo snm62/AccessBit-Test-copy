@@ -4,8 +4,8 @@ import iro from "@jaames/iro"; // Import iro.js
 const previewarea = new URL("../assets/preview-area.svg", import.meta.url).href;
 const mobile = new URL("../assets/mobile.svg", import.meta.url).href;
 const monitor = new URL("../assets/monitor.svg", import.meta.url).href;
-const icon1 = new URL("../assets/icon1.svg", import.meta.url).href;
 const whitearrow = new URL("../assets/→.svg", import.meta.url).href;
+const icon1 = new URL("../assets/Accessibility.webp", import.meta.url).href;
 
 type CustomizationData = {
   selectedIcon: string;
@@ -778,7 +778,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                         }}
                       >
                         <div
-                          className={`mobile-widget-trigger ${mobileTriggerShape.toLowerCase()} ${mobileTriggerSize.toLowerCase()}`}
+                          className={`mobile-widget-trigger ${mobileTriggerShape === 'Rounded' ? 'round' : mobileTriggerShape.toLowerCase()} ${mobileTriggerSize.toLowerCase()}`}
                           style={{ backgroundColor: btnColor }}
                         >
                           <img

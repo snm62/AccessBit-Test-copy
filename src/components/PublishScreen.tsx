@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useAuth } from "../hooks/userAuth";
 import "../styles/publish.css";
 const whitearrow = new URL("../assets/→.svg", import.meta.url).href;
-const icon1 = new URL("../assets/icon1.svg", import.meta.url).href;
+// Accessibility icon as data URL (Font Awesome 5 style: ring + figure)
+const icon1 = new URL("../assets/Accessibility.webp", import.meta.url).href;
 const icon2 = new URL("../assets/icon2.svg", import.meta.url).href;
 const icon3 = new URL("../assets/icon3.svg", import.meta.url).href;
 const icon4 = new URL("../assets/icon4.svg", import.meta.url).href;
