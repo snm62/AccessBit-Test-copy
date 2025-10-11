@@ -109,7 +109,7 @@
 }
 
 /* Main Content */
-.main-content {
+.payment-screen .main-content {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -142,7 +142,7 @@
   z-index: -1;
 }
 
-.pricing-flex {
+.payment-screen .pricing-flex {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -150,7 +150,7 @@
   width: 100%;
 }
 
-.pricing-left {
+.payment-screen .pricing-left {
   text-align: center;
   flex: 1;
   display: flex;
@@ -193,7 +193,7 @@
   opacity: 1;
 }
 
-.pricing-right {
+.payment-screen .pricing-right {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -368,7 +368,7 @@
     gap: 50px;
   }
   
-  .main-content {
+  .payment-screen .main-content {
     padding: 20px;
   }
   
@@ -376,12 +376,12 @@
     padding: 30px 20px;
   }
   
-  .pricing-flex {
+  .payment-screen .pricing-flex {
     flex-direction: column;
     gap: 30px;
   }
   
-  .pricing-right {
+  .payment-screen .pricing-right {
     align-items: center;
   }
   
