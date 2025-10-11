@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useAuth } from "../hooks/userAuth";
 import "../styles/publish.css";
 const whitearrow = new URL("../assets/→.svg", import.meta.url).href;
-const icon1 = new URL("../assets/icon1.svg", import.meta.url).href;
+// Accessibility icon as data URL (Font Awesome 5 style: ring + figure)
+const icon1 = new URL("../assets/Accessibility.webp", import.meta.url).href;
 const icon2 = new URL("../assets/icon2.svg", import.meta.url).href;
 const icon3 = new URL("../assets/icon3.svg", import.meta.url).href;
 const icon4 = new URL("../assets/icon4.svg", import.meta.url).href;
@@ -168,7 +169,7 @@ const handleConfirmPublish = async () => {
           <div className="publish-modal">
             <div className="publish-modal-content">
               <p>We are installing the script in your site custom code.</p>
-              <p>Click confirm to proceed</p>
+              <p>Click confirm to proceed.</p>
               <div className="publish-modal-buttons">
                 <button 
                   className="confirm-btn" 
@@ -409,14 +410,17 @@ const handleConfirmPublish = async () => {
                   <div
                     className="accessibility-widget"
                     style={{
-                      left: customizationData?.triggerHorizontalPosition === 'Left' ? '20px' :
+                      left: customizationData?.triggerHorizontalPosition === 'Left' ?
+                        `calc(10px + ${parseInt(customizationData?.triggerHorizontalOffset || '0px')}px)` :
                         customizationData?.triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
-                      right: customizationData?.triggerHorizontalPosition === 'Right' ? '20px' : 'auto',
-                      top: customizationData?.triggerVerticalPosition === 'Top' ? '20px' :
-                        customizationData?.triggerVerticalPosition === 'Middle' ? '50%' : 'auto',
-                      bottom: customizationData?.triggerVerticalPosition === 'Bottom' ? '20px' : 'auto',
+                      right: customizationData?.triggerHorizontalPosition === 'Right' ?
+                        `calc(10px + ${parseInt(customizationData?.triggerHorizontalOffset || '0px')}px)` : 'auto',
+                      top: customizationData?.triggerVerticalPosition === 'Top' ?
+                        `calc(10px + ${parseInt(customizationData?.triggerVerticalOffset || '0px')}px)` : 'auto',
+                      bottom: customizationData?.triggerVerticalPosition === 'Bottom' ?
+                        `calc(10px + ${parseInt(customizationData?.triggerVerticalOffset || '0px')}px)` : 'auto',
                       transform: customizationData?.triggerHorizontalPosition === 'Center' ?
-                        (customizationData?.triggerVerticalPosition === 'Middle' ? 'translate(-50%, -50%)' : 'translateX(-50%)') :
+                        (customizationData?.triggerVerticalPosition === 'Middle' ? 'translateX(-50%)' : 'translateX(-50%)') :
                         (customizationData?.triggerVerticalPosition === 'Middle' ? 'translateY(-50%)' : 'none')
                     }}
                   >

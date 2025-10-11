@@ -4,8 +4,8 @@ import iro from "@jaames/iro"; // Import iro.js
 const previewarea = new URL("../assets/preview-area.svg", import.meta.url).href;
 const mobile = new URL("../assets/mobile.svg", import.meta.url).href;
 const monitor = new URL("../assets/monitor.svg", import.meta.url).href;
-const icon1 = new URL("../assets/icon1.svg", import.meta.url).href;
 const whitearrow = new URL("../assets/→.svg", import.meta.url).href;
+const icon1 = new URL("../assets/Accessibility.webp", import.meta.url).href;
 
 type CustomizationData = {
   selectedIcon: string;
@@ -451,7 +451,6 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -730,20 +729,20 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                   <div className="browser-content">
                     {hideTriggerButton === 'No' && (
                       <div
-                        className="trigger-widget"
+                        className="accessibility-widget"
                         style={{
                           left: triggerHorizontalPosition === 'Left' ?
-                            `calc(10px + ${parseInt(triggerHorizontalOffset)}px)` :
+                            `calc(9px + ${parseInt(triggerHorizontalOffset)* 0.2}px)` :
                             triggerHorizontalPosition === 'Right' ? 'auto' : '50%',
                           right: triggerHorizontalPosition === 'Right' ?
-                            `calc(10px + ${parseInt(triggerHorizontalOffset)}px)` : 'auto',
+                            `calc(9px + ${parseInt(triggerHorizontalOffset)* 0.2}px)` : 'auto',
                           top: triggerVerticalPosition === 'Top' ?
-                            `calc(10px + ${parseInt(triggerVerticalOffset)}px)` : 'auto',
+                            `calc(9px + ${parseInt(triggerVerticalOffset) * 0.2}px)` : 'auto',
                           bottom: triggerVerticalPosition === 'Bottom' ?
-                            `calc(10px + ${parseInt(triggerVerticalOffset)}px)` : 'auto',
+                            `calc(9px + ${parseInt(triggerVerticalOffset) * 0.2}px)` : 'auto',
                           transform: triggerHorizontalPosition === 'Center' ?
                             (triggerVerticalPosition === 'Middle' ? 'translateX(-50%)' : 'translateX(-50%)') :
-                            (triggerVerticalPosition === 'Middle' ? 'translateY(-20%)' : 'none')
+                            (triggerVerticalPosition === 'Middle' ? 'translateY(-13%)' : 'none')
                         }}
                       >
                         <div
@@ -785,7 +784,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
                         }}
                       >
                         <div
-                          className={`mobile-widget-trigger ${mobileTriggerShape.toLowerCase()} ${mobileTriggerSize.toLowerCase()}`}
+                          className={`mobile-widget-trigger ${mobileTriggerShape === 'Rounded' ? 'round' : mobileTriggerShape.toLowerCase()} ${mobileTriggerSize.toLowerCase()}`}
                           style={{ backgroundColor: btnColor }}
                         >
                           <img

@@ -153,7 +153,7 @@
   margin-bottom: 20px;
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 5px;
 }
 
 .section h3::after {
@@ -279,7 +279,7 @@
 
 .custom-select .options {
   position: absolute;
-  top: 100%;
+  top: 105%;
   left: 0;
   right: 0;
   background: rgba(50, 44, 90, 0.6);
@@ -478,7 +478,7 @@
 
 .preview-window.desktop-preview {
   background: #2d1b69;
-  border-radius: 4px;
+  border-radius: 8px;
   height: 130px;
   padding: 0;
   overflow: hidden;
@@ -486,7 +486,7 @@
 
 .preview-window.mobile-preview {
   background: #1a1822;
-  border-radius: 4px;
+  border-radius: 12px;
   height: 132px;
   display: flex;
   width: 80px;
@@ -502,7 +502,7 @@
   height: 100%;
   position: relative;
   overflow: hidden;
-  border: 1px solid #333;
+  /* border: 1px solid #333; */
 }
 
 .browser-controls {
