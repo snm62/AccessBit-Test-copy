@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import '../styles/payment.css';
+const whitearrow = "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="15" viewBox="0 0 14 15" fill="none">
+  <path d="M0.756 8.59012V6.62812H10.314L5.598 2.30812L6.948 0.940125L13.356 6.97012V8.23012L6.948 14.2601L5.58 12.8741L10.278 8.59012H0.756Z" fill="white"/>
+</svg>`);
 
 interface PaymentScreenProps {
   onBack: () => void;
@@ -37,13 +40,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     <div className="payment-screen">
       {/* Header */}
       <div className="payment-header">
-        <div className="app-name">AppName</div>
+        <div className="app-name"></div>
         <div className="header-buttons">
-          <button className="back-btn" onClick={handleBack}>
-            ← Back
+         <button className="back-btn" onClick={handleBack} disabled={isProcessing}>
+            <img src={whitearrow} alt="" style={{ transform: 'rotate(180deg)' }} /> Back
           </button>
-          <button className="next-btn" onClick={handlePayment} disabled={isProcessing}>
-            {isProcessing ? 'Processing...' : 'Next →'}
+                <button className="next-btn" onClick={handlePayment} disabled={isProcessing}>
+            {isProcessing ? 'Processing...' : 'Next'} <img src={whitearrow} alt="" />
           </button>
         </div>
       </div>
@@ -90,11 +93,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                 </button>
               </div>
               
-              {isAnnual && (
-                <div className="savings-info">
-                  You Save 20%
-                </div>
-              )}
+              <div className="savings-info" style={{ opacity: isAnnual ? 1 : 0, visibility: isAnnual ? 'visible' : 'hidden' }}>
+                You Save 20%
+              </div>
             </div>
 
             {/* Right side - Secondary pricing and button */}
@@ -108,7 +109,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                 onClick={handlePayment}
                 disabled={isProcessing}
               >
-                {isProcessing ? 'Processing...' : 'Purchase Now →'}
+                {isProcessing ? 'Processing...' : 'Purchase Now '}<img style={{width: "11px"}} src={whitearrow} alt="" />
               </button>
             </div>
           </div>
