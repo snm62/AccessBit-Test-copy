@@ -12,6 +12,7 @@ export default {
     devtoolModuleFilenameTemplate: 'webpack:///[resource-path]',
   },
   devtool: 'source-map',
+  mode: 'production',
   resolve: {
     extensions: [".ts", ".tsx", ".js", ".json"],
   },
@@ -28,15 +29,9 @@ export default {
       },
     ],
   },
-  devServer: {
-    static: [{ directory: path.join(dirname, "public") }],
-    compress: true,
-    port: 3000,
-    open: true,
-    hot: true,
-    historyApiFallback: true,
-  },
   optimization: {
-    minimize: false,
+    minimize: true,
+    usedExports: true,
+    sideEffects: false,
   },
 };

@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useAuth } from "../hooks/userAuth";
 import "../styles/publish.css";
-const whitearrow = new URL("../assets/→.svg", import.meta.url).href;
+const whitearrow = "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="15" viewBox="0 0 14 15" fill="none">
+  <path d="M0.756 8.59012V6.62812H10.314L5.598 2.30812L6.948 0.940125L13.356 6.97012V8.23012L6.948 14.2601L5.58 12.8741L10.278 8.59012H0.756Z" fill="white"/>
+</svg>`);
 // Accessibility icon as data URL (Font Awesome 5 style: ring + figure)
 const icon1 = new URL("../assets/Accessibility.webp", import.meta.url).href;
 const icon2 = new URL("../assets/icon2.svg", import.meta.url).href;

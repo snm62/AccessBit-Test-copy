@@ -6,7 +6,7 @@
     "dev:localhost": "webpack serve --config webpack.config.mjs --mode development",
     "build": "npm run build-webpack && webflow extension bundle",
     "watch-webpack": "webpack --config webpack.config.mjs --mode development --watch",
-    "build-webpack": "webpack --config webpack.config.mjs --mode production",
+    "build-webpack": "webpack --config webpack.prod.config.mjs",
     "lint": "eslint . --ext .ts,.tsx"
   },
   "devDependencies": {
