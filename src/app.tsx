@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import WelcomeScreen from "./components/WelcomeScreen";
 import CustomizationScreen from "./components/CustomizationScreen";
+import PaymentScreen from "./components/PaymentScreen";
 import PublishScreen from "./components/PublishScreen";
 import { useAuth} from "./hooks/userAuth";
 import { getAuthStorageItem,setAuthStorageItem,removeAuthStorageItem } from "./util/authStorage";
 import { getSessionTokenFromLocalStorage } from "./util/session";
 // Webflow API is available globally in the Webflow Designer environment
-type AppState = 'welcome' | 'customization' | 'publish';
+type AppState = 'welcome' | 'customization' | 'payment' | 'publish';
 const App: React.FC = () => {
   console.log(":rocket: APP: App component rendering...");
   console.log(":rocket: APP: Component render timestamp:", new Date().toISOString());
@@ -160,11 +161,26 @@ const App: React.FC = () => {
     console.log("App: Going back to customization, current customizationData:", customizationData);
     setCurrentScreen('customization');
   };
-  const handleNextToPublish = (data: any) => {
-    console.log("App: Received customization data from CustomizationScreen:", data);
+  const handleNextToPayment = (data: any) => {
+    console.log("🚀🚀🚀 PAYMENT NAVIGATION: handleNextToPayment called with data:", data);
+    console.log("🚀🚀🚀 PAYMENT NAVIGATION: Setting current screen to 'payment'");
     setCustomizationData(data);
+    setCurrentScreen('payment');
+    console.log("🚀🚀🚀 PAYMENT NAVIGATION: Screen should now be 'payment'");
+  };
+
+  const handleNextToPublish = () => {
+    console.log("App: Moving from payment to publish");
     setCurrentScreen('publish');
   };
+
+  const handleBackToPayment = () => {
+    console.log("App: Going back to payment from publish");
+    setCurrentScreen('payment');
+  };
+  console.log(":rocket: APP: Current screen state:", currentScreen);
+  console.log(":rocket: APP: Available screens: welcome, customization, payment, publish");
+  
   return (
     <div>
       {currentScreen === 'welcome' ? (
@@ -177,13 +193,19 @@ const App: React.FC = () => {
       ) : currentScreen === 'customization' ? (
         <CustomizationScreen
           onBack={handleBackToWelcome}
-          onNext={handleNextToPublish}
+          onNext={handleNextToPayment}
           existingCustomizationData={customizationData}
           isLoadingExistingData={isLoadingExistingData}
         />
+      ) : currentScreen === 'payment' ? (
+        <PaymentScreen
+          onBack={handleBackToCustomization}
+          onNext={handleNextToPublish}
+          customizationData={customizationData || {}}
+        />
       ) : (
         <PublishScreen
-          onBack={handleBackToCustomization}
+          onBack={handleBackToPayment}
           customizationData={customizationData || {}}
         />
       )}

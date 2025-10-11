@@ -254,7 +254,8 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdown]);
 
-  const handleNext = async () => {
+  const handleNextPayment = async () => {
+    console.log('🚨🚨🚨 FORCE RELOAD TEST - This should show if changes are applied');
     try {
       const customizationData = {
         // Map your state variables to the customization object
@@ -283,8 +284,9 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
         interfaceFooterContent: interfaceFooterContent
       };
       
-      // Navigate to next page - PublishScreen will handle the saving
-      console.log('CustomizationScreen: Passing data to PublishScreen:', customizationData);
+      // Navigate to next page - PaymentScreen will be shown first
+      console.log('🔥🔥🔥 PAYMENT NAVIGATION: Passing data to PaymentScreen:', customizationData);
+      console.log('🔥🔥🔥 PAYMENT NAVIGATION: Calling onNext with data');
       onNext(customizationData);
     } catch (error) {
       console.error('Error preparing customization data:', error);
@@ -475,7 +477,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
           <button className="back-btn" onClick={handleBack}>
             <img src={whitearrow} alt="" style={{ transform: 'rotate(180deg)' }} /> Back
           </button>
-          <button className="next-btn" onClick={handleNext}>
+                <button className="next-btn" onClick={handleNextPayment}>
             Next <img src={whitearrow} alt="" />
           </button>
         </div>
@@ -489,6 +491,10 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
         </div>
         <div className="step">
           <span className="step-number">STEP 2</span>
+          <span className="step-name">Payment</span>
+        </div>
+        <div className="step">
+          <span className="step-number">STEP 3</span>
           <span className="step-name">Publish</span>
         </div>
       </div>

@@ -229,8 +229,12 @@ const handleConfirmPublish = async () => {
           <span className="step-number">STEP 1</span>
           <span className="step-name">Customization</span>
         </div>
-        <div className="step active">
+        <div className="step completed">
           <span className="step-number">STEP 2</span>
+          <span className="step-name">Payment</span>
+        </div>
+        <div className="step active">
+          <span className="step-number">STEP 3</span>
           <span className="step-name">Publish</span>
         </div>
       </div>
