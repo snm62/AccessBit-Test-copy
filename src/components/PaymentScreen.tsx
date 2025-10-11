@@ -74,7 +74,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             {/* Left side - Main pricing */}
             <div className="pricing-left">
               <div className="main-price">
-                <div className="price-number">${isAnnual ? '72' : '6'}</div>
+                <div className="price-number">${isAnnual ? '19' : '24'}</div>
                 <div className="price-period">/{isAnnual ? 'Paid Annually' : 'Paid Monthly'}</div>
               </div>
               
@@ -101,7 +101,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             {/* Right side - Secondary pricing and button */}
             <div className="pricing-right">
               <div className="secondary-price">
-                ${isAnnual ? '72' : '6'}/Paid {isAnnual ? 'Annually' : 'Monthly'}
+                ${isAnnual ? '19' : '24'}/Paid {isAnnual ? 'Annually' : 'Monthly'}
               </div>
               
               <button 
