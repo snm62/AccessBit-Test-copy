@@ -1,21 +1,109 @@
 // Security Headers
 const securityHeaders = {
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.stripe.com; script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com; script-src-attr 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.stripe.com https://*.stripe.com; frame-src 'self' https://js.stripe.com; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests;",
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.stripe.com; script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com; script-src-attr 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.stripe.com https://*.stripe.com; frame-src 'self' https://js.stripe.com; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://*.webflow.com; object-src 'none'; upgrade-insecure-requests;",
     'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
+    'X-Frame-Options': 'SAMEORIGIN',
     'X-XSS-Protection': '1; mode=block',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Embedder-Policy': 'require-corp',
     'Cross-Origin-Resource-Policy': 'same-origin',
     'X-DNS-Prefetch-Control': 'on',
     'X-Download-Options': 'noopen',
-    'X-Permitted-Cross-Domain-Policies': 'none'
+    'X-Permitted-Cross-Domain-Policies': 'none',
+    'Permissions-Policy': 'payment=*'
 };
 // Rate limiting storage
 const rateLimitStore = new Map();
+
+// Handle Webflow App Installation
+async function handleWebflowAppInstallation(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { siteId, userId, userEmail, siteName, installationData } = await request.json();
+    
+    console.log('Webflow app installation detected:', { siteId, userId, userEmail, siteName });
+    
+    // Send webhook to Make.com for email automation
+    try {
+      const webhookUrl = 'https://hook.us1.make.com/mjcnn3ydks2o2pbkrdna9czn7bb253z0';
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'webflow_app_installed',
+          customer: {
+            email: userEmail,
+            siteId: siteId,
+            siteName: siteName,
+            userId: userId
+          },
+          installation: {
+            timestamp: new Date().toISOString(),
+            data: installationData || {}
+          }
+        })
+      });
+      console.log('Webflow installation webhook sent to Make.com successfully');
+    } catch (webhookError) {
+      console.warn('Webflow webhook failed (non-critical):', webhookError);
+    }
+    
+    // Store installation data
+    const installationRecord = {
+      siteId,
+      userId,
+      userEmail,
+      siteName,
+      installedAt: new Date().toISOString(),
+      status: 'installed'
+    };
+    
+    await env.ACCESSIBILITY_AUTH.put(`installation_${siteId}`, JSON.stringify(installationRecord));
+    
+    // Start 7-day trial immediately for new installs
+    const now = new Date();
+    const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    // Ledger record
+    const userData = {
+      siteId,
+      email: userEmail || '',
+      domain: '',
+      paymentStatus: 'trial',
+      trialStartDate: now.toISOString(),
+      trialEndDate: trialEnd.toISOString(),
+      createdAt: now.toISOString()
+    };
+    await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+    
+    // Unified settings
+    await mergeSiteSettings(env, siteId, {
+      siteId,
+      email: userEmail || '',
+      siteName: siteName || '',
+      paymentStatus: 'trial',
+      trialStartDate: now.toISOString(),
+      trialEndDate: trialEnd.toISOString()
+    });
+    
+    const successResponse = secureJsonResponse({ 
+      success: true,
+      message: 'App installation recorded successfully'
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Webflow app installation error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to process app installation',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
 
 // Security Functions
 function secureJsonResponse(data, status = 200) {
@@ -57,6 +145,36 @@ function rateLimitCheck(ip, requests) {
 
     userRequests.count++;
     return true;
+}
+
+// Unified site settings storage helpers (canonical key: accessibility-settings:<siteId>)
+async function getSiteSettings(env, siteId) {
+  const existing = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
+  if (!existing) {
+    return {
+      siteId,
+      customization: {},
+      accessibilityProfiles: {},
+      email: '',
+      domain: '',
+      paymentStatus: 'unknown',
+      trialStartDate: null,
+      trialEndDate: null,
+      customerId: '',
+      subscriptionId: '',
+      lastPaymentDate: null,
+      lastUpdated: new Date().toISOString(),
+      lastUsed: new Date().toISOString()
+    };
+  }
+  try { return JSON.parse(existing); } catch { return { siteId, customization: {} }; }
+}
+
+async function mergeSiteSettings(env, siteId, patch) {
+  const current = await getSiteSettings(env, siteId);
+  const updated = { ...current, ...patch, lastUpdated: new Date().toISOString(), lastUsed: new Date().toISOString() };
+  await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${siteId}`, JSON.stringify(updated));
+  return updated;
 }
 
 function addSecurityAndCorsHeaders(response, origin) {
@@ -172,6 +290,39 @@ if (url.pathname === '/api/accessibility/domain-lookup' && request.method === 'G
 if (url.pathname === '/api/accessibility/save-settings' && request.method === 'POST') {
   return handleSaveSettings(request, env);
 }
+
+// NEW PAYMENT ENDPOINTS
+if (url.pathname === '/api/accessibility/create-trial' && request.method === 'POST') {
+  return handleCreateTrial(request, env);
+}
+if (url.pathname === '/api/accessibility/payment-status' && request.method === 'GET') {
+  return handlePaymentStatus(request, env);
+}
+if (url.pathname === '/api/accessibility/validate-domain' && request.method === 'POST') {
+  return handleValidateDomain(request, env);
+}
+if (url.pathname === '/api/accessibility/user-data' && request.method === 'GET') {
+  return handleUserData(request, env);
+}
+if (url.pathname === '/api/accessibility/create-subscription' && request.method === 'POST') {
+  return handleCreateSubscription(request, env);
+}
+if (url.pathname === '/api/accessibility/update-payment' && request.method === 'POST') {
+  return handleUpdatePayment(request, env);
+}
+if (url.pathname === '/api/accessibility/create-payment-intent' && request.method === 'POST') {
+  return handleCreatePaymentIntent(request, env);
+}
+
+    // Stripe Webhook endpoint
+    if (url.pathname === '/api/stripe/webhook' && request.method === 'POST') {
+      return handleStripeWebhook(request, env);
+    }
+    
+    // Webflow App Installation Webhook
+    if (url.pathname === '/api/webflow/app-installed' && request.method === 'POST') {
+      return handleWebflowAppInstallation(request, env);
+    }
     
 
 // Save custom domain data (can be updated)
@@ -214,7 +365,16 @@ if (url.pathname === '/api/accessibility/save-custom-domain' && request.method =
         };
         
         // Save custom domain data
-        await env.ACCESSIBILITY_AUTH.put(`custom-domain-data:${siteId}`, JSON.stringify(updatedDomainData));
+            await env.ACCESSIBILITY_AUTH.put(`custom-domain-data:${siteId}`, JSON.stringify(updatedDomainData));
+            // Also save a domain-scoped record as requested
+            const customDomainMirrorKey = `custom-domain:${customDomain}`;
+            await env.ACCESSIBILITY_AUTH.put(customDomainMirrorKey, JSON.stringify({
+              siteId,
+              customDomain,
+              customization: updatedDomainData.customization,
+              lastUpdated: new Date().toISOString(),
+              lastUsed: new Date().toISOString()
+            }));
         
         // Also create domain mapping for lookup
         const domainKey = `domain:${customDomain}`;
@@ -556,29 +716,19 @@ async function handleOAuthCallback(request, env) {
     if (isDesigner) {
       // App Interface flow - only store data for the current site
       
-      // Store user authentication data in KV (REQUIRED for verifyAuth)
-      const userId = userData.id || userData.email;
-      await env.ACCESSIBILITY_AUTH.put(`user-auth:${userId}`, JSON.stringify({
-        accessToken: tokenData.access_token,
-        userData: {
-          id: userId,
-          email: userData.email,
-          firstName: userData.firstName
-        },
-        siteId: currentSite.id,
-        createdAt: new Date().toISOString()
-      }), { expirationTtl: 86400 });
-      
-      // Store authorization data separately (never overwritten)
+      // Store authorization data (canonical key)
       await env.ACCESSIBILITY_AUTH.put(`auth-data:${currentSite.id}`, JSON.stringify({
         accessToken: tokenData.access_token,
         siteName: currentSite.name || currentSite.shortName,
         siteId: currentSite.id,
         user: userData,
+        email: userData.email || '',
+        domainUrl: '',
+        workspaceId: userData.workspaceId || '',
         installedAt: new Date().toISOString(),
         widgetVersion: '1.0.0',
         lastUsed: new Date().toISOString()
-      }), { expirationTtl: 86400 });
+      }));
       
       // Store accessibility settings separately (can be updated)
       await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${currentSite.id}`, JSON.stringify({
@@ -588,18 +738,10 @@ async function handleOAuthCallback(request, env) {
         customDomain: null,
         lastUpdated: new Date().toISOString(),
         lastUsed: new Date().toISOString()
-      }), { expirationTtl: 86400 });
-      
-      await env.ACCESSIBILITY_AUTH.put(currentSite.id, JSON.stringify({
-      accessToken: tokenData.access_token,
-     siteName: currentSite.name || currentSite.shortName,
-     siteId: currentSite.id,
-     user: userData,
-    installedAt: new Date().toISOString(),
-    lastUsed: new Date().toISOString()
-}), { expirationTtl: 86400 });
+      }));
 
-       // App Interface flow - redirect directly to site
+
+      // App Interface flow - redirect directly to site
       return new Response(null, {
         status: 302,
         headers: {
@@ -612,26 +754,24 @@ async function handleOAuthCallback(request, env) {
     console.log('Apps & Integrations: Using determined site for data storage...');
     console.log('Apps & Integrations: Storing data for site:', currentSite.id, currentSite.name || currentSite.shortName);
     
-    // Store authorization data separately (never overwritten)
+    // Store authorization data (canonical key)
     await env.ACCESSIBILITY_AUTH.put(`auth-data:${currentSite.id}`, JSON.stringify({
       accessToken: tokenData.access_token,
       siteName: currentSite.name || currentSite.shortName,
       siteId: currentSite.id,
       user: userData,
+      email: userData.email || '',
+      domainUrl: '',
+      workspaceId: userData.workspaceId || '',
       installedAt: new Date().toISOString(),
       widgetVersion: '1.0.0',
       lastUsed: new Date().toISOString()
-    }), { expirationTtl: 86400 });
+    }));
     
-    // Store accessibility settings separately (can be updated)
-    await env.ACCESSIBILITY_AUTH.put(`accessibility-settings:${currentSite.id}`, JSON.stringify({
-      siteId: currentSite.id,
-      customization: {},
-      accessibilityProfiles: {},
-      customDomain: null,
-      lastUpdated: new Date().toISOString(),
-      lastUsed: new Date().toISOString()
-    }), { expirationTtl: 86400 });
+    // Initialize unified site settings (idempotent)
+    await mergeSiteSettings(env, currentSite.id, { siteId: currentSite.id });
+    // Initialize unified site settings (idempotent)
+    await mergeSiteSettings(env, currentSite.id, { siteId: currentSite.id });
     
     // Also store the Webflow subdomain mapping for this site
     try {
@@ -653,11 +793,33 @@ async function handleOAuthCallback(request, env) {
       console.warn('Apps & Integrations: Failed to store subdomain mapping:', domainError);
     }
     
-    // Apps & Integrations flow - redirect directly to site
+    // Apps & Integrations flow - redirect to site with auth data in URL params
+    // Get the real email from the stored KV data (not the proxy email from userData)
+    const storedAuthData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${currentSite.id}`);
+    let realEmail = userData.email || '';
+    if (storedAuthData) {
+      try {
+        const parsed = JSON.parse(storedAuthData);
+        realEmail = parsed.email || userData.email || '';
+      } catch (e) {
+        console.warn('Failed to parse stored auth data:', e);
+      }
+    }
+    
+    const redirectUrl = new URL(`https://${currentSite.shortName}.design.webflow.com`);
+    redirectUrl.searchParams.set('app', env.WEBFLOW_CLIENT_ID);
+    redirectUrl.searchParams.set('auth_success', 'true');
+    redirectUrl.searchParams.set('sessionToken', sessionToken.token);
+    redirectUrl.searchParams.set('firstName', userData.firstName || 'User');
+    redirectUrl.searchParams.set('email', realEmail);
+    redirectUrl.searchParams.set('siteId', currentSite.id);
+    redirectUrl.searchParams.set('siteName', currentSite.name || currentSite.shortName);
+    redirectUrl.searchParams.set('shortName', currentSite.shortName);
+    
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': `https://${currentSite.shortName}.design.webflow.com?app=${env.WEBFLOW_CLIENT_ID}`
+        'Location': redirectUrl.toString()
       }
     });
     
@@ -948,7 +1110,6 @@ async function handleGetSettings(request, env) {
   
   const settings = JSON.parse(accessibilityData);
   const successResponse = secureJsonResponse({
-    settings: settings.accessibilitySettings,
     customization: settings.customization,
     accessibilityProfiles: settings.accessibilityProfiles,
     customDomain: settings.customDomain,
@@ -999,10 +1160,25 @@ async function handleTokenAuth(request, env) {
       const payload = JSON.parse(atob(tokenParts[1]));
       console.log('ID token payload:', payload);
       
+      // Get real email from stored auth data instead of using proxy email from ID token
+      const storedAuthData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteId}`);
+      let realEmail = payload.email || '';
+      let realFirstName = payload.given_name || payload.name || 'User';
+      
+      if (storedAuthData) {
+        try {
+          const parsed = JSON.parse(storedAuthData);
+          realEmail = parsed.email || payload.email || '';
+          realFirstName = parsed.user?.firstName || payload.given_name || payload.name || 'User';
+        } catch (e) {
+          console.warn('Failed to parse stored auth data:', e);
+        }
+      }
+      
       userData = {
         id: payload.sub || payload.user_id,
-        email: payload.email || `user-${payload.sub}@webflow.com`, // Fallback email
-        firstName: payload.given_name || payload.name || 'User' // Fallback name
+        email: realEmail,
+        firstName: realFirstName
       };
       
       console.log('Decoded user data from ID token:', JSON.stringify(userData, null, 2));
@@ -1041,7 +1217,7 @@ async function handleTokenAuth(request, env) {
     
     // Try to get accessToken from existing published settings using siteId
     let accessToken = null;
-    const existingPublishedData = await env.ACCESSIBILITY_AUTH.get(`Accessibility-Settings:${siteId}`);
+    const existingPublishedData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
     if (existingPublishedData) {
       const parsedData = JSON.parse(existingPublishedData);
       accessToken = parsedData.accessToken;
@@ -1073,7 +1249,7 @@ async function handleTokenAuth(request, env) {
         installedAt: new Date().toISOString(),
         widgetVersion: '1.0.0',
         lastUsed: new Date().toISOString()
-      }), { expirationTtl: 86400 });
+      }));
       console.log('Initial authorization data created');
     } else {
       console.log('Authorization data already exists, skipping creation');
@@ -1090,7 +1266,7 @@ async function handleTokenAuth(request, env) {
         customDomain: null,
         lastUpdated: new Date().toISOString(),
         lastUsed: new Date().toISOString()
-      }), { expirationTtl: 86400 });
+      }));
       console.log('Initial accessibility settings created');
     } else {
       console.log('Accessibility settings already exist, skipping creation');
@@ -1099,10 +1275,25 @@ async function handleTokenAuth(request, env) {
     console.log('User authentication stored');
     console.log('=== TOKEN AUTH DEBUG END ===');
     
+    // Get real email from stored auth data (not proxy email from userData)
+    const storedAuthData = await env.ACCESSIBILITY_AUTH.get(`auth-data:${siteId}`);
+    let realEmail = userData.email || '';
+    let realFirstName = userData.firstName || 'User';
+    
+    if (storedAuthData) {
+      try {
+        const parsed = JSON.parse(storedAuthData);
+        realEmail = parsed.email || userData.email || '';
+        realFirstName = parsed.user?.firstName || userData.firstName || 'User';
+      } catch (e) {
+        console.warn('Failed to parse stored auth data:', e);
+      }
+    }
+    
     return new Response(JSON.stringify({
       sessionToken: sessionToken.token,
-      email: userData.email,
-      firstName: userData.firstName,
+      email: realEmail,
+      firstName: realFirstName,
       exp: sessionToken.exp,
       widgetType: 'accessibility'
     }), {
@@ -1255,7 +1446,7 @@ async function handleRegisterScript(request, env) {
       });
     }
     
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@762e987/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@10226fd/accessibility-widget.js';
     console.log(accessToken);
     // Check if script is already registered - CORRECTED: Use exact match
     const existingScriptsResponse = await fetch(`https://api.webflow.com/v2/sites/${siteIdFromUrl}/registered_scripts`, {
@@ -1429,7 +1620,7 @@ async function handleApplyScript(request, env) {
     
         // Filter out duplicates - remove any existing accessibility widget scripts
     // Filter out duplicates - remove ALL accessibility widget scripts and any with same ID
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@762e987/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@10226fd/accessibility-widget.js';
 
     const existingAccessibilityScript = existingScripts.find(script => 
       script.scriptUrl === scriptUrl
@@ -1544,7 +1735,7 @@ async function verifyAuth(request, env) {
     // Get site name from the site-specific data
     let siteName;
     try {
-      const siteData = await env.ACCESSIBILITY_AUTH.get(`Accessibility-Settings:${siteId}`);
+      const siteData = await env.ACCESSIBILITY_AUTH.get(`accessibility-settings:${siteId}`);
       if (siteData) {
         const parsedSiteData = JSON.parse(siteData);
         siteName = parsedSiteData.siteName;
@@ -1927,5 +2118,639 @@ async function getSiteIdAndToken(request, env) {
   } catch (error) {
     console.error('Get site ID and token error:', error);
     return { error: 'Failed to get site data' };
+  }
+}
+
+// ===== PAYMENT HANDLER FUNCTIONS =====
+
+// Create trial for new users
+async function handleCreateTrial(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { siteId, email, domain, paymentStatus, trialStartDate, trialEndDate } = await request.json();
+    
+    if (!siteId || !email || !domain) {
+      const errorResponse = secureJsonResponse({ error: 'Missing required fields' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    // Sanitize input data
+    const sanitizedEmail = sanitizeInput(email);
+    const sanitizedDomain = sanitizeInput(domain);
+    
+    // Store user data with payment info
+    const userData = {
+      siteId,
+      email: sanitizedEmail,
+      domain: sanitizedDomain,
+      paymentStatus,
+      trialStartDate,
+      trialEndDate,
+      createdAt: new Date().toISOString()
+    };
+    
+    // Store in KV
+    await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+    await mergeSiteSettings(env, siteId, {
+      siteId,
+      domain: sanitizedDomain,
+      customerId,
+      subscriptionId: subscription.id,
+      paymentStatus: 'pending'
+    });
+    
+    // Store domain mapping
+    await env.ACCESSIBILITY_AUTH.put(`domain_${sanitizedDomain}`, JSON.stringify({ 
+      siteId, 
+      verified: true 
+    }));
+    
+  // Also merge into unified site settings
+  await mergeSiteSettings(env, siteId, {
+    siteId,
+    email: sanitizedEmail,
+    domain: sanitizedDomain,
+    paymentStatus,
+    trialStartDate,
+    trialEndDate
+  });
+
+  const successResponse = secureJsonResponse({ 
+    success: true, 
+    message: 'Trial created successfully' 
+  });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Create trial error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to create trial',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Check payment status
+async function handlePaymentStatus(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const url = new URL(request.url);
+    const siteId = url.searchParams.get('siteId');
+    
+    if (!siteId) {
+      const errorResponse = secureJsonResponse({ error: 'SiteId required' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    // Get user data
+    const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+    if (!userDataStr) {
+      const errorResponse = secureJsonResponse({ error: 'User not found' }, 404);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    const userData = JSON.parse(userDataStr);
+    
+    // Auto-derive status
+    const now = new Date();
+    if (userData.paymentStatus === 'trial' && userData.trialEndDate && now > new Date(userData.trialEndDate)) {
+      userData.paymentStatus = 'inactive';
+    }
+    if (userData.paymentStatus === 'active' && userData.subscriptionPeriodEnd && now > new Date(userData.subscriptionPeriodEnd)) {
+      userData.paymentStatus = 'expired';
+    }
+    await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+    
+    // Keep unified settings current
+    await mergeSiteSettings(env, siteId, {
+      siteId,
+      paymentStatus: userData.paymentStatus,
+      trialEndDate: userData.trialEndDate,
+      email: userData.email,
+      domain: userData.domain
+    });
+
+    const successResponse = secureJsonResponse({
+      paymentStatus: userData.paymentStatus,
+      trialEndDate: userData.trialEndDate,
+      email: userData.email,
+      domain: userData.domain
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Payment status error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to check payment status',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Validate domain access
+async function handleValidateDomain(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { domain, siteId } = await request.json();
+    
+    if (!domain || !siteId) {
+      const errorResponse = secureJsonResponse({ error: 'Domain and siteId required' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    // Sanitize domain input
+    const sanitizedDomain = sanitizeInput(domain);
+    
+    // Check domain mapping
+    const domainDataStr = await env.ACCESSIBILITY_AUTH.get(`domain_${sanitizedDomain}`);
+    if (!domainDataStr) {
+      const successResponse = secureJsonResponse({ isValid: false });
+      return addSecurityAndCorsHeaders(successResponse, origin);
+    }
+    
+    const domainData = JSON.parse(domainDataStr);
+    const isValid = domainData.siteId === siteId && domainData.verified;
+    
+    const successResponse = secureJsonResponse({ isValid });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Validate domain error:', error);
+    const errorResponse = secureJsonResponse({ 
+      isValid: false,
+      error: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Get user data
+async function handleUserData(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const url = new URL(request.url);
+    const siteId = url.searchParams.get('siteId');
+    
+    if (!siteId) {
+      const errorResponse = secureJsonResponse({ error: 'SiteId required' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+    if (!userDataStr) {
+      const errorResponse = secureJsonResponse({ error: 'User not found' }, 404);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    const userData = JSON.parse(userDataStr);
+    
+    const successResponse = secureJsonResponse({ 
+      email: userData.email,
+      domain: userData.domain,
+      paymentStatus: userData.paymentStatus,
+      trialEndDate: userData.trialEndDate
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Get user data error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to get user data',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Create Stripe subscription with products
+async function handleCreateSubscription(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { siteId, productId, domain, email, domainUrl } = await request.json();
+    
+    if (!siteId || !productId || !domain) {
+      const errorResponse = secureJsonResponse({ error: 'Missing required fields' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    // Sanitize input data
+    const sanitizedDomain = sanitizeInput(domain);
+    
+    // Create customer with email if provided
+    let customerId = '';
+    const customerData = {
+      'metadata[siteId]': siteId,
+      'metadata[domain]': sanitizedDomain
+    };
+    
+    // Add email if provided
+    if (email) {
+      customerData.email = email;
+    }
+    
+    // Add domain URL to metadata if provided
+    if (domainUrl) {
+      customerData['metadata[domainUrl]'] = domainUrl;
+    }
+    
+    const customerResponse = await fetch('https://api.stripe.com/v1/customers', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams(customerData)
+    });
+    
+    if (!customerResponse.ok) {
+      const errorText = await customerResponse.text();
+      console.error('Stripe customer creation failed:', errorText);
+      throw new Error(`Failed to create customer: ${errorText}`);
+    }
+    
+    const customer = await customerResponse.json();
+    customerId = customer.id;
+    
+    // Get product details to find the price
+    const productResponse = await fetch(`https://api.stripe.com/v1/products/${productId}`, {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+      }
+    });
+    
+    if (!productResponse.ok) {
+      throw new Error('Failed to get product details');
+    }
+    
+    const product = await productResponse.json();
+    const priceId = product.default_price;
+    
+    // Create subscription
+    const subscriptionResponse = await fetch('https://api.stripe.com/v1/subscriptions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        customer: customerId,
+        'items[0][price]': priceId,
+        payment_behavior: 'default_incomplete',
+        collection_method: 'charge_automatically',
+        'payment_settings[save_default_payment_method]': 'on_subscription',
+        'metadata[siteId]': siteId,
+        'metadata[domain]': sanitizedDomain,
+        'metadata[email]': email || '',
+        'metadata[domainUrl]': domainUrl || ''
+      })
+    });
+    
+    if (!subscriptionResponse.ok) {
+      const errorText = await subscriptionResponse.text();
+      throw new Error(`Failed to create subscription: ${errorText}`);
+    }
+    
+    const subscription = await subscriptionResponse.json();
+    
+    // Create a payment intent directly for the subscription amount
+    const priceResponse = await fetch(`https://api.stripe.com/v1/prices/${priceId}`, {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+      }
+    });
+    
+    if (!priceResponse.ok) {
+      throw new Error('Failed to get price details');
+    }
+    
+    const price = await priceResponse.json();
+    
+    // Create payment intent directly
+    const paymentIntentResponse = await fetch('https://api.stripe.com/v1/payment_intents', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        amount: price.unit_amount,
+        currency: price.currency,
+        customer: customerId,
+        'metadata[siteId]': siteId,
+        'metadata[domain]': sanitizedDomain,
+        'metadata[subscriptionId]': subscription.id,
+        'metadata[email]': email || '',
+        'metadata[domainUrl]': domainUrl || ''
+      })
+    });
+    
+    if (!paymentIntentResponse.ok) {
+      const errorText = await paymentIntentResponse.text();
+      throw new Error(`Failed to create payment intent: ${errorText}`);
+    }
+    
+    const paymentIntent = await paymentIntentResponse.json();
+    const clientSecret = paymentIntent.client_secret;
+    
+    // Store user data
+    const userData = {
+      siteId,
+      domain: sanitizedDomain,
+      customerId: customerId,
+      subscriptionId: subscription.id,
+      paymentStatus: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    
+    await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+    await env.ACCESSIBILITY_AUTH.put(`domain_${sanitizedDomain}`, JSON.stringify({ 
+      siteId, 
+      verified: true 
+    }));
+    
+    // Send webhook to Make.com for email automation
+    try {
+      const webhookUrl = 'https://hook.us1.make.com/mjcnn3ydks2o2pbkrdna9czn7bb253z0';
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'app_installed',
+          customer: {
+            email: email,
+            domain: domainUrl,
+            siteId: siteId
+          },
+          subscription: {
+            id: subscription.id,
+            productId: productId
+          },
+          timestamp: new Date().toISOString()
+        })
+      });
+      console.log('Webhook sent to Make.com successfully');
+    } catch (webhookError) {
+      console.warn('Webhook failed (non-critical):', webhookError);
+    }
+
+    const successResponse = secureJsonResponse({ 
+      clientSecret: clientSecret,
+      subscriptionId: subscription.id
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Create subscription error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to create subscription',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Update payment status (for webhooks)
+async function handleUpdatePayment(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { siteId, subscriptionId, customerId, paymentStatus } = await request.json();
+    
+    if (!siteId || !paymentStatus) {
+      const errorResponse = secureJsonResponse({ error: 'SiteId and paymentStatus required' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+    if (userDataStr) {
+      const userData = JSON.parse(userDataStr);
+      userData.paymentStatus = paymentStatus;
+      if (subscriptionId) userData.subscriptionId = subscriptionId;
+      if (customerId) userData.customerId = customerId;
+      userData.lastPaymentDate = new Date().toISOString();
+      
+      await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+    }
+    
+    const successResponse = secureJsonResponse({ success: true });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Update payment error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to update payment',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Create payment intent for Stripe Elements (REAL Stripe call)
+async function handleCreatePaymentIntent(request, env) {
+  const origin = request.headers.get('origin');
+  try {
+    const { siteId, amount, currency = 'usd', email } = await request.json();
+    if (!siteId || !amount) {
+      return addSecurityAndCorsHeaders(secureJsonResponse({ error: 'Missing required fields' }, 400), origin);
+    }
+
+    // Optional: create/reuse a customer for saved methods / Link
+    let customerId = '';
+    if (email) {
+      const custRes = await fetch('https://api.stripe.com/v1/customers', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({ email })
+      });
+      const cust = await custRes.json();
+      customerId = cust.id || '';
+    }
+
+    // Create PaymentIntent with Card payments only - completely disable automatic methods
+    const piRes = await fetch('https://api.stripe.com/v1/payment_intents', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        amount: String(amount),
+        currency,
+        'payment_method_types[]': 'card',
+        'automatic_payment_methods[enabled]': 'false',
+        'payment_method_options[card][request_three_d_secure]': 'automatic',
+        ...(customerId ? { customer: customerId } : {}),
+        ...(siteId ? { 'metadata[siteId]': siteId } : {})
+      })
+    });
+
+    if (!piRes.ok) {
+      const text = await piRes.text();
+      return addSecurityAndCorsHeaders(secureJsonResponse({ error: `Stripe error: ${text}` }, 400), origin);
+    }
+    const pi = await piRes.json();
+    return addSecurityAndCorsHeaders(secureJsonResponse({ clientSecret: pi.client_secret }), origin);
+  } catch (error) {
+    return addSecurityAndCorsHeaders(secureJsonResponse({ error: error.message || 'failed' }, 500), origin);
+  }
+}
+
+// Verify and handle Stripe webhooks
+async function handleStripeWebhook(request, env) {
+  const origin = request.headers.get('origin');
+  try {
+    const sig = request.headers.get('stripe-signature');
+    if (!sig || !env.STRIPE_WEBHOOK_SECRET) {
+      return addSecurityAndCorsHeaders(secureJsonResponse({ error: 'Missing signature or webhook secret' }, 400), origin);
+    }
+
+    const payload = await request.text();
+
+    // Minimal Stripe signature verification using raw HMAC
+    // Stripe header format: t=timestamp,v1=signature
+    const parts = Object.fromEntries(sig.split(',').map(kv => kv.split('=')));
+    const timestamp = parts['t'];
+    const v1 = parts['v1'];
+    if (!timestamp || !v1) {
+      return addSecurityAndCorsHeaders(secureJsonResponse({ error: 'Invalid signature header' }, 400), origin);
+    }
+
+    const signedPayload = `${timestamp}.${payload}`;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(env.STRIPE_WEBHOOK_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(signedPayload));
+    const signatureHex = Array.from(new Uint8Array(signatureBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // Constant-time compare
+    if (signatureHex !== v1) {
+      return addSecurityAndCorsHeaders(secureJsonResponse({ error: 'Signature verification failed' }, 400), origin);
+    }
+
+    const event = JSON.parse(payload);
+    // Handle subscription events
+    if (event.type === 'customer.subscription.created') {
+      const subscription = event.data.object || {};
+      const siteId = subscription.metadata?.siteId;
+      if (siteId) {
+        const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+        const userData = userDataStr ? JSON.parse(userDataStr) : {};
+        userData.paymentStatus = 'active';
+        userData.subscriptionId = subscription.id;
+        userData.lastPaymentDate = new Date().toISOString();
+        await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+        await mergeSiteSettings(env, siteId, {
+          siteId,
+          paymentStatus: 'active',
+          subscriptionId: subscription.id,
+          lastPaymentDate: userData.lastPaymentDate
+        });
+        
+        // Send webhook to Make.com for email automation
+        try {
+          const webhookUrl = 'https://hook.us1.make.com/mjcnn3ydks2o2pbkrdna9czn7bb253z0';
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'app_installed',
+              customer: {
+                email: subscription.metadata?.email || '',
+                domain: subscription.metadata?.domainUrl || '',
+                siteId: siteId
+              },
+              subscription: {
+                id: subscription.id,
+                productId: subscription.metadata?.productId || ''
+              },
+              timestamp: new Date().toISOString()
+            })
+          });
+          console.log('Webhook sent to Make.com successfully');
+        } catch (webhookError) {
+          console.warn('Webhook failed (non-critical):', webhookError);
+        }
+      }
+    } else if (event.type === 'customer.subscription.updated') {
+      const subscription = event.data.object || {};
+      const siteId = subscription.metadata?.siteId;
+      if (siteId) {
+        const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+        const userData = userDataStr ? JSON.parse(userDataStr) : {};
+        userData.paymentStatus = subscription.status === 'active' ? 'active' : 'inactive';
+        userData.lastPaymentDate = new Date().toISOString();
+        await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+        await mergeSiteSettings(env, siteId, {
+          siteId,
+          paymentStatus: userData.paymentStatus,
+          lastPaymentDate: userData.lastPaymentDate
+        });
+      }
+    } else if (event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object || {};
+      const siteId = subscription.metadata?.siteId;
+      if (siteId) {
+        const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+        const userData = userDataStr ? JSON.parse(userDataStr) : {};
+        userData.paymentStatus = 'cancelled';
+        userData.lastPaymentDate = new Date().toISOString();
+        await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+        await mergeSiteSettings(env, siteId, {
+          siteId,
+          paymentStatus: 'cancelled',
+          lastPaymentDate: userData.lastPaymentDate
+        });
+      }
+    } else if (event.type === 'payment_intent.succeeded') {
+      const pi = event.data.object || {};
+      const siteId = pi.metadata?.siteId;
+      if (siteId) {
+        const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+        const userData = userDataStr ? JSON.parse(userDataStr) : {};
+        userData.paymentStatus = 'active';
+        userData.lastPaymentDate = new Date().toISOString();
+        userData.paymentMethod = pi.payment_method_types?.[0] || 'unknown';
+        await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+        await mergeSiteSettings(env, siteId, {
+          siteId,
+          paymentStatus: 'active',
+          lastPaymentDate: userData.lastPaymentDate
+        });
+      }
+    } else if (event.type === 'payment_intent.payment_failed') {
+      const pi = event.data.object || {};
+      const siteId = pi.metadata?.siteId;
+      if (siteId) {
+        const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+        const userData = userDataStr ? JSON.parse(userDataStr) : {};
+        userData.paymentStatus = 'failed';
+        userData.lastPaymentDate = new Date().toISOString();
+        await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+        await mergeSiteSettings(env, siteId, {
+          siteId,
+          paymentStatus: 'failed',
+          lastPaymentDate: userData.lastPaymentDate
+        });
+      }
+    }
+
+    return new Response('ok', { status: 200, headers: { 'Content-Type': 'text/plain' } });
+  } catch (err) {
+    return addSecurityAndCorsHeaders(secureJsonResponse({ error: err.message || 'webhook error' }, 500), origin);
   }
 }

@@ -26,6 +26,55 @@ const App: React.FC = () => {
   //const isAuthenticated = !!(user.email && sessionToken);
   // OAuth callback handling is now done by the Cloudflare Worker
   // No need for frontend callback handling when using worker-based OAuth
+  // Detect app installation and send webhook to Make.com
+  useEffect(() => {
+
+    const detectAppInstallation = async () => {
+      try {
+        // Prefer new key, fallback to legacy
+        const userData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
+        if (userData) {
+          const parsed = JSON.parse(userData);
+          const { siteId, email, siteInfo } = parsed;
+          
+          // Check if this is a new installation (you can add more logic here)
+          const installationKey = `app_installed_${siteId}`;
+          const hasBeenNotified = localStorage.getItem(installationKey);
+          
+          if (!hasBeenNotified && siteId && email) {
+            console.log('🎉 App installation detected, sending webhook to Make.com');
+            
+            // Send webhook to your worker
+            await fetch('https://accessibility-widget.web-8fb.workers.dev/api/webflow/app-installed', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                siteId: siteId,
+                userId: parsed.userId || 'unknown',
+                userEmail: email,
+                siteName: siteInfo?.siteName || 'Unknown Site',
+                installationData: {
+                  timestamp: new Date().toISOString(),
+                  source: 'webflow_app'
+                }
+              })
+            });
+            
+            // Mark as notified to avoid duplicate emails
+            localStorage.setItem(installationKey, 'true');
+            console.log('✅ Installation webhook sent successfully');
+          }
+        }
+      } catch (error) {
+        console.warn('App installation detection failed:', error);
+      }
+    };
+    
+    // Run installation detection after a short delay
+    const timer = setTimeout(detectAppInstallation, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Load existing customization data when user becomes authenticated
   useEffect(() => {
     if (isAuthenticated && !isAuthLoading) {
@@ -89,8 +138,8 @@ const App: React.FC = () => {
           console.log(":rocket: APP: Silent authentication successful - token generated");
           setIsAuthenticated(true);
           
-          // Check what's stored in sessionStorage
-          const storedData = sessionStorage.getItem('contrastkit-userinfo');
+          // Check what's stored in sessionStorage (prefer new key)
+          const storedData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
           console.log(":rocket: APP: Stored data in sessionStorage:", storedData);
           if (storedData) {
             const parsedData = JSON.parse(storedData);

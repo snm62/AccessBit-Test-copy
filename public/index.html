@@ -3,12 +3,40 @@
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Permissions-Policy" content="payment=*, camera=(), microphone=(), geolocation=()" />
+  <meta name="referrer" content="no-referrer-when-downgrade" />
   <title>ContrastKit</title>
   <link href="./styles.css" rel="stylesheet" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@100;200;300;400;500;600;700;800;900&display=swap"
     rel="stylesheet">
+  
+  <!-- Stripe Integration Scripts -->
+  <script src="https://js.stripe.com/v3/"></script>
+  <script src="./existing-payment-integration.js?v=20250113-14"></script>
+  <link rel="stylesheet" href="./existing-payment-styles.css">
+  
+  <!-- Allow payment functionality in iframe environment -->
+  <script>
+    // Explicitly allow payment functionality
+    if (window.parent !== window) {
+      console.log('Running in iframe - allowing payment functionality');
+      // Try to set permissions policy if possible
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          navigator.permissions.query({ name: 'payment' }).then(result => {
+            console.log('Payment permission status:', result.state);
+          }).catch(err => {
+            console.log('Payment permission query failed:', err);
+          });
+        }
+      } catch (e) {
+        console.log('Permissions API not available:', e);
+      }
+    }
+  </script>
 </head>
 
 <body>

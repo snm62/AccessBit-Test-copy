@@ -48,7 +48,7 @@ export function useAuth() {
   const { data: authState, isLoading: isAuthLoading } = useQuery<AuthState>({
     queryKey: ["auth"],
     queryFn: async () => {
-      const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+      const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
       const wasExplicitlyLoggedOut = sessionStorage.getItem(
         "explicitly_logged_out"
       );
@@ -70,7 +70,8 @@ export function useAuth() {
         
         if (decodedToken.exp * 1000 <= Date.now()) {
           // Token expired - clear storage
-          sessionStorage.removeItem("contrastkit-userinfo");
+          sessionStorage.removeItem("accessbit-userinfo");
+          sessionStorage.removeItem("accessbit-userinfo");
           return { user: { firstName: "", email: "" }, sessionToken: "" };
         }
 
@@ -86,7 +87,8 @@ export function useAuth() {
         return authState;
       } catch (error) {
         // Clear invalid data
-        sessionStorage.removeItem("contrastkit-userinfo");
+        sessionStorage.removeItem("accessbit-userinfo");
+        sessionStorage.removeItem("accessbit-userinfo");
         return { user: { firstName: "", email: "" }, sessionToken: "" };
       }
     },
@@ -129,21 +131,24 @@ export function useAuth() {
       try {
         // Decode the new token
        const decodedToken = jwtDecode(data.sessionToken) as DecodedToken;
+       // Worker now sends real email, so use it directly
+       const realEmail = data.email || '';
         const userData = {
           sessionToken: data.sessionToken,
           firstName: data.firstName,
-          email: data.email,
+          email: realEmail,
           siteId: data.siteId, // Store the siteId from server response
           exp: decodedToken.exp,
         };
 
                  // Update sessionStorage
-         sessionStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
+        sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
         sessionStorage.removeItem("explicitly_logged_out");
 
-        // Store site information after authentication
+        // Store site information after authentication (include normalized email)
         if (data.siteInfo) {
-          sessionStorage.setItem('siteInfo', JSON.stringify(data.siteInfo));
+          const siteInfoWithEmail = { ...data.siteInfo, email: realEmail };
+          sessionStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
         }
 
         // Directly update the query data instead of invalidating
@@ -197,20 +202,23 @@ export function useAuth() {
       }
 
       // Store in sessionStorage
+      // Worker now sends real email, so use it directly
+      const realEmail = data.email || '';
       const userData = {
         sessionToken: data.sessionToken,
         firstName: data.firstName,
-        email: data.email,
+        email: realEmail,
         siteId: siteInfo.siteId, // Store the siteId
         exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
       };
 
-             sessionStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
+            sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
       sessionStorage.removeItem("explicitly_logged_out");
 
-      // Store site information after authentication
+      // Store site information after authentication (include normalized email)
       if (siteInfo) {
-        sessionStorage.setItem('siteInfo', JSON.stringify(siteInfo));
+        const siteInfoWithEmail = { ...siteInfo, email: realEmail };
+        sessionStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
       }
 
       // Update React Query cache
@@ -226,7 +234,8 @@ export function useAuth() {
       return data;
 
     } catch (error) {
-      sessionStorage.removeItem("contrastkit-userinfo");
+      sessionStorage.removeItem("accessbit-userinfo");
+      sessionStorage.removeItem("accessbit-userinfo");
       throw error;
     }
   };
@@ -235,7 +244,7 @@ export function useAuth() {
   const logout = () => {
     // Set logout flag and clear storage
     sessionStorage.setItem("explicitly_logged_out", "true");
-    sessionStorage.removeItem("contrastkit-userinfo");
+    sessionStorage.removeItem("accessbit-userinfo");
     queryClient.setQueryData(["auth"], {
       user: { firstName: "", email: "" },
       sessionToken: "",
@@ -257,62 +266,85 @@ export function useAuth() {
       return;
     }
     
-    // Listen for messages from the OAuth popup
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== new URL(base_url).origin) {
-        return;
-      }
-      
-      if (event.data.type === 'AUTH_SUCCESS') {
-        console.log('Received auth success message:', event.data);
+    // Check for auth success in URL parameters when window closes
+    const checkAuthSuccess = () => {
+      try {
+        const url = new URL(window.location.href);
+        const authSuccess = url.searchParams.get('auth_success');
         
-        // IMPORTANT: Clear all old session data first to prevent cross-site contamination
-        console.log('Clearing old session data before storing new data...');
-        sessionStorage.removeItem("contrastkit-userinfo");
-        sessionStorage.removeItem("explicitly_logged_out");
-        sessionStorage.removeItem("siteInfo");
-        
-        // Store the session data from the OAuth popup
-        const userData = {
-          sessionToken: event.data.sessionToken,
-          firstName: event.data.user.firstName,
-          email: event.data.user.email,
-          siteId: event.data.user.siteId,
-          exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
-          siteInfo: event.data.siteInfo // Add site info
-        };
-        
-        console.log('Storing new session data for site:', event.data.user.siteId);
-        console.log('New user data:', userData);
-        
-        // Store in sessionStorage for persistence
-        sessionStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
-        sessionStorage.removeItem("explicitly_logged_out");
-        
-        // Clear React Query cache and update with new data
-        queryClient.clear();
-        queryClient.setQueryData<AuthState>(["auth"], {
-          user: {
-            firstName: event.data.user.firstName,
-            email: event.data.user.email,
-            siteId: event.data.user.siteId
-          },
-          sessionToken: event.data.sessionToken
-        });
-        
-        // Remove the message listener
-        window.removeEventListener('message', handleMessage);
+        if (authSuccess === 'true') {
+          console.log('Auth success detected in URL parameters');
+          
+          // IMPORTANT: Clear all old session data first to prevent cross-site contamination
+          console.log('Clearing old session data before storing new data...');
+          sessionStorage.removeItem("accessbit-userinfo");
+          sessionStorage.removeItem("contrastkit-userinfo");
+          sessionStorage.removeItem("explicitly_logged_out");
+          sessionStorage.removeItem("siteInfo");
+          
+          // Get auth data from URL parameters
+          const sessionToken = url.searchParams.get('sessionToken');
+          const firstName = url.searchParams.get('firstName');
+          const email = url.searchParams.get('email');
+          const siteId = url.searchParams.get('siteId');
+          const siteName = url.searchParams.get('siteName');
+          const shortName = url.searchParams.get('shortName');
+          
+          // Store the session data from the OAuth popup
+          // Worker now sends real email in URL parameters, so use it directly
+          const userData = {
+            sessionToken: sessionToken,
+            firstName: firstName,
+            email: email || '',
+            siteId: siteId,
+            exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+            siteInfo: {
+              siteId: siteId,
+              siteName: siteName,
+              shortName: shortName,
+              email: email || ''
+            }
+          };
+          
+          console.log('Storing new session data for site:', siteId);
+          console.log('New user data:', userData);
+          
+          // Store in sessionStorage for persistence
+          sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
+          sessionStorage.removeItem("explicitly_logged_out");
+          
+          // Clear React Query cache and update with new data
+          queryClient.clear();
+          queryClient.setQueryData<AuthState>(["auth"], {
+            user: {
+              firstName: firstName,
+              email: email || '',
+              siteId: siteId
+            },
+            sessionToken: sessionToken
+          });
+          
+          // Clean up URL parameters
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete('auth_success');
+          cleanUrl.searchParams.delete('sessionToken');
+          cleanUrl.searchParams.delete('firstName');
+          cleanUrl.searchParams.delete('email');
+          cleanUrl.searchParams.delete('siteId');
+          cleanUrl.searchParams.delete('siteName');
+          cleanUrl.searchParams.delete('shortName');
+          window.history.replaceState({}, '', cleanUrl.toString());
+        }
+      } catch (error) {
+        console.warn('Error processing auth success:', error);
       }
     };
     
-    // Add message listener
-    window.addEventListener('message', handleMessage);
-    
-    // Clean up if window is closed manually
+    // Check for auth success when window closes
     const checkWindow = setInterval(() => {
       if (authWindow?.closed) {
         clearInterval(checkWindow);
-        window.removeEventListener('message', handleMessage);
+        checkAuthSuccess();
       }
     }, 1000);
   };
@@ -362,7 +394,7 @@ export function useAuth() {
       
       if (!sessionToken) {
         // Fallback: get from sessionStorage
-        const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+        const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
         if (storedUser) {
           const userData = JSON.parse(storedUser);
           sessionToken = userData.sessionToken;
@@ -451,7 +483,7 @@ export function useAuth() {
       if (!sessionToken || !userEmail) {
         console.log(`[PUBLISH] ${requestId} No auth state, checking sessionStorage...`);
         // Fallback: get from sessionStorage
-        const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+        const storedUser = sessionStorage.getItem("accessbit-userinfo");
         console.log(`[PUBLISH] ${requestId} Stored user from sessionStorage:`, storedUser);
         
         if (storedUser) {
@@ -550,7 +582,7 @@ export function useAuth() {
       console.log("[AUTO_REFRESH] Current site ID:", currentSiteInfo.siteId);
       
       // Check if there's existing auth data that might be expired or invalid
-      const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+      const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
       if (storedUser) {
         try {
           const userData = JSON.parse(storedUser);
@@ -559,7 +591,8 @@ export function useAuth() {
           if (userData.siteId && userData.siteId !== currentSiteInfo.siteId) {
             console.log("[AUTO_REFRESH] Site has changed, clearing old session data");
             console.log("[AUTO_REFRESH] Old site:", userData.siteId, "New site:", currentSiteInfo.siteId);
-            sessionStorage.removeItem('contrastkit-userinfo');
+            sessionStorage.removeItem('accessbit-userinfo');
+            sessionStorage.removeItem('accessbit-userinfo');
             sessionStorage.removeItem('siteInfo');
             console.log("[AUTO_REFRESH] Cleared old session data, attempting silent auth for new site");
             return false; // Force silent auth for new site
@@ -650,7 +683,7 @@ export function useAuth() {
       console.log("[SILENT_AUTH] Making token exchange request...");
       
       // Check what's currently in sessionStorage
-      const currentStoredData = sessionStorage.getItem('contrastkit-userinfo');
+      const currentStoredData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
       const currentStoredData2 = sessionStorage.getItem('consentbit-userinfo');
       console.log("[SILENT_AUTH] Current sessionStorage (contrastkit):", currentStoredData);
       console.log("[SILENT_AUTH] Current sessionStorage (consentbit):", currentStoredData2);
@@ -678,16 +711,18 @@ export function useAuth() {
         
         if (data.sessionToken) {
           // Create user data object with all necessary information
+          // Worker now sends real email from KV, so use it directly
           const userData = {
             sessionToken: data.sessionToken,
-            firstName: data.firstName,
-            email: data.email,
+            firstName: data.firstName || 'User',
+            email: data.email || '',
             siteId: siteInfo.siteId,
             exp: data.exp,
             siteInfo: {
               siteId: siteInfo.siteId,
               siteName: siteInfo.siteName,
-              shortName: siteInfo.shortName
+              shortName: siteInfo.shortName,
+              email: data.email || ''
             }
           };
           
@@ -695,12 +730,13 @@ export function useAuth() {
           console.log("[SILENT_AUTH] User data to store:", JSON.stringify(userData, null, 2));
           
           // Store in sessionStorage with the correct key
-          sessionStorage.setItem('contrastkit-userinfo', JSON.stringify(userData));
+          sessionStorage.setItem('accessbit-userinfo', JSON.stringify(userData));
           sessionStorage.removeItem('explicitly_logged_out');
           
-          // Also store site info separately for easy access
+          // Also store site info separately for easy access (include email)
           if (siteInfo) {
-            sessionStorage.setItem('siteInfo', JSON.stringify(siteInfo));
+            const siteInfoWithEmail = { ...siteInfo, email: data.email || '' };
+            sessionStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
           }
           
           // Update React Query cache
@@ -714,7 +750,7 @@ export function useAuth() {
           });
           
           // Verify the data was stored
-          const storedData = sessionStorage.getItem('contrastkit-userinfo');
+          const storedData = sessionStorage.getItem('accessbit-userinfo');
           console.log("[SILENT_AUTH] Stored data in sessionStorage:", storedData);
           console.log("[SILENT_AUTH] Silent authentication completed successfully - token generated");
           return true;

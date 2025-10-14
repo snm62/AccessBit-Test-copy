@@ -42656,6 +42656,49 @@ const App = () => {
     //const isAuthenticated = !!(user.email && sessionToken);
     // OAuth callback handling is now done by the Cloudflare Worker
     // No need for frontend callback handling when using worker-based OAuth
+    // Detect app installation and send webhook to Make.com
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        const detectAppInstallation = () => __awaiter(void 0, void 0, void 0, function* () {
+            try {
+                // Prefer new key, fallback to legacy
+                const userData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
+                if (userData) {
+                    const parsed = JSON.parse(userData);
+                    const { siteId, email, siteInfo } = parsed;
+                    // Check if this is a new installation (you can add more logic here)
+                    const installationKey = `app_installed_${siteId}`;
+                    const hasBeenNotified = localStorage.getItem(installationKey);
+                    if (!hasBeenNotified && siteId && email) {
+                        console.log('🎉 App installation detected, sending webhook to Make.com');
+                        // Send webhook to your worker
+                        yield fetch('https://accessibility-widget.web-8fb.workers.dev/api/webflow/app-installed', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                siteId: siteId,
+                                userId: parsed.userId || 'unknown',
+                                userEmail: email,
+                                siteName: (siteInfo === null || siteInfo === void 0 ? void 0 : siteInfo.siteName) || 'Unknown Site',
+                                installationData: {
+                                    timestamp: new Date().toISOString(),
+                                    source: 'webflow_app'
+                                }
+                            })
+                        });
+                        // Mark as notified to avoid duplicate emails
+                        localStorage.setItem(installationKey, 'true');
+                        console.log('✅ Installation webhook sent successfully');
+                    }
+                }
+            }
+            catch (error) {
+                console.warn('App installation detection failed:', error);
+            }
+        });
+        // Run installation detection after a short delay
+        const timer = setTimeout(detectAppInstallation, 2000);
+        return () => clearTimeout(timer);
+    }, []);
     // Load existing customization data when user becomes authenticated
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         if (isAuthenticated && !isAuthLoading) {
@@ -42718,8 +42761,8 @@ const App = () => {
                 if (refreshSuccess) {
                     console.log(":rocket: APP: Silent authentication successful - token generated");
                     setIsAuthenticated(true);
-                    // Check what's stored in sessionStorage
-                    const storedData = sessionStorage.getItem('contrastkit-userinfo');
+                    // Check what's stored in sessionStorage (prefer new key)
+                    const storedData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
                     console.log(":rocket: APP: Stored data in sessionStorage:", storedData);
                     if (storedData) {
                         const parsedData = JSON.parse(storedData);
@@ -42843,7 +42886,7 @@ module.exports = __webpack_require__.p + "cc718b52279699cff4c2.png";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "6249de753b98940e36f8.svg";
+module.exports = __webpack_require__.p + "b74b76db66ee85d2ac89.svg";
 
 /***/ }),
 
@@ -42853,7 +42896,7 @@ module.exports = __webpack_require__.p + "6249de753b98940e36f8.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "a812367946904ac86a19.svg";
+module.exports = __webpack_require__.p + "b940c7b5ba71580122e1.svg";
 
 /***/ }),
 
@@ -42863,7 +42906,7 @@ module.exports = __webpack_require__.p + "a812367946904ac86a19.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "c804a3361b804dc19057.svg";
+module.exports = __webpack_require__.p + "315988554fb8c9a6ef02.svg";
 
 /***/ }),
 
@@ -42873,7 +42916,7 @@ module.exports = __webpack_require__.p + "c804a3361b804dc19057.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "5cf22f6bc3baa76fa20b.svg";
+module.exports = __webpack_require__.p + "767243c19641dd480729.svg";
 
 /***/ }),
 
@@ -42883,7 +42926,7 @@ module.exports = __webpack_require__.p + "5cf22f6bc3baa76fa20b.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "05250ff2135c47ca2006.svg";
+module.exports = __webpack_require__.p + "dd5c22c9e5fca44ff45d.svg";
 
 /***/ }),
 
@@ -42893,7 +42936,7 @@ module.exports = __webpack_require__.p + "05250ff2135c47ca2006.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "c9a436d6d323621f4f4f.svg";
+module.exports = __webpack_require__.p + "0184ba4764536183e876.svg";
 
 /***/ }),
 
@@ -42903,7 +42946,7 @@ module.exports = __webpack_require__.p + "c9a436d6d323621f4f4f.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "d538ef4589887b1cb15c.svg";
+module.exports = __webpack_require__.p + "7b8b6654090bf3b66e38.svg";
 
 /***/ }),
 
@@ -42923,7 +42966,7 @@ module.exports = __webpack_require__.p + "e6960da1d895f76d2033.svg";
   \*******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "ad2dcefe657227b1fcce.svg";
+module.exports = __webpack_require__.p + "b83cd2f7adef1fc4000c.svg";
 
 /***/ }),
 
@@ -42933,7 +42976,7 @@ module.exports = __webpack_require__.p + "ad2dcefe657227b1fcce.svg";
   \********************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "b85a2ae57f4702094a64.svg";
+module.exports = __webpack_require__.p + "51512d8a92f8bce807f1.svg";
 
 /***/ }),
 
@@ -42943,7 +42986,7 @@ module.exports = __webpack_require__.p + "b85a2ae57f4702094a64.svg";
   \*************************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "b738aba375d464abfd3e.svg";
+module.exports = __webpack_require__.p + "1de78215101ebb167ee9.svg";
 
 /***/ }),
 
@@ -42963,7 +43006,7 @@ module.exports = __webpack_require__.p + "47ddea3bc86368fac454.svg";
   \**************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "3468745b534843156267.svg";
+module.exports = __webpack_require__.p + "20383c1f1067e99ebdfb.svg";
 
 /***/ }),
 
@@ -43241,24 +43284,24 @@ const CustomizationScreen = ({ onBack, onNext, existingCustomizationData, isLoad
         console.log('🔍 CustomizationScreen: Getting site ID...');
         const urlParams = new URLSearchParams(window.location.search);
         const urlSiteId = urlParams.get('siteId');
-        // Check the correct sessionStorage key used by the auth system
-        const contrastkitUserInfo = sessionStorage.getItem('contrastkit-userinfo');
+        // Check the correct sessionStorage key used by the auth system (new key with legacy fallback)
+        const contrastkitUserInfo = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
         let sessionSiteId = null;
         if (contrastkitUserInfo) {
             try {
                 const userData = JSON.parse(contrastkitUserInfo);
                 sessionSiteId = userData.siteId;
-                console.log('🔍 CustomizationScreen: Found siteId in contrastkit-userinfo:', sessionSiteId);
+                console.log('🔍 CustomizationScreen: Found siteId in userinfo:', sessionSiteId);
             }
             catch (error) {
-                console.log('🔍 CustomizationScreen: Error parsing contrastkit-userinfo:', error);
+                console.log('🔍 CustomizationScreen: Error parsing userinfo:', error);
             }
         }
         // Also check the old keys for backward compatibility
         const oldSessionSiteId = sessionStorage.getItem('accessibility_site_id');
         const localSiteId = localStorage.getItem('accessibility_site_id');
         console.log('🔍 CustomizationScreen: URL siteId:', urlSiteId);
-        console.log('🔍 CustomizationScreen: Session siteId (contrastkit):', sessionSiteId);
+        console.log('🔍 CustomizationScreen: Session siteId:', sessionSiteId);
         console.log('🔍 CustomizationScreen: Session siteId (old):', oldSessionSiteId);
         console.log('🔍 CustomizationScreen: Local siteId:', localSiteId);
         // If we have a URL siteId, use it (this comes from domain lookup)
@@ -43517,16 +43560,146 @@ const whitearrow = "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="
   <path d="M0.756 8.59012V6.62812H10.314L5.598 2.30812L6.948 0.940125L13.356 6.97012V8.23012L6.948 14.2601L5.58 12.8741L10.278 8.59012H0.756Z" fill="white"/>
 </svg>`);
 const PaymentScreen = ({ onBack, onNext, customizationData }) => {
-    console.log('PaymentScreen: Component rendered');
-    console.log('PaymentScreen: Props received:', { onBack, onNext, customizationData });
+    console.log('🔥 PaymentScreen: Component rendered');
+    console.log('🔥 PaymentScreen: Props received:', { onBack, onNext, customizationData });
     const [isAnnual, setIsAnnual] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(true);
     const [isProcessing, setIsProcessing] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+    const [showStripeForm, setShowStripeForm] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+    const [paymentSuccess, setPaymentSuccess] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+    // Check for payment success from URL parameters (for redirect methods)
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentIntent = urlParams.get('payment_intent');
+        const paymentIntentClientSecret = urlParams.get('payment_intent_client_secret');
+        if (paymentIntent && paymentIntentClientSecret) {
+            console.log('🔥 PaymentScreen: Detected payment redirect, checking status');
+            // If we have payment intent parameters, it means user was redirected back
+            // We should show success screen since the webhook will handle the final status
+            setPaymentSuccess(true);
+        }
+    }, []);
+    // Initialize Stripe integration when component mounts
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        console.log('🔥 PaymentScreen: useEffect running, checking for Stripe integration');
+        console.log('🔥 PaymentScreen: window object:', typeof window);
+        console.log('🔥 PaymentScreen: window.initializeExistingPaymentIntegration:', typeof window.initializeExistingPaymentIntegration);
+        // Wait a bit for scripts to load
+        const timer = setTimeout(() => {
+            console.log('🔥 PaymentScreen: Timeout reached, checking Stripe integration');
+            if (typeof window !== 'undefined' && window.initializeExistingPaymentIntegration) {
+                console.log('🔥 PaymentScreen: Stripe integration function found, calling it');
+                window.initializeExistingPaymentIntegration();
+            }
+            else {
+                console.log('🔥 PaymentScreen: Stripe integration function not found after timeout');
+                console.log('🔥 PaymentScreen: Available window properties:', Object.keys(window).filter(key => key.includes('stripe') || key.includes('payment')));
+            }
+        }, 1000);
+        return () => {
+            console.log('🔥 PaymentScreen: useEffect cleanup');
+            clearTimeout(timer);
+        };
+    }, []);
+    const handlePurchaseNow = () => {
+        console.log('🔥 Purchase Now clicked - showing Stripe form');
+        console.log('🔥 PaymentScreen: showStripeForm state:', showStripeForm);
+        setShowStripeForm(true);
+    };
+    // After the Stripe form is shown, wait for DOM to paint, then initialize
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        if (!showStripeForm)
+            return;
+        if (typeof window === 'undefined')
+            return;
+        // Lock background scroll while full-screen Stripe is open
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        // wait until the #payment-element exists in DOM
+        requestAnimationFrame(() => {
+            const target = document.querySelector('#payment-element');
+            if (target && window.stripeIntegration) {
+                console.log('PaymentScreen: Mounting Stripe on #payment-element');
+                window.stripeIntegration.handlePurchaseNow();
+                // Re-setup event listeners now that the form is rendered
+                setTimeout(() => {
+                    if (window.stripeIntegration && window.stripeIntegration.reSetupEventListeners) {
+                        window.stripeIntegration.reSetupEventListeners();
+                    }
+                }, 100);
+            }
+            else {
+                console.log('PaymentScreen: payment-element not ready or integration missing');
+                // try again shortly if needed
+                setTimeout(() => {
+                    const t2 = document.querySelector('#payment-element');
+                    if (t2 && window.stripeIntegration) {
+                        console.log('PaymentScreen: Retrying Stripe mount');
+                        window.stripeIntegration.handlePurchaseNow();
+                        // Re-setup event listeners after retry
+                        setTimeout(() => {
+                            if (window.stripeIntegration && window.stripeIntegration.reSetupEventListeners) {
+                                window.stripeIntegration.reSetupEventListeners();
+                            }
+                        }, 100);
+                    }
+                }, 100);
+            }
+        });
+        return () => {
+            // restore scroll when effect cleans up
+            document.body.style.overflow = prevOverflow;
+        };
+    }, [showStripeForm]);
+    // Cleanup when exiting Stripe mode: unmount Stripe element
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        if (!showStripeForm && typeof window !== 'undefined' && window.stripeIntegration) {
+            try {
+                if (typeof window.stripeIntegration.unmount === 'function') {
+                    window.stripeIntegration.unmount();
+                }
+            }
+            catch (e) {
+                console.warn('Stripe cleanup warning:', e);
+            }
+        }
+    }, [showStripeForm]);
+    // Listen for custom success/error events from integration to show in-app UI
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        function onSuccess(e) {
+            var _a;
+            // Replace with your in-app toast/notification; for now, minimal banner
+            const msg = ((_a = e === null || e === void 0 ? void 0 : e.detail) === null || _a === void 0 ? void 0 : _a.message) || 'Payment successful';
+            console.log(':white_tick: Stripe success:', msg);
+            // Close Stripe view and show success screen
+            setShowStripeForm(false);
+            setPaymentSuccess(true);
+        }
+        function onError(e) {
+            var _a;
+            const msg = ((_a = e === null || e === void 0 ? void 0 : e.detail) === null || _a === void 0 ? void 0 : _a.message) || 'Payment failed';
+            console.error(':x: Stripe error:', msg);
+            // You can surface a toast here; keeping console for brevity
+        }
+        window.addEventListener('stripe-payment-success', onSuccess);
+        window.addEventListener('stripe-payment-error', onError);
+        return () => {
+            window.removeEventListener('stripe-payment-success', onSuccess);
+            window.removeEventListener('stripe-payment-error', onError);
+        };
+    }, []);
     const handlePayment = () => __awaiter(void 0, void 0, void 0, function* () {
+        // When Stripe form is visible, submit should be handled by Stripe
+        if (showStripeForm) {
+            const form = document.getElementById('payment-form');
+            if (form) {
+                form.dispatchEvent(new Event('submit'));
+                return;
+            }
+        }
+        // Fallback: original next action (kept if no Stripe shown)
         setIsProcessing(true);
         try {
-            // Simulate payment processing
-            yield new Promise(resolve => setTimeout(resolve, 2000));
-            console.log('Payment processed successfully');
+            yield new Promise(resolve => setTimeout(resolve, 800));
             onNext();
         }
         catch (error) {
@@ -43540,6 +43713,183 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
         console.log('Payment: Going back to customization');
         onBack();
     };
+    const handleSuccessNext = () => {
+        console.log('Payment: Moving to next step after success');
+        onNext();
+    };
+    const handleRetryPayment = () => {
+        console.log('Payment: Retrying payment');
+        setPaymentSuccess(false);
+        setShowStripeForm(false);
+    };
+    // When Stripe form is showing, render a full-screen scrollable view
+    if (showStripeForm) {
+        return (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-screen", style: {
+                position: 'fixed',
+                inset: 0,
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                width: '100%',
+                height: '100vh',
+                overflow: 'hidden',
+                background: 'var(--ck-bg, #0b0f1a)'
+            } },
+            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-header" },
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "app-name" }),
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "header-buttons" },
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "back-btn", onClick: () => setShowStripeForm(false), disabled: isProcessing },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "", style: { transform: 'rotate(180deg)' } }),
+                        " Back to Pricing"))),
+            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { padding: '16px 24px', overflowY: 'auto', flex: 1, minHeight: 0 } },
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h2", { style: { margin: '0 0 12px 0' } }, "Complete Your Payment"),
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { marginBottom: 12, color: '#a3a3a3' } },
+                    isAnnual ? 'Annual Plan' : 'Monthly Plan',
+                    " - $",
+                    isAnnual ? '19' : '24',
+                    "/",
+                    isAnnual ? 'year' : 'month'),
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("form", { id: "payment-form" },
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            margin: '0 0 16px 0',
+                            color: '#ffffff'
+                        } }, "Contact Information"),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "link-authentication-element", style: { marginBottom: '20px' } }),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "form-group", style: { marginBottom: '20px' } },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("label", { htmlFor: "domain-url", style: {
+                                display: 'block',
+                                marginBottom: '8px',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                color: '#ffffff'
+                            } }, "Your Domain URL"),
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("input", { id: "domain-url", type: "url", placeholder: "https://example.com", required: true, style: {
+                                width: '100%',
+                                padding: '10px 14px',
+                                fontSize: '16px',
+                                border: '1px solid #e6e6e6',
+                                borderRadius: '4px',
+                                backgroundColor: 'white',
+                                boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
+                                transition: 'box-shadow 150ms ease, border-color 150ms ease'
+                            } })),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            margin: '0 0 16px 0',
+                            color: '#ffffff'
+                        } }, "Payment"),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "payment-element", style: { marginBottom: '20px' } }),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "error-message", style: {
+                            color: '#fa755a',
+                            fontSize: '14px',
+                            marginBottom: '16px',
+                            minHeight: '20px'
+                        } }),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { id: "subscribe-btn", className: "subscribe-button", type: "submit" }, "Subscribe")),
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "legal-text", style: { marginTop: 12 } }, "By completing this purchase, you agree to our Terms of Service and Privacy Policy."))));
+    }
+    // Success screen - shows after successful payment
+    if (paymentSuccess) {
+        return (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-screen" },
+            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-header" },
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "app-name" }),
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "header-buttons" },
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "back-btn", onClick: handleRetryPayment },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "", style: { transform: 'rotate(180deg)' } }),
+                        " Try Again"),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "next-btn", onClick: handleSuccessNext },
+                        "Continue ",
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "" })))),
+            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "step-navigation" },
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "step completed" },
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", { className: "step-number" }, "STEP 1"),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", { className: "step-name" }, "Customization")),
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "step completed" },
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", { className: "step-number" }, "STEP 2"),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", { className: "step-name" }, "Payment")),
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "step" },
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", { className: "step-number" }, "STEP 3"),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", { className: "step-name" }, "Publish"))),
+            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "main-content", style: {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    overflow: 'auto',
+                    padding: '20px 24px'
+                } },
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-card", style: {
+                        textAlign: 'center',
+                        padding: '32px 24px',
+                        maxWidth: '500px',
+                        margin: '0 auto',
+                        flex: '1',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center'
+                    } },
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '50%',
+                            backgroundColor: '#10b981',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 20px',
+                            fontSize: '24px'
+                        } }, "\u2713"),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h2", { style: {
+                            fontSize: '24px',
+                            fontWeight: '600',
+                            margin: '0 0 12px 0',
+                            color: '#10b981'
+                        } }, "Payment Successful!"),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("p", { style: {
+                            fontSize: '14px',
+                            color: '#a3a3a3',
+                            margin: '0 0 20px 0',
+                            lineHeight: '1.4'
+                        } }, "Your subscription is now active. You can now proceed to publish your accessibility widget."),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
+                            backgroundColor: '#1a1a1a',
+                            borderRadius: '8px',
+                            padding: '12px 16px',
+                            margin: '20px 0',
+                            border: '1px solid #333'
+                        } },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { fontSize: '12px', color: '#a3a3a3', marginBottom: '6px' } }, "Subscription Details"),
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { fontSize: '14px', fontWeight: '500' } },
+                            isAnnual ? 'Annual Plan' : 'Monthly Plan',
+                            " - $",
+                            isAnnual ? '19' : '24',
+                            "/",
+                            isAnnual ? 'year' : 'month')),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
+                            display: 'flex',
+                            gap: '8px',
+                            justifyContent: 'center',
+                            marginTop: '24px',
+                            flexWrap: 'wrap'
+                        } },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "back-btn", onClick: handleRetryPayment, style: {
+                                padding: '10px 16px',
+                                backgroundColor: 'transparent',
+                                border: '1px solid #333',
+                                color: '#a3a3a3',
+                                fontSize: '14px',
+                                borderRadius: '6px'
+                            } }, "Try Different Payment"),
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "next-btn", onClick: handleSuccessNext, style: {
+                                padding: '10px 16px',
+                                fontSize: '14px',
+                                borderRadius: '6px'
+                            } },
+                            "Continue to Publish ",
+                            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "" })))))));
+    }
     return (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-screen" },
         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-header" },
             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "app-name" }),
@@ -43582,8 +43932,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             isAnnual ? '19' : '24',
                             "/Paid ",
                             isAnnual ? 'Annually' : 'Monthly'),
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "purchase-btn", onClick: handlePayment, disabled: isProcessing },
-                            isProcessing ? 'Processing...' : 'Purchase Now ',
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "purchase-btn", onClick: handlePurchaseNow, disabled: isProcessing },
+                            "Purchase Now ",
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { style: { width: "11px" }, src: whitearrow, alt: "" }))))))));
 };
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (PaymentScreen);
@@ -43909,7 +44259,7 @@ const WelcomeScreen = ({ onAuthorize, onNeedHelp, authenticated, handleWelcomeSc
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         // Check for user authentication data in sessionStorage and authenticated prop
         const checkUserAuth = () => {
-            const userinfo = sessionStorage.getItem("contrastkit-userinfo");
+            const userinfo = sessionStorage.getItem("accessbit-userinfo");
             const hasData = userinfo && userinfo !== "null" && userinfo !== "undefined";
             // User has data if either authenticated prop is true OR sessionStorage has data
             setHasUserData(authenticated || !!hasData);
@@ -43931,7 +44281,7 @@ const WelcomeScreen = ({ onAuthorize, onNeedHelp, authenticated, handleWelcomeSc
     // Monitor sessionStorage changes for OAuth completion
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         const checkSessionStorage = () => {
-            const userinfo = sessionStorage.getItem("contrastkit-userinfo");
+            const userinfo = sessionStorage.getItem("accessbit-userinfo");
             const hasData = userinfo && userinfo !== "null" && userinfo !== "undefined";
             if (hasData && isAuthorizing) {
                 // OAuth completed successfully
@@ -44026,7 +44376,7 @@ function useAuth() {
         queryKey: ["auth"],
         queryFn: () => __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
-            const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+            const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
             const wasExplicitlyLoggedOut = sessionStorage.getItem("explicitly_logged_out");
             // Return initial state if no stored user or logged out
             if (!storedUser || wasExplicitlyLoggedOut) {
@@ -44041,7 +44391,8 @@ function useAuth() {
                 const decodedToken = (0,jwt_decode__WEBPACK_IMPORTED_MODULE_3__.jwtDecode)(userData.sessionToken);
                 if (decodedToken.exp * 1000 <= Date.now()) {
                     // Token expired - clear storage
-                    sessionStorage.removeItem("contrastkit-userinfo");
+                    sessionStorage.removeItem("accessbit-userinfo");
+                    sessionStorage.removeItem("accessbit-userinfo");
                     return { user: { firstName: "", email: "" }, sessionToken: "" };
                 }
                 // Return valid auth state
@@ -44057,7 +44408,8 @@ function useAuth() {
             }
             catch (error) {
                 // Clear invalid data
-                sessionStorage.removeItem("contrastkit-userinfo");
+                sessionStorage.removeItem("accessbit-userinfo");
+                sessionStorage.removeItem("accessbit-userinfo");
                 return { user: { firstName: "", email: "" }, sessionToken: "" };
             }
         }),
@@ -44093,19 +44445,22 @@ function useAuth() {
             try {
                 // Decode the new token
                 const decodedToken = (0,jwt_decode__WEBPACK_IMPORTED_MODULE_3__.jwtDecode)(data.sessionToken);
+                // Worker now sends real email, so use it directly
+                const realEmail = data.email || '';
                 const userData = {
                     sessionToken: data.sessionToken,
                     firstName: data.firstName,
-                    email: data.email,
+                    email: realEmail,
                     siteId: data.siteId, // Store the siteId from server response
                     exp: decodedToken.exp,
                 };
                 // Update sessionStorage
-                sessionStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
+                sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
                 sessionStorage.removeItem("explicitly_logged_out");
-                // Store site information after authentication
+                // Store site information after authentication (include normalized email)
                 if (data.siteInfo) {
-                    sessionStorage.setItem('siteInfo', JSON.stringify(data.siteInfo));
+                    const siteInfoWithEmail = Object.assign(Object.assign({}, data.siteInfo), { email: realEmail });
+                    sessionStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
                 }
                 // Directly update the query data instead of invalidating
                 queryClient.setQueryData(["auth"], {
@@ -44152,18 +44507,21 @@ function useAuth() {
                 throw new Error('No session token received from server');
             }
             // Store in sessionStorage
+            // Worker now sends real email, so use it directly
+            const realEmail = data.email || '';
             const userData = {
                 sessionToken: data.sessionToken,
                 firstName: data.firstName,
-                email: data.email,
+                email: realEmail,
                 siteId: siteInfo.siteId, // Store the siteId
                 exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
             };
-            sessionStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
+            sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
             sessionStorage.removeItem("explicitly_logged_out");
-            // Store site information after authentication
+            // Store site information after authentication (include normalized email)
             if (siteInfo) {
-                sessionStorage.setItem('siteInfo', JSON.stringify(siteInfo));
+                const siteInfoWithEmail = Object.assign(Object.assign({}, siteInfo), { email: realEmail });
+                sessionStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
             }
             // Update React Query cache
             queryClient.setQueryData(["auth"], {
@@ -44177,7 +44535,8 @@ function useAuth() {
             return data;
         }
         catch (error) {
-            sessionStorage.removeItem("contrastkit-userinfo");
+            sessionStorage.removeItem("accessbit-userinfo");
+            sessionStorage.removeItem("accessbit-userinfo");
             throw error;
         }
     });
@@ -44185,7 +44544,7 @@ function useAuth() {
     const logout = () => {
         // Set logout flag and clear storage
         sessionStorage.setItem("explicitly_logged_out", "true");
-        sessionStorage.removeItem("contrastkit-userinfo");
+        sessionStorage.removeItem("accessbit-userinfo");
         queryClient.setQueryData(["auth"], {
             user: { firstName: "", email: "" },
             sessionToken: "",
@@ -44199,53 +44558,77 @@ function useAuth() {
         if (!authWindow) {
             return;
         }
-        // Listen for messages from the OAuth popup
-        const handleMessage = (event) => {
-            if (event.origin !== new URL(base_url).origin) {
-                return;
+        // Check for auth success in URL parameters when window closes
+        const checkAuthSuccess = () => {
+            try {
+                const url = new URL(window.location.href);
+                const authSuccess = url.searchParams.get('auth_success');
+                if (authSuccess === 'true') {
+                    console.log('Auth success detected in URL parameters');
+                    // IMPORTANT: Clear all old session data first to prevent cross-site contamination
+                    console.log('Clearing old session data before storing new data...');
+                    sessionStorage.removeItem("accessbit-userinfo");
+                    sessionStorage.removeItem("contrastkit-userinfo");
+                    sessionStorage.removeItem("explicitly_logged_out");
+                    sessionStorage.removeItem("siteInfo");
+                    // Get auth data from URL parameters
+                    const sessionToken = url.searchParams.get('sessionToken');
+                    const firstName = url.searchParams.get('firstName');
+                    const email = url.searchParams.get('email');
+                    const siteId = url.searchParams.get('siteId');
+                    const siteName = url.searchParams.get('siteName');
+                    const shortName = url.searchParams.get('shortName');
+                    // Store the session data from the OAuth popup
+                    // Worker now sends real email in URL parameters, so use it directly
+                    const userData = {
+                        sessionToken: sessionToken,
+                        firstName: firstName,
+                        email: email || '',
+                        siteId: siteId,
+                        exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+                        siteInfo: {
+                            siteId: siteId,
+                            siteName: siteName,
+                            shortName: shortName,
+                            email: email || ''
+                        }
+                    };
+                    console.log('Storing new session data for site:', siteId);
+                    console.log('New user data:', userData);
+                    // Store in sessionStorage for persistence
+                    sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
+                    sessionStorage.removeItem("explicitly_logged_out");
+                    // Clear React Query cache and update with new data
+                    queryClient.clear();
+                    queryClient.setQueryData(["auth"], {
+                        user: {
+                            firstName: firstName,
+                            email: email || '',
+                            siteId: siteId
+                        },
+                        sessionToken: sessionToken
+                    });
+                    // Clean up URL parameters
+                    const cleanUrl = new URL(window.location.href);
+                    cleanUrl.searchParams.delete('auth_success');
+                    cleanUrl.searchParams.delete('sessionToken');
+                    cleanUrl.searchParams.delete('firstName');
+                    cleanUrl.searchParams.delete('email');
+                    cleanUrl.searchParams.delete('siteId');
+                    cleanUrl.searchParams.delete('siteName');
+                    cleanUrl.searchParams.delete('shortName');
+                    window.history.replaceState({}, '', cleanUrl.toString());
+                }
             }
-            if (event.data.type === 'AUTH_SUCCESS') {
-                console.log('Received auth success message:', event.data);
-                // IMPORTANT: Clear all old session data first to prevent cross-site contamination
-                console.log('Clearing old session data before storing new data...');
-                sessionStorage.removeItem("contrastkit-userinfo");
-                sessionStorage.removeItem("explicitly_logged_out");
-                sessionStorage.removeItem("siteInfo");
-                // Store the session data from the OAuth popup
-                const userData = {
-                    sessionToken: event.data.sessionToken,
-                    firstName: event.data.user.firstName,
-                    email: event.data.user.email,
-                    siteId: event.data.user.siteId,
-                    exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
-                    siteInfo: event.data.siteInfo // Add site info
-                };
-                console.log('Storing new session data for site:', event.data.user.siteId);
-                console.log('New user data:', userData);
-                // Store in sessionStorage for persistence
-                sessionStorage.setItem("contrastkit-userinfo", JSON.stringify(userData));
-                sessionStorage.removeItem("explicitly_logged_out");
-                // Clear React Query cache and update with new data
-                queryClient.clear();
-                queryClient.setQueryData(["auth"], {
-                    user: {
-                        firstName: event.data.user.firstName,
-                        email: event.data.user.email,
-                        siteId: event.data.user.siteId
-                    },
-                    sessionToken: event.data.sessionToken
-                });
-                // Remove the message listener
-                window.removeEventListener('message', handleMessage);
+            catch (error) {
+                console.warn('Error processing auth success:', error);
             }
         };
-        // Add message listener
-        window.addEventListener('message', handleMessage);
-        // Clean up if window is closed manually
+        // Check for auth success when window closes
         const checkWindow = setInterval(() => {
             if (authWindow === null || authWindow === void 0 ? void 0 : authWindow.closed) {
                 clearInterval(checkWindow);
-                window.removeEventListener('message', handleMessage);
+                checkAuthSuccess();
             }
         }, 1000);
     });
@@ -44285,7 +44668,7 @@ function useAuth() {
             sessionToken = authState === null || authState === void 0 ? void 0 : authState.sessionToken;
             if (!sessionToken) {
                 // Fallback: get from sessionStorage
-                const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+                const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
                 if (storedUser) {
                     const userData = JSON.parse(storedUser);
                     sessionToken = userData.sessionToken;
@@ -44354,7 +44737,7 @@ function useAuth() {
             if (!sessionToken || !userEmail) {
                 console.log(`[PUBLISH] ${requestId} No auth state, checking sessionStorage...`);
                 // Fallback: get from sessionStorage
-                const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+                const storedUser = sessionStorage.getItem("accessbit-userinfo");
                 console.log(`[PUBLISH] ${requestId} Stored user from sessionStorage:`, storedUser);
                 if (storedUser) {
                     const userData = JSON.parse(storedUser);
@@ -44438,7 +44821,7 @@ function useAuth() {
             }
             console.log("[AUTO_REFRESH] Current site ID:", currentSiteInfo.siteId);
             // Check if there's existing auth data that might be expired or invalid
-            const storedUser = sessionStorage.getItem("contrastkit-userinfo");
+            const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
             if (storedUser) {
                 try {
                     const userData = JSON.parse(storedUser);
@@ -44446,7 +44829,8 @@ function useAuth() {
                     if (userData.siteId && userData.siteId !== currentSiteInfo.siteId) {
                         console.log("[AUTO_REFRESH] Site has changed, clearing old session data");
                         console.log("[AUTO_REFRESH] Old site:", userData.siteId, "New site:", currentSiteInfo.siteId);
-                        sessionStorage.removeItem('contrastkit-userinfo');
+                        sessionStorage.removeItem('accessbit-userinfo');
+                        sessionStorage.removeItem('accessbit-userinfo');
                         sessionStorage.removeItem('siteInfo');
                         console.log("[AUTO_REFRESH] Cleared old session data, attempting silent auth for new site");
                         return false; // Force silent auth for new site
@@ -44530,7 +44914,7 @@ function useAuth() {
             console.log("[SILENT_AUTH] Site info obtained:", siteInfo.siteId);
             console.log("[SILENT_AUTH] Making token exchange request...");
             // Check what's currently in sessionStorage
-            const currentStoredData = sessionStorage.getItem('contrastkit-userinfo');
+            const currentStoredData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
             const currentStoredData2 = sessionStorage.getItem('consentbit-userinfo');
             console.log("[SILENT_AUTH] Current sessionStorage (contrastkit):", currentStoredData);
             console.log("[SILENT_AUTH] Current sessionStorage (consentbit):", currentStoredData2);
@@ -44554,26 +44938,29 @@ function useAuth() {
                 console.log("[SILENT_AUTH] Full response data:", JSON.stringify(data, null, 2));
                 if (data.sessionToken) {
                     // Create user data object with all necessary information
+                    // Worker now sends real email from KV, so use it directly
                     const userData = {
                         sessionToken: data.sessionToken,
-                        firstName: data.firstName,
-                        email: data.email,
+                        firstName: data.firstName || 'User',
+                        email: data.email || '',
                         siteId: siteInfo.siteId,
                         exp: data.exp,
                         siteInfo: {
                             siteId: siteInfo.siteId,
                             siteName: siteInfo.siteName,
-                            shortName: siteInfo.shortName
+                            shortName: siteInfo.shortName,
+                            email: data.email || ''
                         }
                     };
                     console.log("[SILENT_AUTH] Storing authentication data...");
                     console.log("[SILENT_AUTH] User data to store:", JSON.stringify(userData, null, 2));
                     // Store in sessionStorage with the correct key
-                    sessionStorage.setItem('contrastkit-userinfo', JSON.stringify(userData));
+                    sessionStorage.setItem('accessbit-userinfo', JSON.stringify(userData));
                     sessionStorage.removeItem('explicitly_logged_out');
-                    // Also store site info separately for easy access
+                    // Also store site info separately for easy access (include email)
                     if (siteInfo) {
-                        sessionStorage.setItem('siteInfo', JSON.stringify(siteInfo));
+                        const siteInfoWithEmail = Object.assign(Object.assign({}, siteInfo), { email: data.email || '' });
+                        sessionStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
                     }
                     // Update React Query cache
                     queryClient.setQueryData(["auth"], {
@@ -44585,7 +44972,7 @@ function useAuth() {
                         sessionToken: data.sessionToken
                     });
                     // Verify the data was stored
-                    const storedData = sessionStorage.getItem('contrastkit-userinfo');
+                    const storedData = sessionStorage.getItem('accessbit-userinfo');
                     console.log("[SILENT_AUTH] Stored data in sessionStorage:", storedData);
                     console.log("[SILENT_AUTH] Silent authentication completed successfully - token generated");
                     return true;

@@ -300,16 +300,16 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     const urlParams = new URLSearchParams(window.location.search);
     const urlSiteId = urlParams.get('siteId');
     
-    // Check the correct sessionStorage key used by the auth system
-    const contrastkitUserInfo = sessionStorage.getItem('contrastkit-userinfo');
+    // Check the correct sessionStorage key used by the auth system (new key with legacy fallback)
+    const contrastkitUserInfo = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
     let sessionSiteId = null;
     if (contrastkitUserInfo) {
       try {
         const userData = JSON.parse(contrastkitUserInfo);
         sessionSiteId = userData.siteId;
-        console.log('🔍 CustomizationScreen: Found siteId in contrastkit-userinfo:', sessionSiteId);
+        console.log('🔍 CustomizationScreen: Found siteId in userinfo:', sessionSiteId);
       } catch (error) {
-        console.log('🔍 CustomizationScreen: Error parsing contrastkit-userinfo:', error);
+        console.log('🔍 CustomizationScreen: Error parsing userinfo:', error);
       }
     }
     
@@ -318,7 +318,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     const localSiteId = localStorage.getItem('accessibility_site_id');
     
     console.log('🔍 CustomizationScreen: URL siteId:', urlSiteId);
-    console.log('🔍 CustomizationScreen: Session siteId (contrastkit):', sessionSiteId);
+    console.log('🔍 CustomizationScreen: Session siteId:', sessionSiteId);
     console.log('🔍 CustomizationScreen: Session siteId (old):', oldSessionSiteId);
     console.log('🔍 CustomizationScreen: Local siteId:', localSiteId);
     
