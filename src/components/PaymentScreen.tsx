@@ -29,6 +29,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
   const [isProcessing, setIsProcessing] = useState(false);
   const [showStripeForm, setShowStripeForm] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [subscriptionValidUntil, setSubscriptionValidUntil] = useState<string | null>(null);
 
   // Check for payment success from URL parameters (for redirect methods)
   useEffect(() => {
@@ -125,6 +126,139 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
       clearTimeout(timer);
     };
   }, []);
+
+  // Check for existing subscription status on component mount
+  useEffect(() => {
+    const checkExistingSubscription = async () => {
+      try {
+        const siteId = sessionStorage.getItem('contrastkit') || 
+                      sessionStorage.getItem('webflow_site_id') || 
+                      sessionStorage.getItem('siteId');
+        
+        if (!siteId) return;
+
+        // Check if we have stored subscription data
+        const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
+        if (storedSubscription) {
+          const subscriptionData = JSON.parse(storedSubscription);
+          const now = new Date().getTime();
+          const validUntil = subscriptionData.validUntil;
+          
+          if (validUntil && now < validUntil) {
+            // Subscription is still valid
+            console.log('🔥 PaymentScreen: Found valid subscription, showing success screen');
+            setPaymentSuccess(true);
+            setSubscriptionValidUntil(new Date(validUntil).toLocaleDateString());
+            return;
+          } else {
+            // Subscription expired, clear stored data
+            localStorage.removeItem(`subscription_${siteId}`);
+          }
+        }
+
+        // Check subscription status from server
+        const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/check-subscription-status?siteId=${siteId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'active' && data.current_period_end) {
+            const endDate = new Date(data.current_period_end * 1000);
+            const now = new Date().getTime();
+            
+            if (now < endDate.getTime()) {
+              // Subscription is active and valid
+              console.log('🔥 PaymentScreen: Active subscription found, showing success screen');
+              setPaymentSuccess(true);
+              setSubscriptionValidUntil(endDate.toLocaleDateString());
+              
+              // Store subscription data for persistence
+              localStorage.setItem(`subscription_${siteId}`, JSON.stringify({
+                status: data.status,
+                validUntil: endDate.getTime(),
+                subscriptionId: data.subscriptionId
+              }));
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check existing subscription:', error);
+      }
+    };
+
+    checkExistingSubscription();
+  }, []);
+
+  // Listen for payment success events
+  useEffect(() => {
+    const handlePaymentSuccess = (event: CustomEvent) => {
+      console.log('🔥 PaymentScreen: Payment success event received:', event.detail);
+      console.log('🔥 PaymentScreen: Setting paymentSuccess to true');
+      setPaymentSuccess(true);
+      setShowStripeForm(false);
+      
+      // Set subscription validity if provided
+      if (event.detail.subscriptionDetails?.current_period_end) {
+        const endDate = new Date(event.detail.subscriptionDetails.current_period_end * 1000);
+        setSubscriptionValidUntil(endDate.toLocaleDateString());
+        console.log('🔥 PaymentScreen: Set subscription valid until:', endDate.toLocaleDateString());
+        
+        // Store subscription data for persistence
+        const siteId = sessionStorage.getItem('contrastkit') || 
+                      sessionStorage.getItem('webflow_site_id') || 
+                      sessionStorage.getItem('siteId');
+        if (siteId) {
+          localStorage.setItem(`subscription_${siteId}`, JSON.stringify({
+            status: event.detail.subscriptionDetails.status,
+            validUntil: endDate.getTime(),
+            subscriptionId: event.detail.subscriptionId
+          }));
+        }
+      }
+    };
+
+    console.log('🔥 PaymentScreen: Adding stripe-payment-success event listener');
+    window.addEventListener('stripe-payment-success', handlePaymentSuccess as EventListener);
+    
+    return () => {
+      console.log('🔥 PaymentScreen: Removing stripe-payment-success event listener');
+      window.removeEventListener('stripe-payment-success', handlePaymentSuccess as EventListener);
+    };
+  }, []);
+
+  // Periodic check for subscription validity
+  useEffect(() => {
+    if (paymentSuccess) {
+      const checkValidity = () => {
+        const siteId = sessionStorage.getItem('contrastkit') || 
+                      sessionStorage.getItem('webflow_site_id') || 
+                      sessionStorage.getItem('siteId');
+        
+        if (!siteId) return;
+
+        const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
+        if (storedSubscription) {
+          const subscriptionData = JSON.parse(storedSubscription);
+          const now = new Date().getTime();
+          const validUntil = subscriptionData.validUntil;
+          
+          if (validUntil && now >= validUntil) {
+            // Subscription expired
+            console.log('🔥 PaymentScreen: Subscription expired, hiding success screen');
+            setPaymentSuccess(false);
+            setSubscriptionValidUntil(null);
+            localStorage.removeItem(`subscription_${siteId}`);
+          }
+        }
+      };
+
+      // Check immediately
+      checkValidity();
+      
+      // Check every minute
+      const interval = setInterval(checkValidity, 60000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [paymentSuccess]);
 
   const handlePurchaseNow = () => {
     console.log('🔥 Purchase Now clicked - showing Stripe form');
@@ -248,6 +382,65 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     setShowStripeForm(false);
   };
 
+  const handleEditDomain = () => {
+    console.log('Payment: Editing domain URL');
+    setPaymentSuccess(false);
+    setShowStripeForm(false);
+  };
+
+  const handleCancelSubscription = async () => {
+    console.log('Payment: Canceling subscription');
+    if (confirm('Are you sure you want to cancel your subscription? Your access will continue until the end of your current billing period.')) {
+      try {
+        // Get siteId from session storage
+        const siteId = sessionStorage.getItem('contrastkit') || 
+                      sessionStorage.getItem('webflow_site_id') || 
+                      sessionStorage.getItem('siteId');
+        
+        if (!siteId) {
+          alert('Unable to find site ID. Please refresh and try again.');
+          return;
+        }
+
+        // First get the subscription ID
+        const statusResponse = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/check-subscription-status?siteId=${siteId}`);
+        if (!statusResponse.ok) {
+          throw new Error('Failed to get subscription details');
+        }
+        
+        const statusData = await statusResponse.json();
+        if (!statusData.id) {
+          throw new Error('No active subscription found');
+        }
+
+        const response = await fetch('https://accessibility-widget.web-8fb.workers.dev/api/accessibility/cancel-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            siteId,
+            subscriptionId: statusData.id 
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          alert(`Subscription canceled successfully. Your access will continue until ${new Date(result.currentPeriodEnd * 1000).toLocaleDateString()}.`);
+          setPaymentSuccess(false);
+          setShowStripeForm(false);
+          
+          // Clear stored subscription data
+          localStorage.removeItem(`subscription_${siteId}`);
+        } else {
+          const error = await response.json();
+          alert(`Failed to cancel subscription: ${error.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.error('Cancel subscription error:', error);
+        alert('Failed to cancel subscription. Please try again.');
+      }
+    }
+  };
+
   // When Stripe form is showing, render a full-screen scrollable view
   if (showStripeForm) {
     return (
@@ -363,6 +556,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     );
   }
 
+  // Debug logging
+  console.log('🔥 PaymentScreen: Current state - paymentSuccess:', paymentSuccess, 'showStripeForm:', showStripeForm);
+
   // Success screen - shows after successful payment
   if (paymentSuccess) {
     return (
@@ -456,8 +652,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               <div style={{ fontSize: '12px', color: '#a3a3a3', marginBottom: '6px' }}>
                 Subscription Details
               </div>
-              <div style={{ fontSize: '14px', fontWeight: '500' }}>
+              <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>
                 {isAnnual ? 'Annual Plan' : 'Monthly Plan'} - ${isAnnual ? '19' : '24'}/{isAnnual ? 'year' : 'month'}
+              </div>
+              <div style={{ fontSize: '12px', color: '#a3a3a3' }}>
+                Valid until: {subscriptionValidUntil || 'Loading...'}
               </div>
             </div>
             
@@ -470,7 +669,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             }}>
               <button 
                 className="back-btn" 
-                onClick={handleRetryPayment}
+                onClick={handleEditDomain}
                 style={{ 
                   padding: '10px 16px',
                   backgroundColor: 'transparent',
@@ -480,17 +679,19 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                   borderRadius: '6px'
                 }}
               >
-                Change Domain URL
+                Edit Domain URL
               </button>
               <button 
                 className="next-btn" 
-                onClick={handleSuccessNext}
+                onClick={handleCancelSubscription}
                 style={{ 
                   padding: '10px 12px',
                   fontSize: '13px',
                   borderRadius: '6px',
                   whiteSpace: 'nowrap',
-                  minWidth: '140px'
+                  minWidth: '140px',
+                  backgroundColor: '#dc2626',
+                  border: '1px solid #dc2626'
                 }}
               >
                 Cancel Subscription <img src={whitearrow} alt="" />

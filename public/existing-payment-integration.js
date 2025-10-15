@@ -95,8 +95,8 @@ class ExistingPaymentIntegration {
             
             console.log('Stripe Elements initialized successfully (placeholder mode)');
             
-        // Set up basic event listeners
-        this.setupEventListeners();
+            // Set up basic event listeners
+            this.setupEventListeners();
         
         // Set up domain field monitoring
         this.setupDomainFieldMonitoring();
@@ -225,8 +225,8 @@ class ExistingPaymentIntegration {
             
             if (inputValue.trim() !== '' && !inputValue.includes('example.com') && !inputValue.includes('your-domain.com')) {
                 this.domainUrl = inputValue.trim();
-                console.log('🔍 Domain captured from input field:', this.domainUrl);
-                return;
+            console.log('🔍 Domain captured from input field:', this.domainUrl);
+            return;
             } else {
                 console.log('🔍 Domain input value rejected:', inputValue);
             }
@@ -715,7 +715,7 @@ class ExistingPaymentIntegration {
                         this.email = 'dev5@seattlenewmedia.com';
                         console.log('🔍 Using default email for testing:', this.email);
                     }
-                } catch (e) {
+            } catch (e) {
                     // Use a default email for testing
                     this.email = 'dev5@seattlenewmedia.com';
                     console.log('🔍 Using default email for testing:', this.email);
@@ -875,20 +875,20 @@ class ExistingPaymentIntegration {
             } else {
                 console.log('Using confirmPayment for PaymentIntent');
                 result = await this.stripe.confirmPayment({
-                    elements: this.elements,
-                    redirect: 'if_required',
-                    confirmParams: {
-                        return_url: window.location.href + '?subscription_success=true',
-                        payment_method_data: {
-                            billing_details: { email: this.email },
-                            metadata: { domain_url: this.domainUrl }
-                        }
+                elements: this.elements,
+                redirect: 'if_required',
+                confirmParams: {
+                    return_url: window.location.href + '?subscription_success=true',
+                    payment_method_data: {
+                        billing_details: { email: this.email },
+                        metadata: { domain_url: this.domainUrl }
                     }
-                }).catch(err => {
-                    console.error('Stripe confirmPayment error:', err);
-                    this.showError('Payment confirmation failed. Please try again.');
-                    return { error: err };
-                });
+                }
+            }).catch(err => {
+                console.error('Stripe confirmPayment error:', err);
+                this.showError('Payment confirmation failed. Please try again.');
+                return { error: err };
+            });
             }
             
             const { error, paymentIntent, setupIntent } = result;
@@ -924,12 +924,24 @@ class ExistingPaymentIntegration {
                         // Step 3: Create subscription with verified payment method
                         console.log('Creating subscription with verified payment method...');
                         
+                        // Determine selected plan (annual/monthly) to set correct productId
+                        let selectedProductId = 'prod_TEHrwLZdPcOsgq'; // annual default
+                        try {
+                            const paymentFormEl = document.getElementById('payment-form');
+                            const planTypeAttr = paymentFormEl?.getAttribute('data-plan-type');
+                            const isAnnualPlan = planTypeAttr === 'annual';
+                            selectedProductId = isAnnualPlan ? 'prod_TEHrwLZdPcOsgq' : 'prod_TEH4ANvvsQysIO';
+                            console.log('Selected plan type for subscription creation:', planTypeAttr, '=> productId:', selectedProductId);
+                        } catch (e) {
+                            console.warn('Could not resolve plan type from DOM, using annual productId by default');
+                        }
+
                         const subscriptionResponse = await fetch(`${this.kvApiUrl}/api/accessibility/create-subscription`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 siteId: this.siteId,
-                                productId: 'prod_TEHrwLZdPcOsgq',
+                                productId: selectedProductId,
                                 email: this.email,
                                 domain: this.domainUrl,
                                 domainUrl: this.domainUrl,
@@ -959,43 +971,23 @@ class ExistingPaymentIntegration {
                         if (subscriptionData.status === 'active') {
                             console.log('✅ Subscription is active immediately!');
                             this.showSuccess('Subscription activated successfully!');
+                            
+                            // Dispatch success event to show success screen
+                            console.log('🔥 Dispatching stripe-payment-success event for immediate active subscription');
+                            window.dispatchEvent(new CustomEvent('stripe-payment-success', {
+                                detail: {
+                                    siteId: this.siteId,
+                                    subscriptionId: this.subscriptionId,
+                                    timestamp: new Date().toISOString(),
+                                    subscriptionDetails: subscriptionData
+                                }
+                            }));
                         } else {
                             console.log('Subscription status:', subscriptionData.status);
                             
-                            // For incomplete subscriptions, try manual activation
+                            // For incomplete subscriptions, wait for webhook or poll
                             if (subscriptionData.status === 'incomplete' && this.subscriptionId) {
-                                console.log('Subscription is incomplete, attempting manual activation...');
-                                try {
-                                    const manualActivateResponse = await fetch(`${this.kvApiUrl}/api/accessibility/activate-subscription`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            siteId: this.siteId,
-                                            setupIntentId: setupIntent.id,
-                                            paymentMethodId: verifyData.paymentMethodId
-                                        })
-                                    });
-                                    
-                                    if (manualActivateResponse.ok) {
-                                        const activateData = await manualActivateResponse.json();
-                                        console.log('✅ Manual activation successful:', activateData);
-                                        this.showSuccess('Subscription activated successfully!');
-                                        return; // Exit early since we're done
-                                    } else {
-                                        if (manualActivateResponse.status === 409) {
-                                            console.warn('Payment method belongs to a different customer. Prompting retry.');
-                                            this.showError('Your payment method is tied to another site/account. Please retry payment to create a new method.');
-                                            // Trigger fresh setup flow
-                                            try {
-                                                await this.processPayment();
-                                            } catch (_) {}
-                                            return;
-                                        }
-                                        console.log('Manual activation failed, falling back to polling...');
-                                    }
-                                } catch (manualError) {
-                                    console.log('Manual activation error, falling back to polling:', manualError);
-                                }
+                                console.log('Subscription is incomplete, waiting for webhook or polling...');
                             }
                             
                             // Poll for status changes if needed
@@ -1013,25 +1005,25 @@ class ExistingPaymentIntegration {
                 
                 // Update subscription status in your backend (only for PaymentIntent)
                 if (paymentIntent && !isSetupIntent) {
-                    try {
-                        const updateResponse = await fetch(`${this.kvApiUrl}/api/accessibility/update-payment`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                siteId: this.siteId,
-                                paymentStatus: 'active',
-                                subscriptionId: paymentIntent.metadata?.subscriptionId,
-                                customerId: paymentIntent.metadata?.customerId
-                            })
-                        });
-                        
-                        if (updateResponse.ok) {
-                            console.log('✅ Subscription status updated to active');
-                        } else {
-                            console.warn('⚠️ Failed to update subscription status');
-                        }
-                    } catch (updateError) {
-                        console.warn('⚠️ Error updating subscription status:', updateError);
+                try {
+                    const updateResponse = await fetch(`${this.kvApiUrl}/api/accessibility/update-payment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            siteId: this.siteId,
+                            paymentStatus: 'active',
+                            subscriptionId: paymentIntent.metadata?.subscriptionId,
+                            customerId: paymentIntent.metadata?.customerId
+                        })
+                    });
+                    
+                    if (updateResponse.ok) {
+                        console.log('✅ Subscription status updated to active');
+                    } else {
+                        console.warn('⚠️ Failed to update subscription status');
+                    }
+                } catch (updateError) {
+                    console.warn('⚠️ Error updating subscription status:', updateError);
                     }
                 }
                 
@@ -1052,53 +1044,16 @@ class ExistingPaymentIntegration {
                             await this.pollSubscriptionStatus(this.subscriptionId);
                         }
                 
-                // For SetupIntent, also try to manually activate the subscription
+                // For SetupIntent, wait for webhook or poll
                 if (isSetupIntent && setupIntent) {
-                    console.log('SetupIntent completed, attempting to activate subscription...');
+                    console.log('SetupIntent completed, waiting for webhook or polling...');
                     console.log('SetupIntent ID:', setupIntent.id);
                     console.log('Payment Method ID:', setupIntent.payment_method);
                     console.log('Site ID:', this.siteId);
                     
-                    try {
-                        const activateResponse = await fetch(`${this.kvApiUrl}/api/accessibility/activate-subscription`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                siteId: this.siteId,
-                                setupIntentId: setupIntent.id,
-                                paymentMethodId: setupIntent.payment_method
-                            })
-                        });
-                        
-                        if (activateResponse.ok) {
-                            const activateData = await activateResponse.json();
-                            console.log('✅ Subscription manually activated:', activateData);
-                        } else {
-                            if (activateResponse.status === 409) {
-                                console.warn('Payment method belongs to a different customer. Prompting retry.');
-                                this.showError('Your payment method is tied to another site/account. Please retry payment.');
-                                try {
-                                    await this.processPayment();
-                                } catch (_) {}
-                                return;
-                            }
-                            const errorText = await activateResponse.text();
-                            console.log('⚠️ Manual activation failed:', errorText);
-                            console.log('⚠️ Will poll subscription status instead');
-                            
-                            // Poll subscription status as fallback
-                            if (this.subscriptionId) {
-                                await this.pollSubscriptionStatus(this.subscriptionId);
-                            }
-                        }
-                    } catch (error) {
-                        console.log('⚠️ Manual activation error:', error);
-                        console.log('⚠️ Will poll subscription status instead');
-                        
-                        // Poll subscription status as fallback
-                        if (this.subscriptionId) {
-                            await this.pollSubscriptionStatus(this.subscriptionId);
-                        }
+                    // Poll subscription status to check for activation
+                    if (this.subscriptionId) {
+                        await this.pollSubscriptionStatus(this.subscriptionId);
                     }
                 }
                 
@@ -1148,6 +1103,7 @@ class ExistingPaymentIntegration {
     // Poll subscription status until it becomes active
     async pollSubscriptionStatus(subscriptionId, maxAttempts = 10) {
         console.log('Starting subscription status polling for:', subscriptionId);
+        console.log('Max attempts:', maxAttempts);
         let attempts = 0;
         
         const checkStatus = async () => {
@@ -1161,16 +1117,18 @@ class ExistingPaymentIntegration {
                 
                 const data = await response.json();
                 console.log('Subscription status check:', data);
+                console.log('Attempt:', attempts + 1, 'of', maxAttempts);
                 
                 if (data.status === 'active') {
                     this.showSuccess('Subscription is now active!');
                     
-                    // Dispatch success event
+                    // Dispatch success event to show success screen
                     window.dispatchEvent(new CustomEvent('stripe-payment-success', {
                         detail: {
                             siteId: this.siteId,
                             subscriptionId: subscriptionId,
-                            timestamp: new Date().toISOString()
+                            timestamp: new Date().toISOString(),
+                            subscriptionDetails: data
                         }
                     }));
                     
@@ -1178,6 +1136,8 @@ class ExistingPaymentIntegration {
                 } else if (data.status === 'incomplete_expired') {
                     throw new Error('Subscription payment expired. Please try again.');
                 } else if (attempts >= maxAttempts) {
+                    console.log('Max attempts reached, subscription still incomplete');
+                    console.log('Final status:', data.status);
                     throw new Error(`Subscription is still ${data.status} after ${maxAttempts} attempts`);
                 }
                 

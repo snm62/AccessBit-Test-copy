@@ -43566,6 +43566,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     const [isProcessing, setIsProcessing] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
     const [showStripeForm, setShowStripeForm] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
     const [paymentSuccess, setPaymentSuccess] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+    const [subscriptionValidUntil, setSubscriptionValidUntil] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
     // Check for payment success from URL parameters (for redirect methods)
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -43652,6 +43653,124 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             clearTimeout(timer);
         };
     }, []);
+    // Check for existing subscription status on component mount
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        const checkExistingSubscription = () => __awaiter(void 0, void 0, void 0, function* () {
+            try {
+                const siteId = sessionStorage.getItem('contrastkit') ||
+                    sessionStorage.getItem('webflow_site_id') ||
+                    sessionStorage.getItem('siteId');
+                if (!siteId)
+                    return;
+                // Check if we have stored subscription data
+                const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
+                if (storedSubscription) {
+                    const subscriptionData = JSON.parse(storedSubscription);
+                    const now = new Date().getTime();
+                    const validUntil = subscriptionData.validUntil;
+                    if (validUntil && now < validUntil) {
+                        // Subscription is still valid
+                        console.log('🔥 PaymentScreen: Found valid subscription, showing success screen');
+                        setPaymentSuccess(true);
+                        setSubscriptionValidUntil(new Date(validUntil).toLocaleDateString());
+                        return;
+                    }
+                    else {
+                        // Subscription expired, clear stored data
+                        localStorage.removeItem(`subscription_${siteId}`);
+                    }
+                }
+                // Check subscription status from server
+                const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/check-subscription-status?siteId=${siteId}`);
+                if (response.ok) {
+                    const data = yield response.json();
+                    if (data.status === 'active' && data.current_period_end) {
+                        const endDate = new Date(data.current_period_end * 1000);
+                        const now = new Date().getTime();
+                        if (now < endDate.getTime()) {
+                            // Subscription is active and valid
+                            console.log('🔥 PaymentScreen: Active subscription found, showing success screen');
+                            setPaymentSuccess(true);
+                            setSubscriptionValidUntil(endDate.toLocaleDateString());
+                            // Store subscription data for persistence
+                            localStorage.setItem(`subscription_${siteId}`, JSON.stringify({
+                                status: data.status,
+                                validUntil: endDate.getTime(),
+                                subscriptionId: data.subscriptionId
+                            }));
+                        }
+                    }
+                }
+            }
+            catch (error) {
+                console.error('Failed to check existing subscription:', error);
+            }
+        });
+        checkExistingSubscription();
+    }, []);
+    // Listen for payment success events
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        const handlePaymentSuccess = (event) => {
+            var _a;
+            console.log('🔥 PaymentScreen: Payment success event received:', event.detail);
+            console.log('🔥 PaymentScreen: Setting paymentSuccess to true');
+            setPaymentSuccess(true);
+            setShowStripeForm(false);
+            // Set subscription validity if provided
+            if ((_a = event.detail.subscriptionDetails) === null || _a === void 0 ? void 0 : _a.current_period_end) {
+                const endDate = new Date(event.detail.subscriptionDetails.current_period_end * 1000);
+                setSubscriptionValidUntil(endDate.toLocaleDateString());
+                console.log('🔥 PaymentScreen: Set subscription valid until:', endDate.toLocaleDateString());
+                // Store subscription data for persistence
+                const siteId = sessionStorage.getItem('contrastkit') ||
+                    sessionStorage.getItem('webflow_site_id') ||
+                    sessionStorage.getItem('siteId');
+                if (siteId) {
+                    localStorage.setItem(`subscription_${siteId}`, JSON.stringify({
+                        status: event.detail.subscriptionDetails.status,
+                        validUntil: endDate.getTime(),
+                        subscriptionId: event.detail.subscriptionId
+                    }));
+                }
+            }
+        };
+        console.log('🔥 PaymentScreen: Adding stripe-payment-success event listener');
+        window.addEventListener('stripe-payment-success', handlePaymentSuccess);
+        return () => {
+            console.log('🔥 PaymentScreen: Removing stripe-payment-success event listener');
+            window.removeEventListener('stripe-payment-success', handlePaymentSuccess);
+        };
+    }, []);
+    // Periodic check for subscription validity
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        if (paymentSuccess) {
+            const checkValidity = () => {
+                const siteId = sessionStorage.getItem('contrastkit') ||
+                    sessionStorage.getItem('webflow_site_id') ||
+                    sessionStorage.getItem('siteId');
+                if (!siteId)
+                    return;
+                const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
+                if (storedSubscription) {
+                    const subscriptionData = JSON.parse(storedSubscription);
+                    const now = new Date().getTime();
+                    const validUntil = subscriptionData.validUntil;
+                    if (validUntil && now >= validUntil) {
+                        // Subscription expired
+                        console.log('🔥 PaymentScreen: Subscription expired, hiding success screen');
+                        setPaymentSuccess(false);
+                        setSubscriptionValidUntil(null);
+                        localStorage.removeItem(`subscription_${siteId}`);
+                    }
+                }
+            };
+            // Check immediately
+            checkValidity();
+            // Check every minute
+            const interval = setInterval(checkValidity, 60000);
+            return () => clearInterval(interval);
+        }
+    }, [paymentSuccess]);
     const handlePurchaseNow = () => {
         console.log('🔥 Purchase Now clicked - showing Stripe form');
         console.log('🔥 PaymentScreen: showStripeForm state:', showStripeForm);
@@ -43774,6 +43893,59 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
         setPaymentSuccess(false);
         setShowStripeForm(false);
     };
+    const handleEditDomain = () => {
+        console.log('Payment: Editing domain URL');
+        setPaymentSuccess(false);
+        setShowStripeForm(false);
+    };
+    const handleCancelSubscription = () => __awaiter(void 0, void 0, void 0, function* () {
+        console.log('Payment: Canceling subscription');
+        if (confirm('Are you sure you want to cancel your subscription? Your access will continue until the end of your current billing period.')) {
+            try {
+                // Get siteId from session storage
+                const siteId = sessionStorage.getItem('contrastkit') ||
+                    sessionStorage.getItem('webflow_site_id') ||
+                    sessionStorage.getItem('siteId');
+                if (!siteId) {
+                    alert('Unable to find site ID. Please refresh and try again.');
+                    return;
+                }
+                // First get the subscription ID
+                const statusResponse = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/check-subscription-status?siteId=${siteId}`);
+                if (!statusResponse.ok) {
+                    throw new Error('Failed to get subscription details');
+                }
+                const statusData = yield statusResponse.json();
+                if (!statusData.id) {
+                    throw new Error('No active subscription found');
+                }
+                const response = yield fetch('https://accessibility-widget.web-8fb.workers.dev/api/accessibility/cancel-subscription', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        siteId,
+                        subscriptionId: statusData.id
+                    })
+                });
+                if (response.ok) {
+                    const result = yield response.json();
+                    alert(`Subscription canceled successfully. Your access will continue until ${new Date(result.currentPeriodEnd * 1000).toLocaleDateString()}.`);
+                    setPaymentSuccess(false);
+                    setShowStripeForm(false);
+                    // Clear stored subscription data
+                    localStorage.removeItem(`subscription_${siteId}`);
+                }
+                else {
+                    const error = yield response.json();
+                    alert(`Failed to cancel subscription: ${error.error || 'Unknown error'}`);
+                }
+            }
+            catch (error) {
+                console.error('Cancel subscription error:', error);
+                alert('Failed to cancel subscription. Please try again.');
+            }
+        }
+    });
     // When Stripe form is showing, render a full-screen scrollable view
     if (showStripeForm) {
         return (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-screen", style: {
@@ -43850,6 +44022,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { id: "subscribe-btn", className: "subscribe-button", type: "submit" }, "Subscribe")),
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "legal-text", style: { marginTop: 12 } }, "By completing this purchase, you agree to our Terms of Service and Privacy Policy."))));
     }
+    // Debug logging
+    console.log('🔥 PaymentScreen: Current state - paymentSuccess:', paymentSuccess, 'showStripeForm:', showStripeForm);
     // Success screen - shows after successful payment
     if (paymentSuccess) {
         return (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-screen" },
@@ -43920,12 +44094,15 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             border: '1px solid #333'
                         } },
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { fontSize: '12px', color: '#a3a3a3', marginBottom: '6px' } }, "Subscription Details"),
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { fontSize: '14px', fontWeight: '500' } },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { fontSize: '14px', fontWeight: '500', marginBottom: '8px' } },
                             isAnnual ? 'Annual Plan' : 'Monthly Plan',
                             " - $",
                             isAnnual ? '19' : '24',
                             "/",
-                            isAnnual ? 'year' : 'month')),
+                            isAnnual ? 'year' : 'month'),
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { fontSize: '12px', color: '#a3a3a3' } },
+                            "Valid until: ",
+                            subscriptionValidUntil || 'Loading...')),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
                             display: 'flex',
                             gap: '8px',
@@ -43933,20 +44110,22 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             marginTop: '24px',
                             flexWrap: 'wrap'
                         } },
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "back-btn", onClick: handleRetryPayment, style: {
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "back-btn", onClick: handleEditDomain, style: {
                                 padding: '10px 16px',
                                 backgroundColor: 'transparent',
                                 border: '1px solid #333',
                                 color: '#a3a3a3',
                                 fontSize: '14px',
                                 borderRadius: '6px'
-                            } }, "Change Domain URL"),
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "next-btn", onClick: handleSuccessNext, style: {
+                            } }, "Edit Domain URL"),
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "next-btn", onClick: handleCancelSubscription, style: {
                                 padding: '10px 12px',
                                 fontSize: '13px',
                                 borderRadius: '6px',
                                 whiteSpace: 'nowrap',
-                                minWidth: '140px'
+                                minWidth: '140px',
+                                backgroundColor: '#dc2626',
+                                border: '1px solid #dc2626'
                             } },
                             "Cancel Subscription ",
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "" })))))));

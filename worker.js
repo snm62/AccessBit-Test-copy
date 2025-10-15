@@ -177,6 +177,39 @@ async function mergeSiteSettings(env, siteId, patch) {
   return updated;
 }
 
+// Persist payment record per site in KV
+async function savePaymentRecord(env, siteId, record) {
+  if (!siteId) return;
+  const key = `payments:${siteId}`;
+  let existing = [];
+  try {
+    const raw = await env.ACCESSIBILITY_AUTH.get(key);
+    if (raw) existing = JSON.parse(raw);
+  } catch (_) {}
+  const enriched = {
+    id: record.id || crypto.randomUUID?.() || `${Date.now()}`,
+    siteId,
+    type: record.type || 'unknown',
+    timestamp: record.timestamp || new Date().toISOString(),
+    currency: record.currency || null,
+    amount: record.amount || null,
+    status: record.status || null,
+    customerId: record.customerId || null,
+    subscriptionId: record.subscriptionId || null,
+    invoiceId: record.invoiceId || null,
+    paymentIntentId: record.paymentIntentId || null,
+    paymentMethodId: record.paymentMethodId || null,
+    currentPeriodStart: record.currentPeriodStart || null,
+    currentPeriodEnd: record.currentPeriodEnd || null,
+    metadata: record.metadata || {},
+  };
+  existing.push(enriched);
+  await env.ACCESSIBILITY_AUTH.put(key, JSON.stringify(existing));
+  // Also keep last-payment shortcut
+  await env.ACCESSIBILITY_AUTH.put(`payments:last:${siteId}`, JSON.stringify(enriched));
+  return enriched;
+}
+
 function addSecurityAndCorsHeaders(response, origin) {
     const headers = new Headers(response.headers);
     
@@ -2605,6 +2638,7 @@ async function handleCreateSubscription(request, env) {
       const customer = await customerResponse.json();
       customerId = customer.id;
       console.log('Created new customer:', customerId);
+      console.log('Customer default payment method:', customer.invoice_settings?.default_payment_method);
     }
     
     // Get product details to find the price
@@ -2626,11 +2660,17 @@ async function handleCreateSubscription(request, env) {
     subscriptionData.append('customer', customerId);
     subscriptionData.append('items[0][price]', priceId);
     
-    // Don't set default_payment_method initially - let Stripe handle it through SetupIntent
-    // The payment method will be attached when the SetupIntent succeeds
-    console.log('Creating subscription without default payment method - will be set via SetupIntent webhook');
+    // Set the payment method if provided
+    if (paymentMethodId) {
+      subscriptionData.append('default_payment_method', paymentMethodId);
+      console.log('Creating subscription with payment method:', paymentMethodId);
+      // Try to charge immediately if we have a payment method
+      subscriptionData.append('payment_behavior', 'error_if_incomplete');
+    } else {
+      console.log('Creating subscription without payment method - will be set via SetupIntent webhook');
+      subscriptionData.append('payment_behavior', 'default_incomplete');
+    }
     
-    subscriptionData.append('payment_behavior', 'default_incomplete');
     subscriptionData.append('collection_method', 'charge_automatically');
     subscriptionData.append('payment_settings[save_default_payment_method]', 'on_subscription');
     subscriptionData.append('payment_settings[payment_method_types][0]', 'card');
@@ -2644,6 +2684,8 @@ async function handleCreateSubscription(request, env) {
     subscriptionData.append('metadata[createdAt]', new Date().toISOString());
     
     console.log('Creating subscription with data:', subscriptionData.toString());
+    console.log('Payment method ID being used:', paymentMethodId);
+    console.log('Customer ID being used:', customerId);
     console.log('Subscription metadata:', {
       siteId: siteId,
       domain: domainUrl || sanitizedDomain,
@@ -2670,6 +2712,9 @@ async function handleCreateSubscription(request, env) {
     const subscription = await subscriptionResponse.json();
     console.log('Subscription created successfully:', subscription);
     console.log('Subscription status:', subscription.status);
+    console.log('Subscription payment method:', subscription.default_payment_method);
+    console.log('Subscription latest invoice:', subscription.latest_invoice);
+    console.log('Subscription items:', subscription.items?.data?.[0]);
     
     // Store user data for subscription
     const userData = {
@@ -2682,11 +2727,72 @@ async function handleCreateSubscription(request, env) {
     };
     
     await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+    // Save single payment snapshot per site
+    try {
+      const paymentSnapshot = {
+        id: subscription.id,
+        siteId,
+        type: 'subscription_created',
+        timestamp: new Date().toISOString(),
+        status: subscription.status,
+        currency: subscription.currency || null,
+        amount: subscription.items?.data?.[0]?.price?.unit_amount || null,
+        customerId,
+        subscriptionId: subscription.id,
+        invoiceId: subscription.latest_invoice || null,
+        paymentIntentId: subscription.latest_invoice?.payment_intent || null,
+        paymentMethodId: paymentMethodId || null,
+        currentPeriodStart: subscription.current_period_start || null,
+        currentPeriodEnd: subscription.current_period_end || null,
+        metadata: subscription.metadata || {}
+      };
+      await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(paymentSnapshot));
+    } catch (snapErr) {
+      console.warn('Failed to save payment snapshot:', snapErr);
+    }
     
     // Check subscription status and return appropriate response
     if (subscription.status === 'incomplete') {
       // Payment needs more actions - this is expected for our flow
       console.log('Subscription created in incomplete status - will be completed by SetupIntent webhook');
+      
+      // If we have a payment method, try to activate the subscription immediately
+      if (paymentMethodId) {
+        console.log('Attempting to activate incomplete subscription with payment method:', paymentMethodId);
+        try {
+          const activateParams = new URLSearchParams();
+          activateParams.append('default_payment_method', paymentMethodId);
+          
+          const activateResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscription.id}`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: activateParams
+          });
+          
+          if (activateResponse.ok) {
+            const activatedSubscription = await activateResponse.json();
+            console.log('Subscription activated successfully:', activatedSubscription.status);
+            
+            // Update user data
+            userData.paymentStatus = activatedSubscription.status;
+            await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+            
+            return addSecurityAndCorsHeaders(secureJsonResponse({ 
+              subscriptionId: subscription.id,
+              status: activatedSubscription.status,
+              requiresAction: false
+            }), origin);
+          } else {
+            const errorText = await activateResponse.text();
+            console.error('Failed to activate subscription:', errorText);
+          }
+        } catch (error) {
+          console.error('Error activating subscription:', error);
+        }
+      }
       
       return addSecurityAndCorsHeaders(secureJsonResponse({ 
         subscriptionId: subscription.id,
@@ -2874,6 +2980,33 @@ async function handleStripeWebhook(request, env) {
           paymentStatus: userData.paymentStatus,
           lastPaymentDate: userData.lastPaymentDate
         });
+        // Overwrite single payment snapshot
+        try {
+          const price = subscription.items?.data?.[0]?.price;
+          const snap = {
+            id: subscription.id,
+            siteId,
+            type: 'subscription_updated',
+            timestamp: new Date().toISOString(),
+            status: subscription.status,
+            currency: price?.currency || null,
+            amount: price?.unit_amount || null,
+            customerId: subscription.customer || null,
+            subscriptionId: subscription.id,
+            invoiceId: subscription.latest_invoice || null,
+            paymentIntentId: null,
+            paymentMethodId: null,
+            currentPeriodStart: subscription.current_period_start || null,
+            currentPeriodEnd: subscription.current_period_end || null,
+            cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+            productId: price?.product || null,
+            priceId: price?.id || null,
+            metadata: subscription.metadata || {}
+          };
+          await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(snap));
+        } catch (e) {
+          console.warn('Failed to save payment snapshot (updated):', e);
+        }
       }
     } else if (event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object || {};
@@ -2889,6 +3022,32 @@ async function handleStripeWebhook(request, env) {
           paymentStatus: 'cancelled',
           lastPaymentDate: userData.lastPaymentDate
         });
+        // Overwrite single payment snapshot
+        try {
+          const snap = {
+            id: subscription.id,
+            siteId,
+            type: 'subscription_deleted',
+            timestamp: new Date().toISOString(),
+            status: 'canceled',
+            currency: null,
+            amount: null,
+            customerId: subscription.customer || null,
+            subscriptionId: subscription.id,
+            invoiceId: subscription.latest_invoice || null,
+            paymentIntentId: null,
+            paymentMethodId: null,
+            currentPeriodStart: subscription.current_period_start || null,
+            currentPeriodEnd: subscription.current_period_end || null,
+            cancelAtPeriodEnd: true,
+            productId: null,
+            priceId: null,
+            metadata: subscription.metadata || {}
+          };
+          await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(snap));
+        } catch (e) {
+          console.warn('Failed to save payment snapshot (deleted):', e);
+        }
       }
     } else if (event.type === 'payment_intent.succeeded') {
       const pi = event.data.object || {};
@@ -3184,6 +3343,29 @@ async function handleActivateSubscription(request, env) {
         paymentStatus: updatedSubscription.status === 'active' ? 'active' : updatedSubscription.status,
         lastPaymentDate: userData.lastPaymentDate
       });
+      // Overwrite single payment snapshot for site
+      try {
+        const snapshot = {
+          id: updatedSubscription.id,
+          siteId,
+          type: 'manual_activation',
+          timestamp: new Date().toISOString(),
+          status: updatedSubscription.status,
+          currency: updatedSubscription.currency || null,
+          amount: updatedSubscription.items?.data?.[0]?.price?.unit_amount || null,
+          customerId: updatedSubscription.customer || null,
+          subscriptionId: updatedSubscription.id,
+          invoiceId: updatedSubscription.latest_invoice || null,
+          paymentIntentId: null,
+          paymentMethodId: paymentMethodId,
+          currentPeriodStart: updatedSubscription.current_period_start || null,
+          currentPeriodEnd: updatedSubscription.current_period_end || null,
+          metadata: updatedSubscription.metadata || {}
+        };
+        await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(snapshot));
+      } catch (snapErr) {
+        console.warn('Failed to save payment snapshot (manual activation):', snapErr);
+      }
       
       return addSecurityAndCorsHeaders(secureJsonResponse({ 
         success: true, 
@@ -3239,7 +3421,10 @@ async function handleCheckSubscriptionStatus(request, env) {
     
     return addSecurityAndCorsHeaders(secureJsonResponse({
       status: subscription.status,
-      subscriptionId: subscription.id
+      subscriptionId: subscription.id,
+      current_period_end: subscription.current_period_end,
+      current_period_start: subscription.current_period_start,
+      cancel_at_period_end: subscription.cancel_at_period_end
     }), origin);
     
   } catch (error) {
