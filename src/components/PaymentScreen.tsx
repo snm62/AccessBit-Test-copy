@@ -50,6 +50,64 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     console.log('🔥 PaymentScreen: window object:', typeof window);
     console.log('🔥 PaymentScreen: window.initializeExistingPaymentIntegration:', typeof window.initializeExistingPaymentIntegration);
     
+    // Populate domain field with actual site URL
+    const populateDomainField = async () => {
+      try {
+        if (typeof window !== 'undefined' && window.webflow && window.webflow.getSiteInfo) {
+          const siteInfo = await window.webflow.getSiteInfo();
+          console.log('🔥 PaymentScreen: Site info:', siteInfo);
+          
+          if (siteInfo.url) {
+            const domainInput = document.getElementById('domain-url') as HTMLInputElement;
+            if (domainInput) {
+              domainInput.value = siteInfo.url;
+              console.log('🔥 PaymentScreen: Domain field populated with:', siteInfo.url);
+            }
+          }
+        }
+      } catch (error) {
+        console.log('🔥 PaymentScreen: Could not get site info:', error);
+      }
+    };
+    
+    // Populate domain field after a short delay to ensure DOM is ready
+    setTimeout(populateDomainField, 500);
+    
+    // Add event listeners for domain field to handle paste and input events
+    const setupDomainFieldListeners = () => {
+      const domainInput = document.getElementById('domain-url') as HTMLInputElement;
+      if (domainInput) {
+        // Handle paste events
+        domainInput.addEventListener('paste', (e) => {
+          setTimeout(() => {
+            const value = domainInput.value;
+            console.log('🔥 Domain field paste detected:', value);
+            if (value && !value.includes('example.com')) {
+              console.log('🔥 Valid domain pasted:', value);
+            }
+          }, 100);
+        });
+        
+        // Handle input events
+        domainInput.addEventListener('input', (e) => {
+          const value = (e.target as HTMLInputElement).value;
+          console.log('🔥 Domain field input detected:', value);
+          if (value && !value.includes('example.com')) {
+            console.log('🔥 Valid domain typed:', value);
+          }
+        });
+        
+        // Handle change events
+        domainInput.addEventListener('change', (e) => {
+          const value = (e.target as HTMLInputElement).value;
+          console.log('🔥 Domain field change detected:', value);
+        });
+      }
+    };
+    
+    // Set up domain field listeners after a delay
+    setTimeout(setupDomainFieldListeners, 1000);
+    
     // Wait a bit for scripts to load
     const timer = setTimeout(() => {
       console.log('🔥 PaymentScreen: Timeout reached, checking Stripe integration');
@@ -222,7 +280,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             {isAnnual ? 'Annual Plan' : 'Monthly Plan'} - ${isAnnual ? '19' : '24'}/{isAnnual ? 'year' : 'month'}
           </div>
           
-          <form id="payment-form">
+          <form id="payment-form" data-plan-type={isAnnual ? 'annual' : 'monthly'}>
             <h3 style={{ 
               fontSize: '16px', 
               fontWeight: '600', 
@@ -249,7 +307,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               <input 
                 id="domain-url" 
                 type="url" 
-                placeholder="https://example.com" 
+                placeholder="https://your-domain.com" 
                 required 
                 style={{
                   width: '100%',
@@ -258,6 +316,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                   border: '1px solid #e6e6e6',
                   borderRadius: '4px',
                   backgroundColor: 'white',
+                  color: '#333333',
                   boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
                   transition: 'box-shadow 150ms ease, border-color 150ms ease'
                 }}
@@ -279,6 +338,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             
             <div id="error-message" style={{ 
               color: '#fa755a', 
+              fontSize: '14px', 
+              marginBottom: '16px',
+              minHeight: '20px'
+            }}></div>
+            
+            <div id="success-message" style={{ 
+              color: '#4caf50', 
               fontSize: '14px', 
               marginBottom: '16px',
               minHeight: '20px'
@@ -414,18 +480,20 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                   borderRadius: '6px'
                 }}
               >
-                Try Different Payment
+                Change Domain URL
               </button>
               <button 
                 className="next-btn" 
                 onClick={handleSuccessNext}
                 style={{ 
-                  padding: '10px 16px',
-                  fontSize: '14px',
-                  borderRadius: '6px'
+                  padding: '10px 12px',
+                  fontSize: '13px',
+                  borderRadius: '6px',
+                  whiteSpace: 'nowrap',
+                  minWidth: '140px'
                 }}
               >
-                Continue to Publish <img src={whitearrow} alt="" />
+                Cancel Subscription <img src={whitearrow} alt="" />
               </button>
             </div>
           </div>

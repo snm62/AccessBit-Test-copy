@@ -28,7 +28,7 @@ async function handleWebflowAppInstallation(request, env) {
     
     // Send webhook to Make.com for email automation
     try {
-      const webhookUrl = 'https://hook.us1.make.com/mjcnn3ydks2o2pbkrdna9czn7bb253z0';
+      const webhookUrl = env.MAKE_WEBHOOK_URL || 'https://hook.us1.make.com/mjcnn3ydks2o2pbkrdna9czn7bb253z0';
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -304,11 +304,20 @@ if (url.pathname === '/api/accessibility/validate-domain' && request.method === 
 if (url.pathname === '/api/accessibility/user-data' && request.method === 'GET') {
   return handleUserData(request, env);
 }
+if (url.pathname === '/api/accessibility/update-payment' && request.method === 'POST') {
+  return handleUpdatePayment(request, env);
+}
+if (url.pathname === '/api/accessibility/create-setup-intent' && request.method === 'POST') {
+  return handleCreateSetupIntent(request, env);
+}
 if (url.pathname === '/api/accessibility/create-subscription' && request.method === 'POST') {
   return handleCreateSubscription(request, env);
 }
-if (url.pathname === '/api/accessibility/update-payment' && request.method === 'POST') {
-  return handleUpdatePayment(request, env);
+if (url.pathname === '/api/accessibility/cancel-subscription' && request.method === 'POST') {
+  return handleCancelSubscription(request, env);
+}
+if (url.pathname === '/api/accessibility/subscription-status' && request.method === 'POST') {
+  return handleGetSubscriptionStatus(request, env);
 }
 if (url.pathname === '/api/accessibility/create-payment-intent' && request.method === 'POST') {
   return handleCreatePaymentIntent(request, env);
@@ -322,6 +331,37 @@ if (url.pathname === '/api/accessibility/create-payment-intent' && request.metho
     // Webflow App Installation Webhook
     if (url.pathname === '/api/webflow/app-installed' && request.method === 'POST') {
       return handleWebflowAppInstallation(request, env);
+    }
+    
+    // Manual subscription activation
+    if (url.pathname === '/api/accessibility/activate-subscription' && request.method === 'POST') {
+      console.log('Manual activation endpoint called');
+      return handleActivateSubscription(request, env);
+    }
+    
+    // Check subscription status
+    if (url.pathname === '/api/accessibility/check-subscription-status' && request.method === 'GET') {
+      return handleCheckSubscriptionStatus(request, env);
+    }
+    
+    // Debug: Log all unmatched routes
+    console.log('Unmatched route:', url.pathname, request.method);
+    
+    // Test endpoint to verify worker is working
+    if (url.pathname === '/api/test' && request.method === 'GET') {
+      return new Response(JSON.stringify({ message: 'Worker is working', timestamp: new Date().toISOString() }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Setup payment method
+    if (url.pathname === '/api/accessibility/setup-payment' && request.method === 'POST') {
+      return handleSetupPayment(request, env);
+    }
+    
+    // Verify payment method
+    if (url.pathname === '/api/accessibility/verify-payment-method' && request.method === 'POST') {
+      return handleVerifyPaymentMethod(request, env);
     }
     
 
@@ -2329,11 +2369,182 @@ async function handleUserData(request, env) {
 }
 
 // Create Stripe subscription with products
+async function handleUpdatePayment(request, env) {
+  try {
+    const { siteId, paymentStatus, subscriptionId, customerId } = await request.json();
+    
+    console.log('Updating payment status:', { siteId, paymentStatus, subscriptionId, customerId });
+    
+    // Update subscription status in Stripe
+    if (subscriptionId) {
+      const updateResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          'metadata[status]': paymentStatus
+        })
+      });
+      
+      if (!updateResponse.ok) {
+        console.error('Failed to update subscription in Stripe');
+      }
+    }
+    
+    // Update local storage
+    const userData = {
+      siteId,
+      paymentStatus,
+      subscriptionId,
+      customerId,
+      timestamp: new Date().toISOString()
+    };
+    
+    await env.CONTRAST_KV.put(`user-data:${siteId}`, JSON.stringify(userData));
+    
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+  } catch (error) {
+    console.error('Update payment error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+async function handleCreateSetupIntent(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { siteId, email, domainUrl } = await request.json();
+    
+    console.log('Creating setup intent for:', { siteId, email, domainUrl });
+    
+    // Sanitize domain
+    const sanitizedDomain = domainUrl ? domainUrl.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
+    
+    // Find or create customer
+    let customerId;
+    if (email) {
+      const customersResponse = await fetch(`https://api.stripe.com/v1/customers?email=${encodeURIComponent(email)}&limit=1`, {
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+        }
+      });
+      
+      if (customersResponse.ok) {
+        const customers = await customersResponse.json();
+        if (customers.data.length > 0) {
+          customerId = customers.data[0].id;
+          console.log('Found existing customer:', customerId);
+        }
+      }
+    }
+    
+    if (!customerId) {
+      const customerData = new URLSearchParams();
+      customerData.append('email', email || '');
+      if (domainUrl || sanitizedDomain) {
+        customerData.append('metadata[domain]', domainUrl || sanitizedDomain);
+      }
+      customerData.append('metadata[siteId]', siteId);
+      
+      const customerResponse = await fetch('https://api.stripe.com/v1/customers', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: customerData
+      });
+      
+      if (!customerResponse.ok) {
+        const errorText = await customerResponse.text();
+        throw new Error(`Failed to create customer: ${errorText}`);
+      }
+      
+      const customer = await customerResponse.json();
+      customerId = customer.id;
+      console.log('Created new customer:', customerId);
+    }
+    
+    // Create a Setup Intent to collect payment details
+    const setupIntentData = new URLSearchParams();
+    setupIntentData.append('customer', customerId);
+    setupIntentData.append('payment_method_types[0]', 'card');
+    setupIntentData.append('usage', 'off_session');
+    setupIntentData.append('metadata[siteId]', siteId);
+    setupIntentData.append('metadata[domain]', domainUrl || sanitizedDomain);
+    
+    console.log('Creating setup intent with data:', setupIntentData.toString());
+    
+    const setupIntentResponse = await fetch('https://api.stripe.com/v1/setup_intents', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: setupIntentData
+    });
+    
+    if (!setupIntentResponse.ok) {
+      const errorText = await setupIntentResponse.text();
+      throw new Error(`Failed to create setup intent: ${errorText}`);
+    }
+    
+    const setupIntent = await setupIntentResponse.json();
+    console.log('Setup intent created successfully:', setupIntent);
+    console.log('Setup intent client_secret:', setupIntent.client_secret);
+    
+    if (!setupIntent.client_secret) {
+      console.error('No client_secret in setup intent response:', setupIntent);
+      throw new Error('Setup intent did not return a client secret');
+    }
+    
+    // Store setup intent data temporarily
+    await env.ACCESSIBILITY_AUTH.put(`setup_intent_${siteId}`, JSON.stringify({
+      siteId,
+      customerId,
+      setupIntentId: setupIntent.id,
+      createdAt: new Date().toISOString()
+    }));
+    
+    const successResponse = secureJsonResponse({ 
+      success: true,
+      clientSecret: setupIntent.client_secret,
+      customerId: customerId,
+      setupIntentId: setupIntent.id
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Setup intent creation error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to create setup intent', 
+      details: error.message 
+    });
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
 async function handleCreateSubscription(request, env) {
   const origin = request.headers.get('origin');
   
   try {
-    const { siteId, productId, domain, email, domainUrl } = await request.json();
+    const { siteId, productId, domain, email, domainUrl, paymentMethodId, customerId: providedCustomerId } = await request.json();
+    
+    console.log('Create subscription request data:', { siteId, productId, domain, email, domainUrl, paymentMethodId });
+    console.log('Email received:', email);
+    console.log('Domain received:', domain);
+    console.log('DomainUrl received:', domainUrl);
+    console.log('PaymentMethodId received:', paymentMethodId);
+    console.log('PaymentMethodId type:', typeof paymentMethodId);
+    console.log('PaymentMethodId value:', paymentMethodId);
     
     if (!siteId || !productId || !domain) {
       const errorResponse = secureJsonResponse({ error: 'Missing required fields' }, 400);
@@ -2343,40 +2554,58 @@ async function handleCreateSubscription(request, env) {
     // Sanitize input data
     const sanitizedDomain = sanitizeInput(domain);
     
-    // Create customer with email if provided
-    let customerId = '';
-    const customerData = {
-      'metadata[siteId]': siteId,
-      'metadata[domain]': sanitizedDomain
-    };
-    
-    // Add email if provided
-    if (email) {
-      customerData.email = email;
+    // Use provided customerId if available (preferred)
+    let customerId = providedCustomerId || '';
+    if (!customerId && email) {
+      console.log('Checking for existing customer with email:', email);
+      const existingCustomersResponse = await fetch(`https://api.stripe.com/v1/customers?email=${encodeURIComponent(email)}&limit=1`, {
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+        }
+      });
+      
+      if (existingCustomersResponse.ok) {
+        const existingCustomers = await existingCustomersResponse.json();
+        if (existingCustomers.data && existingCustomers.data.length > 0) {
+          customerId = existingCustomers.data[0].id;
+          console.log('Found existing customer:', customerId);
+        }
+      }
     }
     
-    // Add domain URL to metadata if provided
-    if (domainUrl) {
-      customerData['metadata[domainUrl]'] = domainUrl;
+    // Create new customer only if no existing customer found
+    if (!customerId) {
+      console.log('Creating new customer...');
+      const customerData = new URLSearchParams();
+      customerData.append('metadata[siteId]', siteId);
+      customerData.append('metadata[domain]', domainUrl || sanitizedDomain);
+      
+      if (email) {
+        customerData.append('email', email);
+      }
+      
+      if (domainUrl) {
+        customerData.append('metadata[domainUrl]', domainUrl);
+      }
+      
+      const customerResponse = await fetch('https://api.stripe.com/v1/customers', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: customerData
+      });
+      
+      if (!customerResponse.ok) {
+        const errorText = await customerResponse.text();
+        throw new Error(`Failed to create customer: ${errorText}`);
+      }
+      
+      const customer = await customerResponse.json();
+      customerId = customer.id;
+      console.log('Created new customer:', customerId);
     }
-    
-    const customerResponse = await fetch('https://api.stripe.com/v1/customers', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams(customerData)
-    });
-    
-    if (!customerResponse.ok) {
-      const errorText = await customerResponse.text();
-      console.error('Stripe customer creation failed:', errorText);
-      throw new Error(`Failed to create customer: ${errorText}`);
-    }
-    
-    const customer = await customerResponse.json();
-    customerId = customer.id;
     
     // Get product details to find the price
     const productResponse = await fetch(`https://api.stripe.com/v1/products/${productId}`, {
@@ -2392,119 +2621,99 @@ async function handleCreateSubscription(request, env) {
     const product = await productResponse.json();
     const priceId = product.default_price;
     
-    // Create subscription
+    // Create the subscription with verified payment method
+    const subscriptionData = new URLSearchParams();
+    subscriptionData.append('customer', customerId);
+    subscriptionData.append('items[0][price]', priceId);
+    
+    // Don't set default_payment_method initially - let Stripe handle it through SetupIntent
+    // The payment method will be attached when the SetupIntent succeeds
+    console.log('Creating subscription without default payment method - will be set via SetupIntent webhook');
+    
+    subscriptionData.append('payment_behavior', 'default_incomplete');
+    subscriptionData.append('collection_method', 'charge_automatically');
+    subscriptionData.append('payment_settings[save_default_payment_method]', 'on_subscription');
+    subscriptionData.append('payment_settings[payment_method_types][0]', 'card');
+    subscriptionData.append('payment_settings[payment_method_options][card][request_three_d_secure]', 'automatic');
+    subscriptionData.append('expand[]', 'latest_invoice.payment_intent');
+    subscriptionData.append('metadata[siteId]', siteId);
+    subscriptionData.append('metadata[domain]', domainUrl || sanitizedDomain);
+    subscriptionData.append('metadata[email]', email || '');
+    subscriptionData.append('metadata[domainUrl]', domainUrl || '');
+    subscriptionData.append('metadata[productId]', productId);
+    subscriptionData.append('metadata[createdAt]', new Date().toISOString());
+    
+    console.log('Creating subscription with data:', subscriptionData.toString());
+    console.log('Subscription metadata:', {
+      siteId: siteId,
+      domain: domainUrl || sanitizedDomain,
+      email: email || '',
+      domainUrl: domainUrl || '',
+      productId: productId
+    });
+    
     const subscriptionResponse = await fetch('https://api.stripe.com/v1/subscriptions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams({
-        customer: customerId,
-        'items[0][price]': priceId,
-        payment_behavior: 'default_incomplete',
-        collection_method: 'charge_automatically',
-        'payment_settings[save_default_payment_method]': 'on_subscription',
-        'metadata[siteId]': siteId,
-        'metadata[domain]': sanitizedDomain,
-        'metadata[email]': email || '',
-        'metadata[domainUrl]': domainUrl || ''
-      })
+      body: subscriptionData
     });
     
     if (!subscriptionResponse.ok) {
       const errorText = await subscriptionResponse.text();
+      console.error('Stripe subscription creation failed:', errorText);
       throw new Error(`Failed to create subscription: ${errorText}`);
     }
     
     const subscription = await subscriptionResponse.json();
+    console.log('Subscription created successfully:', subscription);
+    console.log('Subscription status:', subscription.status);
     
-    // Create a payment intent directly for the subscription amount
-    const priceResponse = await fetch(`https://api.stripe.com/v1/prices/${priceId}`, {
-      headers: {
-        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
-      }
-    });
-    
-    if (!priceResponse.ok) {
-      throw new Error('Failed to get price details');
-    }
-    
-    const price = await priceResponse.json();
-    
-    // Create payment intent directly
-    const paymentIntentResponse = await fetch('https://api.stripe.com/v1/payment_intents', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        amount: price.unit_amount,
-        currency: price.currency,
-        customer: customerId,
-        'metadata[siteId]': siteId,
-        'metadata[domain]': sanitizedDomain,
-        'metadata[subscriptionId]': subscription.id,
-        'metadata[email]': email || '',
-        'metadata[domainUrl]': domainUrl || ''
-      })
-    });
-    
-    if (!paymentIntentResponse.ok) {
-      const errorText = await paymentIntentResponse.text();
-      throw new Error(`Failed to create payment intent: ${errorText}`);
-    }
-    
-    const paymentIntent = await paymentIntentResponse.json();
-    const clientSecret = paymentIntent.client_secret;
-    
-    // Store user data
+    // Store user data for subscription
     const userData = {
       siteId,
       domain: sanitizedDomain,
       customerId: customerId,
       subscriptionId: subscription.id,
-      paymentStatus: 'pending',
+      paymentStatus: subscription.status,
       createdAt: new Date().toISOString()
     };
     
     await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
-    await env.ACCESSIBILITY_AUTH.put(`domain_${sanitizedDomain}`, JSON.stringify({ 
-      siteId, 
-      verified: true 
-    }));
     
-    // Send webhook to Make.com for email automation
-    try {
-      const webhookUrl = 'https://hook.us1.make.com/mjcnn3ydks2o2pbkrdna9czn7bb253z0';
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event: 'app_installed',
-          customer: {
-            email: email,
-            domain: domainUrl,
-            siteId: siteId
-          },
-          subscription: {
-            id: subscription.id,
-            productId: productId
-          },
-          timestamp: new Date().toISOString()
-        })
-      });
-      console.log('Webhook sent to Make.com successfully');
-    } catch (webhookError) {
-      console.warn('Webhook failed (non-critical):', webhookError);
+    // Check subscription status and return appropriate response
+    if (subscription.status === 'incomplete') {
+      // Payment needs more actions - this is expected for our flow
+      console.log('Subscription created in incomplete status - will be completed by SetupIntent webhook');
+      
+      return addSecurityAndCorsHeaders(secureJsonResponse({ 
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        requiresAction: false, // No action needed - webhook will complete it
+        message: 'Subscription created successfully. Payment will be processed automatically.'
+      }), origin);
+    } else if (subscription.status === 'active') {
+      // Subscription is active immediately
+      await env.ACCESSIBILITY_AUTH.put(`domain_${sanitizedDomain}`, JSON.stringify({ 
+        siteId, 
+        verified: true 
+      }));
+      
+      return addSecurityAndCorsHeaders(secureJsonResponse({ 
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        requiresAction: false
+      }), origin);
+    } else {
+      // Some other status
+      return addSecurityAndCorsHeaders(secureJsonResponse({ 
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        requiresAction: false
+      }), origin);
     }
-
-    const successResponse = secureJsonResponse({ 
-      clientSecret: clientSecret,
-      subscriptionId: subscription.id
-    });
-    return addSecurityAndCorsHeaders(successResponse, origin);
     
   } catch (error) {
     console.error('Create subscription error:', error);
@@ -2516,41 +2725,6 @@ async function handleCreateSubscription(request, env) {
   }
 }
 
-// Update payment status (for webhooks)
-async function handleUpdatePayment(request, env) {
-  const origin = request.headers.get('origin');
-  
-  try {
-    const { siteId, subscriptionId, customerId, paymentStatus } = await request.json();
-    
-    if (!siteId || !paymentStatus) {
-      const errorResponse = secureJsonResponse({ error: 'SiteId and paymentStatus required' }, 400);
-      return addSecurityAndCorsHeaders(errorResponse, origin);
-    }
-    
-    const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
-    if (userDataStr) {
-      const userData = JSON.parse(userDataStr);
-      userData.paymentStatus = paymentStatus;
-      if (subscriptionId) userData.subscriptionId = subscriptionId;
-      if (customerId) userData.customerId = customerId;
-      userData.lastPaymentDate = new Date().toISOString();
-      
-      await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
-    }
-    
-    const successResponse = secureJsonResponse({ success: true });
-    return addSecurityAndCorsHeaders(successResponse, origin);
-    
-  } catch (error) {
-    console.error('Update payment error:', error);
-    const errorResponse = secureJsonResponse({ 
-      error: 'Failed to update payment',
-      details: error.message 
-    }, 500);
-    return addSecurityAndCorsHeaders(errorResponse, origin);
-  }
-}
 
 // Create payment intent for Stripe Elements (REAL Stripe call)
 async function handleCreatePaymentIntent(request, env) {
@@ -2663,7 +2837,7 @@ async function handleStripeWebhook(request, env) {
         
         // Send webhook to Make.com for email automation
         try {
-          const webhookUrl = 'https://hook.us1.make.com/mjcnn3ydks2o2pbkrdna9czn7bb253z0';
+          const webhookUrl = env.MAKE_WEBHOOK_URL || 'https://hook.us1.make.com/mjcnn3ydks2o2pbkrdna9czn7bb253z0';
           await fetch(webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2747,10 +2921,693 @@ async function handleStripeWebhook(request, env) {
           lastPaymentDate: userData.lastPaymentDate
         });
       }
+    } else if (event.type === 'setup_intent.succeeded') {
+      console.log('🔔 SetupIntent succeeded webhook received');
+      const setupIntent = event.data.object || {};
+      const siteId = setupIntent.metadata?.siteId;
+      let subscriptionId = setupIntent.metadata?.subscriptionId;
+      const email = setupIntent.metadata?.email;
+      const domain = setupIntent.metadata?.domain;
+      const domainUrl = setupIntent.metadata?.domainUrl;
+      
+      console.log('🔔 SetupIntent webhook data:', { siteId, subscriptionId, email, domain, domainUrl });
+      
+      // If no subscriptionId in metadata, try to find it by customer
+      if (siteId && !subscriptionId) {
+        console.log('No subscriptionId in SetupIntent metadata, looking up by customer...');
+        try {
+          const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+          if (userDataStr) {
+            const userData = JSON.parse(userDataStr);
+            subscriptionId = userData.subscriptionId;
+            console.log('Found subscriptionId from user data:', subscriptionId);
+          }
+        } catch (error) {
+          console.error('Error looking up subscriptionId:', error);
+        }
+      }
+      
+      if (siteId && subscriptionId) {
+        console.log('SetupIntent succeeded, activating subscription:', subscriptionId);
+        console.log('SetupIntent metadata:', setupIntent.metadata);
+        console.log('Payment method from SetupIntent:', setupIntent.payment_method);
+        
+        // Update the subscription to use the payment method from setup intent AND update metadata
+        const updateParams = new URLSearchParams();
+        updateParams.append('default_payment_method', setupIntent.payment_method);
+        
+        // Also update subscription metadata if available
+        if (email) updateParams.append('metadata[email]', email);
+        if (domain) updateParams.append('metadata[domain]', domain);
+        if (domainUrl) updateParams.append('metadata[domainUrl]', domainUrl);
+        if (siteId) updateParams.append('metadata[siteId]', siteId);
+        
+        const subscriptionUpdateResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: updateParams
+        });
+        
+        if (subscriptionUpdateResponse.ok) {
+          const updatedSubscription = await subscriptionUpdateResponse.json();
+          console.log('Subscription updated with payment method from SetupIntent');
+          console.log('Updated subscription status:', updatedSubscription.status);
+          console.log('Updated subscription metadata:', updatedSubscription.metadata);
+          
+          // Update local data
+          const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+          const userData = userDataStr ? JSON.parse(userDataStr) : {};
+          userData.paymentStatus = 'active';
+          userData.lastPaymentDate = new Date().toISOString();
+          userData.paymentMethod = setupIntent.payment_method_types?.[0] || 'card';
+          userData.email = email || userData.email;
+          userData.domain = domain || userData.domain;
+          await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+          await mergeSiteSettings(env, siteId, {
+            siteId,
+            email: email || '',
+            domain: domain || '',
+            paymentStatus: 'active',
+            lastPaymentDate: userData.lastPaymentDate
+          });
+        } else {
+          const errorText = await subscriptionUpdateResponse.text();
+          console.error('Failed to update subscription:', errorText);
+        }
+      }
     }
 
     return new Response('ok', { status: 200, headers: { 'Content-Type': 'text/plain' } });
   } catch (err) {
     return addSecurityAndCorsHeaders(secureJsonResponse({ error: err.message || 'webhook error' }, 500), origin);
+  }
+}
+
+// Manual subscription activation
+async function handleActivateSubscription(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { siteId, setupIntentId, paymentMethodId } = await request.json();
+    
+    if (!siteId || !setupIntentId || !paymentMethodId) {
+      const errorResponse = secureJsonResponse({ error: 'Missing required fields' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    console.log('Manual activation request:', { siteId, setupIntentId, paymentMethodId });
+    
+    // Get the subscription ID from the site data
+    const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+    console.log('User data from KV:', userDataStr);
+    
+    if (!userDataStr) {
+      const errorResponse = secureJsonResponse({ error: 'No subscription found for site' }, 404);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    const userData = JSON.parse(userDataStr);
+    const subscriptionId = userData.subscriptionId;
+    console.log('Found subscription ID:', subscriptionId);
+    
+    if (!subscriptionId) {
+      const errorResponse = secureJsonResponse({ error: 'No subscription ID found' }, 404);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    // First, check if payment method is already attached to customer
+    console.log('Checking if payment method is already attached to customer:', userData.customerId);
+    
+    // Check if payment method is already attached by retrieving it
+    try {
+      const paymentMethodResponse = await fetch(`https://api.stripe.com/v1/payment_methods/${paymentMethodId}`, {
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+        }
+      });
+      
+      if (paymentMethodResponse.ok) {
+        const paymentMethod = await paymentMethodResponse.json();
+        console.log('Payment method details:', paymentMethod);
+        
+        if (paymentMethod.customer === userData.customerId) {
+          console.log('Payment method is already attached to customer - continuing');
+        } else {
+          console.log('Payment method is attached to different customer, attempting to attach to correct customer');
+          
+          // Try to attach the payment method to the correct customer
+          const attachParams = new URLSearchParams();
+          attachParams.append('customer', userData.customerId);
+          
+          const attachResponse = await fetch(`https://api.stripe.com/v1/payment_methods/${paymentMethodId}/attach`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: attachParams
+          });
+          
+          if (attachResponse.ok) {
+            console.log('Payment method attached to customer successfully');
+          } else {
+            const attachError = await attachResponse.text();
+            console.error('Failed to attach payment method to customer:', attachError);
+            throw new Error(`Failed to attach payment method: ${attachError}`);
+          }
+        }
+      } else {
+        console.error('Failed to retrieve payment method details');
+        throw new Error('Failed to retrieve payment method details');
+      }
+    } catch (error) {
+      console.log('Payment method attachment check failed, but continuing:', error.message);
+      // Continue anyway - the payment method might already be attached
+    }
+    
+    // Ensure we're using the subscription's own customer id (source of truth)
+    const subscriptionLookup = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+      headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` }
+    });
+    let subscriptionCustomerId = userData.customerId;
+    if (subscriptionLookup.ok) {
+      const sub = await subscriptionLookup.json();
+      subscriptionCustomerId = sub.customer || subscriptionCustomerId;
+      console.log('Subscription customer ID:', subscriptionCustomerId);
+    } else {
+      console.warn('Failed to look up subscription for customer id, proceeding with stored customerId');
+    }
+
+    // As an extra safety, if payment method is attached to some other customer, detach it first
+    try {
+      const pmResp = await fetch(`https://api.stripe.com/v1/payment_methods/${paymentMethodId}`, {
+        headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` }
+      });
+      if (pmResp.ok) {
+        const pm = await pmResp.json();
+        if (pm.customer && pm.customer !== subscriptionCustomerId) {
+          // Do NOT detach; Stripe forbids reusing detached PMs. Return a clear error.
+          const conflict = secureJsonResponse({
+            error: 'payment_method_conflict',
+            details: 'Payment method belongs to a different customer. Please retry payment to create a new payment method for this site.'
+          }, 409);
+          return addSecurityAndCorsHeaders(conflict, origin);
+        }
+      }
+    } catch (pmErr) {
+      console.log('Payment method lookup warning:', pmErr?.message || pmErr);
+    }
+
+    // Now update the subscription with the payment method
+    const updateParams = new URLSearchParams();
+    updateParams.append('default_payment_method', paymentMethodId);
+    
+    console.log('Updating subscription with payment method:', paymentMethodId);
+    console.log('Update params:', updateParams.toString());
+    
+    const subscriptionUpdateResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: updateParams
+    });
+    
+    console.log('Subscription update response status:', subscriptionUpdateResponse.status);
+    
+    if (subscriptionUpdateResponse.ok) {
+      let updatedSubscription = await subscriptionUpdateResponse.json();
+      console.log('Subscription manually activated (post-update):', updatedSubscription.status);
+      console.log('Updated subscription details:', updatedSubscription);
+      
+      // If still incomplete, try paying latest invoice explicitly
+      try {
+        if (updatedSubscription.status === 'incomplete' && updatedSubscription.latest_invoice) {
+          console.log('Attempting to pay latest invoice:', updatedSubscription.latest_invoice);
+          const payResp = await fetch(`https://api.stripe.com/v1/invoices/${updatedSubscription.latest_invoice}/pay`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+            }
+          });
+          if (!payResp.ok) {
+            const pt = await payResp.text();
+            console.warn('Failed to pay invoice:', pt);
+          } else {
+            console.log('Invoice payment attempted successfully');
+          }
+          // Re-fetch subscription to get fresh status
+          const refreshedResp = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+            headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` }
+          });
+          if (refreshedResp.ok) {
+            updatedSubscription = await refreshedResp.json();
+            console.log('Subscription status after invoice pay attempt:', updatedSubscription.status);
+          }
+        }
+      } catch (invoiceErr) {
+        console.log('Invoice payment flow warning:', invoiceErr?.message || invoiceErr);
+      }
+      
+      // Update local data
+      userData.paymentStatus = 'active';
+      userData.lastPaymentDate = new Date().toISOString();
+      userData.paymentMethod = 'card';
+      await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+      
+      await mergeSiteSettings(env, siteId, {
+        siteId,
+        paymentStatus: updatedSubscription.status === 'active' ? 'active' : updatedSubscription.status,
+        lastPaymentDate: userData.lastPaymentDate
+      });
+      
+      return addSecurityAndCorsHeaders(secureJsonResponse({ 
+        success: true, 
+        status: updatedSubscription.status 
+      }), origin);
+    } else {
+      const errorText = await subscriptionUpdateResponse.text();
+      console.error('Subscription update failed:', errorText);
+      console.error('Response status:', subscriptionUpdateResponse.status);
+      throw new Error(`Failed to activate subscription: ${errorText}`);
+    }
+    
+  } catch (error) {
+    console.error('Manual activation error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      name: error.name,
+      cause: error.cause
+    });
+    const errorResponse = secureJsonResponse({ 
+      error: error.message || 'Activation failed',
+      details: error.stack 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Check subscription status
+async function handleCheckSubscriptionStatus(request, env) {
+  const origin = request.headers.get('origin');
+  const url = new URL(request.url);
+  const subscriptionId = url.searchParams.get('id');
+  
+  if (!subscriptionId) {
+    const errorResponse = secureJsonResponse({ error: 'Missing subscription ID' }, 400);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+  
+  try {
+    const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+      }
+    });
+    
+    if (!subscriptionResponse.ok) {
+      const errorText = await subscriptionResponse.text();
+      throw new Error(`Failed to retrieve subscription: ${errorText}`);
+    }
+    
+    const subscription = await subscriptionResponse.json();
+    
+    return addSecurityAndCorsHeaders(secureJsonResponse({
+      status: subscription.status,
+      subscriptionId: subscription.id
+    }), origin);
+    
+  } catch (error) {
+    console.error('Check subscription status error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to check subscription status',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Setup payment method
+async function handleSetupPayment(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    // Log the raw request body
+    const requestBody = await request.text();
+    console.log('🔍 Raw request body:', requestBody);
+    console.log('🔍 Request body length:', requestBody.length);
+    
+    let requestData;
+    try {
+      requestData = JSON.parse(requestBody);
+      console.log('🔍 Parsed request data:', requestData);
+    } catch (parseError) {
+      console.error('🔍 JSON parse error:', parseError);
+      const errorResponse = secureJsonResponse({ error: 'Invalid JSON in request body' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    const { email, domainUrl, siteId } = requestData;
+    
+    console.log('🔍 Extracted fields:', { email, domainUrl, siteId });
+    console.log('🔍 Email type:', typeof email, 'Email value:', email);
+    console.log('🔍 SiteId type:', typeof siteId, 'SiteId value:', siteId);
+    console.log('🔍 DomainUrl type:', typeof domainUrl, 'DomainUrl value:', domainUrl);
+    
+    if (!email || !siteId) {
+      console.error('🔍 Missing required fields - email:', !!email, 'siteId:', !!siteId);
+      const errorResponse = secureJsonResponse({ error: 'Missing required fields', details: { email: !!email, siteId: !!siteId } }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    console.log('Setting up payment for:', { email, domainUrl, siteId });
+    
+    // Create or retrieve customer
+    let customer;
+    const existingCustomersResponse = await fetch(`https://api.stripe.com/v1/customers?email=${encodeURIComponent(email)}&limit=1`, {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+      }
+    });
+    
+    if (existingCustomersResponse.ok) {
+      const existingCustomers = await existingCustomersResponse.json();
+      if (existingCustomers.data.length > 0) {
+        customer = existingCustomers.data[0];
+        console.log('Found existing customer:', customer.id);
+      }
+    }
+    
+    if (!customer) {
+      // Create new customer
+      const customerData = new URLSearchParams();
+      customerData.append('email', email);
+      customerData.append('metadata[siteId]', siteId);
+      customerData.append('metadata[domainUrl]', domainUrl || '');
+      
+      const customerResponse = await fetch('https://api.stripe.com/v1/customers', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: customerData
+      });
+      
+      if (!customerResponse.ok) {
+        const errorText = await customerResponse.text();
+        throw new Error(`Failed to create customer: ${errorText}`);
+      }
+      
+      customer = await customerResponse.json();
+      console.log('Created new customer:', customer.id);
+    }
+    
+    // Create Setup Intent
+    const setupIntentData = new URLSearchParams();
+    setupIntentData.append('customer', customer.id);
+    setupIntentData.append('payment_method_types[]', 'card');
+    setupIntentData.append('usage', 'off_session');
+    setupIntentData.append('metadata[siteId]', siteId);
+    setupIntentData.append('metadata[email]', email);
+    setupIntentData.append('metadata[domainUrl]', domainUrl || '');
+    
+    const setupIntentResponse = await fetch('https://api.stripe.com/v1/setup_intents', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: setupIntentData
+    });
+    
+    if (!setupIntentResponse.ok) {
+      const errorText = await setupIntentResponse.text();
+      throw new Error(`Failed to create setup intent: ${errorText}`);
+    }
+    
+    const setupIntent = await setupIntentResponse.json();
+    console.log('Created setup intent:', setupIntent.id);
+    
+    return addSecurityAndCorsHeaders(secureJsonResponse({
+      setupIntentId: setupIntent.id,
+      clientSecret: setupIntent.client_secret,
+      customerId: customer.id
+    }), origin);
+    
+  } catch (error) {
+    console.error('Setup payment error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to set up payment',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Verify payment method
+async function handleVerifyPaymentMethod(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { setupIntentId } = await request.json();
+    
+    if (!setupIntentId) {
+      const errorResponse = secureJsonResponse({ error: 'Missing setupIntentId' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    console.log('Verifying payment method for setup intent:', setupIntentId);
+    
+    // Retrieve the setup intent
+    const setupIntentResponse = await fetch(`https://api.stripe.com/v1/setup_intents/${setupIntentId}`, {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+      }
+    });
+    
+    if (!setupIntentResponse.ok) {
+      const errorText = await setupIntentResponse.text();
+      throw new Error(`Failed to retrieve setup intent: ${errorText}`);
+    }
+    
+    const setupIntent = await setupIntentResponse.json();
+    console.log('Setup intent status:', setupIntent.status);
+    
+    if (setupIntent.status !== 'succeeded') {
+      const errorResponse = secureJsonResponse({ 
+        error: 'Setup intent not successful',
+        details: `Current status: ${setupIntent.status}` 
+      }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    if (!setupIntent.payment_method) {
+      const errorResponse = secureJsonResponse({ 
+        error: 'No payment method attached',
+        details: 'The setup intent did not result in an attached payment method' 
+      }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    // Payment method is available from the setup intent
+    const paymentMethodId = setupIntent.payment_method;
+    const customerId = setupIntent.customer;
+    
+    console.log('Payment method attached:', paymentMethodId);
+    console.log('Customer ID:', customerId);
+    
+    // Set as default payment method
+    const customerUpdateData = new URLSearchParams();
+    customerUpdateData.append('invoice_settings[default_payment_method]', paymentMethodId);
+    
+    const customerUpdateResponse = await fetch(`https://api.stripe.com/v1/customers/${customerId}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: customerUpdateData
+    });
+    
+    if (!customerUpdateResponse.ok) {
+      const errorText = await customerUpdateResponse.text();
+      console.warn('Failed to set default payment method:', errorText);
+    } else {
+      console.log('Default payment method set successfully');
+    }
+    
+    // Verify it was set
+    const customerResponse = await fetch(`https://api.stripe.com/v1/customers/${customerId}`, {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+      }
+    });
+    
+    let isDefaultSet = false;
+    if (customerResponse.ok) {
+      const customer = await customerResponse.json();
+      isDefaultSet = customer.invoice_settings?.default_payment_method === paymentMethodId;
+      console.log('Default payment method verification:', isDefaultSet);
+    }
+    
+    return addSecurityAndCorsHeaders(secureJsonResponse({
+      success: true,
+      paymentMethodId: paymentMethodId,
+      customerId: customerId,
+      isDefaultPaymentMethodSet: isDefaultSet
+    }), origin);
+    
+  } catch (error) {
+    console.error('Payment method verification error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to verify payment method',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Cancel subscription
+async function handleCancelSubscription(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { subscriptionId, siteId } = await request.json();
+    
+    if (!subscriptionId) {
+      const errorResponse = secureJsonResponse({ error: 'Missing subscription ID' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    // Cancel subscription at period end (allows customer to use service until end of billing period)
+    const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        cancel_at_period_end: 'true'
+      })
+    });
+    
+    if (!subscriptionResponse.ok) {
+      const errorText = await subscriptionResponse.text();
+      throw new Error(`Failed to cancel subscription: ${errorText}`);
+    }
+    
+    const subscription = await subscriptionResponse.json();
+    
+    // Update local data if siteId provided
+    if (siteId) {
+      const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+      if (userDataStr) {
+        const userData = JSON.parse(userDataStr);
+        userData.paymentStatus = 'canceling';
+        userData.cancelAtPeriodEnd = subscription.cancel_at_period_end;
+        userData.currentPeriodEnd = subscription.current_period_end;
+        userData.lastUpdated = new Date().toISOString();
+        
+        await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+        
+        // Also update site settings
+        await mergeSiteSettings(env, siteId, {
+          siteId,
+          paymentStatus: 'canceling',
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          currentPeriodEnd: subscription.current_period_end,
+          lastUpdated: userData.lastUpdated
+        });
+      }
+    }
+    
+    const successResponse = secureJsonResponse({ 
+      success: true,
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        current_period_end: subscription.current_period_end
+      },
+      message: 'Subscription will be canceled at the end of the current billing period'
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Cancel subscription error:', error);
+    const errorResponse = secureJsonResponse({ 
+      success: false,
+      error: 'Failed to cancel subscription',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Get subscription status
+async function handleGetSubscriptionStatus(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { siteId } = await request.json();
+    
+    if (!siteId) {
+      const errorResponse = secureJsonResponse({ error: 'Missing site ID' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    // Get user data from KV
+    const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+    if (!userDataStr) {
+      const errorResponse = secureJsonResponse({ error: 'No subscription found for this site' }, 404);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    const userData = JSON.parse(userDataStr);
+    
+    // If we have a subscription ID, get current status from Stripe
+    let subscriptionDetails = null;
+    if (userData.subscriptionId) {
+      try {
+        const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${userData.subscriptionId}`, {
+          headers: {
+            Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+          }
+        });
+        
+        if (subscriptionResponse.ok) {
+          subscriptionDetails = await subscriptionResponse.json();
+        }
+      } catch (error) {
+        console.warn('Failed to fetch subscription details from Stripe:', error);
+      }
+    }
+    
+    const successResponse = secureJsonResponse({ 
+      success: true,
+      subscription: {
+        id: userData.subscriptionId,
+        status: userData.paymentStatus,
+        cancelAtPeriodEnd: userData.cancelAtPeriodEnd || false,
+        currentPeriodEnd: userData.currentPeriodEnd,
+        lastPaymentDate: userData.lastPaymentDate,
+        details: subscriptionDetails
+      }
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Get subscription status error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to get subscription status',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
   }
 }

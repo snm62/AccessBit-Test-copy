@@ -43583,6 +43583,58 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
         console.log('🔥 PaymentScreen: useEffect running, checking for Stripe integration');
         console.log('🔥 PaymentScreen: window object:', typeof window);
         console.log('🔥 PaymentScreen: window.initializeExistingPaymentIntegration:', typeof window.initializeExistingPaymentIntegration);
+        // Populate domain field with actual site URL
+        const populateDomainField = () => __awaiter(void 0, void 0, void 0, function* () {
+            try {
+                if (typeof window !== 'undefined' && window.webflow && window.webflow.getSiteInfo) {
+                    const siteInfo = yield window.webflow.getSiteInfo();
+                    console.log('🔥 PaymentScreen: Site info:', siteInfo);
+                    if (siteInfo.url) {
+                        const domainInput = document.getElementById('domain-url');
+                        if (domainInput) {
+                            domainInput.value = siteInfo.url;
+                            console.log('🔥 PaymentScreen: Domain field populated with:', siteInfo.url);
+                        }
+                    }
+                }
+            }
+            catch (error) {
+                console.log('🔥 PaymentScreen: Could not get site info:', error);
+            }
+        });
+        // Populate domain field after a short delay to ensure DOM is ready
+        setTimeout(populateDomainField, 500);
+        // Add event listeners for domain field to handle paste and input events
+        const setupDomainFieldListeners = () => {
+            const domainInput = document.getElementById('domain-url');
+            if (domainInput) {
+                // Handle paste events
+                domainInput.addEventListener('paste', (e) => {
+                    setTimeout(() => {
+                        const value = domainInput.value;
+                        console.log('🔥 Domain field paste detected:', value);
+                        if (value && !value.includes('example.com')) {
+                            console.log('🔥 Valid domain pasted:', value);
+                        }
+                    }, 100);
+                });
+                // Handle input events
+                domainInput.addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    console.log('🔥 Domain field input detected:', value);
+                    if (value && !value.includes('example.com')) {
+                        console.log('🔥 Valid domain typed:', value);
+                    }
+                });
+                // Handle change events
+                domainInput.addEventListener('change', (e) => {
+                    const value = e.target.value;
+                    console.log('🔥 Domain field change detected:', value);
+                });
+            }
+        };
+        // Set up domain field listeners after a delay
+        setTimeout(setupDomainFieldListeners, 1000);
         // Wait a bit for scripts to load
         const timer = setTimeout(() => {
             console.log('🔥 PaymentScreen: Timeout reached, checking Stripe integration');
@@ -43749,7 +43801,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     isAnnual ? '19' : '24',
                     "/",
                     isAnnual ? 'year' : 'month'),
-                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("form", { id: "payment-form" },
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("form", { id: "payment-form", "data-plan-type": isAnnual ? 'annual' : 'monthly' },
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
                             fontSize: '16px',
                             fontWeight: '600',
@@ -43765,13 +43817,14 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                 fontWeight: '500',
                                 color: '#ffffff'
                             } }, "Your Domain URL"),
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("input", { id: "domain-url", type: "url", placeholder: "https://example.com", required: true, style: {
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("input", { id: "domain-url", type: "url", placeholder: "https://your-domain.com", required: true, style: {
                                 width: '100%',
                                 padding: '10px 14px',
                                 fontSize: '16px',
                                 border: '1px solid #e6e6e6',
                                 borderRadius: '4px',
                                 backgroundColor: 'white',
+                                color: '#333333',
                                 boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
                                 transition: 'box-shadow 150ms ease, border-color 150ms ease'
                             } })),
@@ -43784,6 +43837,12 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "payment-element", style: { marginBottom: '20px' } }),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "error-message", style: {
                             color: '#fa755a',
+                            fontSize: '14px',
+                            marginBottom: '16px',
+                            minHeight: '20px'
+                        } }),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "success-message", style: {
+                            color: '#4caf50',
                             fontSize: '14px',
                             marginBottom: '16px',
                             minHeight: '20px'
@@ -43881,13 +43940,15 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                 color: '#a3a3a3',
                                 fontSize: '14px',
                                 borderRadius: '6px'
-                            } }, "Try Different Payment"),
+                            } }, "Change Domain URL"),
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "next-btn", onClick: handleSuccessNext, style: {
-                                padding: '10px 16px',
-                                fontSize: '14px',
-                                borderRadius: '6px'
+                                padding: '10px 12px',
+                                fontSize: '13px',
+                                borderRadius: '6px',
+                                whiteSpace: 'nowrap',
+                                minWidth: '140px'
                             } },
-                            "Continue to Publish ",
+                            "Cancel Subscription ",
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "" })))))));
     }
     return (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-screen" },
