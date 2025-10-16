@@ -1027,6 +1027,21 @@ class ExistingPaymentIntegration {
                     }
                 }
                 
+                // Try to get subscription details before dispatching event
+                let subscriptionDetails = null;
+                if (this.subscriptionId) {
+                    try {
+                        const statusResponse = await fetch(`${this.kvApiUrl}/api/accessibility/check-subscription-status?id=${this.subscriptionId}`);
+                        if (statusResponse.ok) {
+                            const statusData = await statusResponse.json();
+                            subscriptionDetails = statusData;
+                            console.log('🔥 Got subscription details for event:', subscriptionDetails);
+                        }
+                    } catch (error) {
+                        console.log('🔥 Failed to get subscription details for event:', error);
+                    }
+                }
+                
                 window.dispatchEvent(new CustomEvent('stripe-payment-success', {
                     detail: {
                         siteId: this.siteId,
@@ -1035,7 +1050,9 @@ class ExistingPaymentIntegration {
                         timestamp: new Date().toISOString(),
                         paymentIntent: paymentIntent,
                         setupIntent: setupIntent,
-                        intentId: intentId
+                        intentId: intentId,
+                        subscriptionId: this.subscriptionId,
+                        subscriptionDetails: subscriptionDetails
                     }
                 }));
                 

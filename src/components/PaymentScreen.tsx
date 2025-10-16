@@ -30,6 +30,73 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
   const [showStripeForm, setShowStripeForm] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [subscriptionValidUntil, setSubscriptionValidUntil] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+  const [showDomainModal, setShowDomainModal] = useState(false);
+  const [newDomain, setNewDomain] = useState('');
+  const [isUpdatingDomain, setIsUpdatingDomain] = useState(false);
+
+  // Helper function to get siteId from various sources
+  const getSiteId = async () => {
+    // Debug: Log all sessionStorage keys
+    console.log('🔥 PaymentScreen: All sessionStorage keys:', Object.keys(sessionStorage));
+    console.log('🔥 PaymentScreen: All sessionStorage values:', Object.keys(sessionStorage).map(key => ({ key, value: sessionStorage.getItem(key) })));
+    
+    // Try multiple possible session storage keys for siteId
+    let siteId = null;
+    
+    // First try the main auth key
+    const userData = sessionStorage.getItem('accessbit-userinfo');
+    console.log('🔥 PaymentScreen: accessbit-userinfo data:', userData);
+    if (userData) {
+      try {
+        const parsed = JSON.parse(userData);
+        siteId = parsed.siteId;
+        console.log('🔥 PaymentScreen: Found siteId in accessbit-userinfo:', siteId);
+      } catch (error) {
+        console.log('🔥 PaymentScreen: Error parsing accessbit-userinfo:', error);
+      }
+    }
+    
+    // Fallback to currentSiteId
+    if (!siteId) {
+      siteId = sessionStorage.getItem('currentSiteId');
+      console.log('🔥 PaymentScreen: Found siteId in currentSiteId:', siteId);
+    }
+    
+    // Legacy fallbacks
+    if (!siteId) {
+      siteId = sessionStorage.getItem('contrastkit') || 
+               sessionStorage.getItem('webflow_site_id') || 
+               sessionStorage.getItem('siteId');
+      console.log('🔥 PaymentScreen: Found siteId in legacy keys:', siteId);
+    }
+    
+    // Try to get from Webflow API as last resort
+    if (!siteId) {
+      try {
+        if (window.webflow && window.webflow.getSiteInfo) {
+          const siteInfo = await window.webflow.getSiteInfo();
+          if (siteInfo && siteInfo.siteId) {
+            siteId = siteInfo.siteId;
+            console.log('🔥 PaymentScreen: Found siteId from Webflow API:', siteId);
+          }
+        }
+      } catch (error) {
+        console.log('🔥 PaymentScreen: Error getting siteId from Webflow API:', error);
+      }
+    }
+    
+    console.log('🔥 PaymentScreen: Final siteId result:', siteId);
+    return siteId;
+  };
+
+  // Debug current state
+  console.log('🔥 PaymentScreen: Current state:', { 
+    paymentSuccess, 
+    subscriptionValidUntil, 
+    showStripeForm 
+  });
 
   // Check for payment success from URL parameters (for redirect methods)
   useEffect(() => {
@@ -131,51 +198,117 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
   useEffect(() => {
     const checkExistingSubscription = async () => {
       try {
-        const siteId = sessionStorage.getItem('contrastkit') || 
-                      sessionStorage.getItem('webflow_site_id') || 
-                      sessionStorage.getItem('siteId');
+        const siteId = await getSiteId();
         
-        if (!siteId) return;
-
-        // Check if we have stored subscription data
-        const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
-        if (storedSubscription) {
-          const subscriptionData = JSON.parse(storedSubscription);
-          const now = new Date().getTime();
-          const validUntil = subscriptionData.validUntil;
-          
-          if (validUntil && now < validUntil) {
-            // Subscription is still valid
-            console.log('🔥 PaymentScreen: Found valid subscription, showing success screen');
-            setPaymentSuccess(true);
-            setSubscriptionValidUntil(new Date(validUntil).toLocaleDateString());
-            return;
-          } else {
-            // Subscription expired, clear stored data
-            localStorage.removeItem(`subscription_${siteId}`);
-          }
+        console.log('🔥 PaymentScreen: Checking existing subscription for siteId:', siteId);
+        
+        if (!siteId) {
+          console.log('🔥 PaymentScreen: No siteId found, skipping subscription check');
+          return;
         }
 
-        // Check subscription status from server
-        const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/check-subscription-status?siteId=${siteId}`);
+        // Always check subscription status from server first (don't trust localStorage)
+        console.log('🔥 PaymentScreen: Checking subscription status from server');
+        const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ siteId })
+        });
+        
         if (response.ok) {
           const data = await response.json();
-          if (data.status === 'active' && data.current_period_end) {
-            const endDate = new Date(data.current_period_end * 1000);
-            const now = new Date().getTime();
+          console.log('🔥 PaymentScreen: Server response:', data);
+          
+          if (data.success && data.subscription && data.subscription.status === 'active') {
+            // Get current period end from subscription details - handle both formats
+            let endDate = null;
             
-            if (now < endDate.getTime()) {
-              // Subscription is active and valid
-              console.log('🔥 PaymentScreen: Active subscription found, showing success screen');
-              setPaymentSuccess(true);
-              setSubscriptionValidUntil(endDate.toLocaleDateString());
+            // Try different sources for current_period_end
+            if (data.subscription.details && data.subscription.details.current_period_end) {
+              // Stripe returns seconds, convert to milliseconds
+              endDate = new Date(data.subscription.details.current_period_end * 1000);
+              console.log('🔥 PaymentScreen: Using current_period_end from details (seconds):', data.subscription.details.current_period_end);
+            } else if (data.subscription.currentPeriodEnd) {
+              // Check if it's already in milliseconds or seconds
+              const periodEnd = data.subscription.currentPeriodEnd;
+              if (typeof periodEnd === 'number') {
+                // If it's a large number (milliseconds), use as is
+                if (periodEnd > 1000000000000) {
+                  endDate = new Date(periodEnd);
+                  console.log('🔥 PaymentScreen: Using currentPeriodEnd (milliseconds):', periodEnd);
+                } else {
+                  // If it's a smaller number (seconds), convert to milliseconds
+                  endDate = new Date(periodEnd * 1000);
+                  console.log('🔥 PaymentScreen: Using currentPeriodEnd (seconds):', periodEnd);
+                }
+              } else {
+                endDate = new Date(periodEnd);
+                console.log('🔥 PaymentScreen: Using currentPeriodEnd (date string):', periodEnd);
+              }
+            }
+            
+            console.log('🔥 PaymentScreen: Calculated endDate:', endDate);
+            
+            if (endDate && !isNaN(endDate.getTime())) {
+              const now = new Date().getTime();
+              console.log('🔥 PaymentScreen: Checking validity - now:', now, 'endDate:', endDate.getTime());
               
-              // Store subscription data for persistence
-              localStorage.setItem(`subscription_${siteId}`, JSON.stringify({
-                status: data.status,
-                validUntil: endDate.getTime(),
-                subscriptionId: data.subscriptionId
-              }));
+              if (now < endDate.getTime()) {
+                // Subscription is active and valid
+                console.log('🔥 PaymentScreen: Active subscription found, showing success screen');
+                setPaymentSuccess(true);
+                setSubscriptionValidUntil(endDate.toLocaleDateString());
+                
+                // Store subscription data for persistence with correct timestamp
+                const subscriptionData = {
+                  status: data.subscription.status,
+                  validUntil: endDate.getTime(),
+                  subscriptionId: data.subscription.id,
+                  fallback: false // Mark as not a fallback
+                };
+                localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
+                console.log('🔥 PaymentScreen: Stored subscription data:', subscriptionData);
+              } else {
+                console.log('🔥 PaymentScreen: Subscription expired, not showing success screen');
+                // Clear any stored data
+                localStorage.removeItem(`subscription_${siteId}`);
+              }
+            } else {
+              console.log('🔥 PaymentScreen: No valid end date found, using fallback');
+              // Fallback: assume 30 days from now for yearly plan
+              const fallbackDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year for yearly plan
+              setPaymentSuccess(true);
+              setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
+              
+              const subscriptionData = {
+                status: 'active',
+                validUntil: fallbackDate.getTime(),
+                subscriptionId: data.subscription.id,
+                fallback: true // Mark as fallback
+              };
+              localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
+              console.log('🔥 PaymentScreen: Stored fallback subscription data:', subscriptionData);
+            }
+          } else {
+            console.log('🔥 PaymentScreen: No active subscription found');
+            // Clear any stored data
+            localStorage.removeItem(`subscription_${siteId}`);
+          }
+        } else {
+          console.log('🔥 PaymentScreen: Failed to check subscription status:', response.status);
+          // If server fails, check localStorage as fallback
+          const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
+          if (storedSubscription) {
+            const subscriptionData = JSON.parse(storedSubscription);
+            const now = new Date().getTime();
+            const validUntil = subscriptionData.validUntil;
+            
+            if (validUntil && now < validUntil) {
+              console.log('🔥 PaymentScreen: Using stored subscription data as fallback');
+              setPaymentSuccess(true);
+              setSubscriptionValidUntil(new Date(validUntil).toLocaleDateString());
+            } else {
+              localStorage.removeItem(`subscription_${siteId}`);
             }
           }
         }
@@ -189,29 +322,123 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
 
   // Listen for payment success events
   useEffect(() => {
-    const handlePaymentSuccess = (event: CustomEvent) => {
+    const handlePaymentSuccess = async (event: CustomEvent) => {
       console.log('🔥 PaymentScreen: Payment success event received:', event.detail);
       console.log('🔥 PaymentScreen: Setting paymentSuccess to true');
       setPaymentSuccess(true);
       setShowStripeForm(false);
       
-      // Set subscription validity if provided
-      if (event.detail.subscriptionDetails?.current_period_end) {
-        const endDate = new Date(event.detail.subscriptionDetails.current_period_end * 1000);
-        setSubscriptionValidUntil(endDate.toLocaleDateString());
-        console.log('🔥 PaymentScreen: Set subscription valid until:', endDate.toLocaleDateString());
-        
-        // Store subscription data for persistence
-        const siteId = sessionStorage.getItem('contrastkit') || 
-                      sessionStorage.getItem('webflow_site_id') || 
-                      sessionStorage.getItem('siteId');
-        if (siteId) {
-          localStorage.setItem(`subscription_${siteId}`, JSON.stringify({
-            status: event.detail.subscriptionDetails.status,
-            validUntil: endDate.getTime(),
-            subscriptionId: event.detail.subscriptionId
-          }));
+      // Get siteId first
+      const siteId = await getSiteId();
+      if (!siteId) {
+        console.log('🔥 PaymentScreen: No siteId found for storing subscription data');
+        return;
+      }
+      
+      // Try to get subscription details from multiple sources
+      let subscriptionDetails = null;
+      let subscriptionId = null;
+      
+      // Check if we have subscriptionDetails in the event
+      if (event.detail.subscriptionDetails) {
+        subscriptionDetails = event.detail.subscriptionDetails;
+        subscriptionId = event.detail.subscriptionId;
+        console.log('🔥 PaymentScreen: Found subscriptionDetails in event:', subscriptionDetails);
+      } else {
+        // If no subscriptionDetails, try to fetch from server
+        console.log('🔥 PaymentScreen: No subscriptionDetails in event, fetching from server');
+        try {
+          const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ siteId })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('🔥 PaymentScreen: Server response for subscription details:', data);
+            
+            if (data.success && data.subscription) {
+              subscriptionDetails = data.subscription;
+              subscriptionId = data.subscription.id;
+            }
+          }
+        } catch (error) {
+          console.error('🔥 PaymentScreen: Failed to fetch subscription details:', error);
         }
+      }
+      
+      // Set subscription validity if we have details
+      if (subscriptionDetails) {
+        let endDate = null;
+        
+        // Try to get current_period_end from different sources
+        if (subscriptionDetails.details && subscriptionDetails.details.current_period_end) {
+          // Stripe returns seconds, convert to milliseconds
+          endDate = new Date(subscriptionDetails.details.current_period_end * 1000);
+          console.log('🔥 PaymentScreen: Using current_period_end from details (seconds):', subscriptionDetails.details.current_period_end);
+        } else if (subscriptionDetails.currentPeriodEnd) {
+          // Check if it's already in milliseconds or seconds
+          const periodEnd = subscriptionDetails.currentPeriodEnd;
+          if (typeof periodEnd === 'number') {
+            if (periodEnd > 1000000000000) {
+              endDate = new Date(periodEnd);
+              console.log('🔥 PaymentScreen: Using currentPeriodEnd (milliseconds):', periodEnd);
+            } else {
+              endDate = new Date(periodEnd * 1000);
+              console.log('🔥 PaymentScreen: Using currentPeriodEnd (seconds):', periodEnd);
+            }
+          } else {
+            endDate = new Date(periodEnd);
+            console.log('🔥 PaymentScreen: Using currentPeriodEnd (date string):', periodEnd);
+          }
+        } else if (subscriptionDetails.current_period_end) {
+          // Stripe returns seconds, convert to milliseconds
+          endDate = new Date(subscriptionDetails.current_period_end * 1000);
+          console.log('🔥 PaymentScreen: Using current_period_end from subscription (seconds):', subscriptionDetails.current_period_end);
+        }
+        
+        if (endDate) {
+          setSubscriptionValidUntil(endDate.toLocaleDateString());
+          console.log('🔥 PaymentScreen: Set subscription valid until:', endDate.toLocaleDateString());
+          
+          // Store subscription data for persistence
+          const subscriptionData = {
+            status: subscriptionDetails.status || 'active',
+            validUntil: endDate.getTime(),
+            subscriptionId: subscriptionId
+          };
+          localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
+          console.log('🔥 PaymentScreen: Stored subscription data for persistence:', subscriptionData);
+        } else {
+          console.log('🔥 PaymentScreen: No valid end date found, using fallback');
+          // Fallback: assume 1 year from now for yearly plan
+          const fallbackDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+          setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
+          
+          const subscriptionData = {
+            status: 'active',
+            validUntil: fallbackDate.getTime(),
+            subscriptionId: subscriptionId || 'unknown',
+            fallback: true // Mark as fallback
+          };
+          localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
+          console.log('🔥 PaymentScreen: Stored fallback subscription data:', subscriptionData);
+        }
+      } else {
+        console.log('🔥 PaymentScreen: No subscription details available, using fallback');
+        // Fallback: assume 1 year from now for yearly plan
+        const fallbackDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+        setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
+        
+        const subscriptionData = {
+          status: 'active',
+          validUntil: fallbackDate.getTime(),
+          subscriptionId: subscriptionId || 'unknown',
+          fallback: true // Mark as fallback
+        };
+        localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
+        console.log('🔥 PaymentScreen: Stored fallback subscription data:', subscriptionData);
       }
     };
 
@@ -227,10 +454,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
   // Periodic check for subscription validity
   useEffect(() => {
     if (paymentSuccess) {
-      const checkValidity = () => {
-        const siteId = sessionStorage.getItem('contrastkit') || 
-                      sessionStorage.getItem('webflow_site_id') || 
-                      sessionStorage.getItem('siteId');
+      const checkValidity = async () => {
+        const siteId = await getSiteId();
         
         if (!siteId) return;
 
@@ -383,62 +608,173 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
   };
 
   const handleEditDomain = () => {
-    console.log('Payment: Editing domain URL');
-    setPaymentSuccess(false);
-    setShowStripeForm(false);
+    console.log('Payment: Opening domain change modal');
+    setShowDomainModal(true);
   };
 
-  const handleCancelSubscription = async () => {
-    console.log('Payment: Canceling subscription');
-    if (confirm('Are you sure you want to cancel your subscription? Your access will continue until the end of your current billing period.')) {
-      try {
-        // Get siteId from session storage
-        const siteId = sessionStorage.getItem('contrastkit') || 
-                      sessionStorage.getItem('webflow_site_id') || 
-                      sessionStorage.getItem('siteId');
-        
-        if (!siteId) {
-          alert('Unable to find site ID. Please refresh and try again.');
-          return;
-        }
+  const handleCancelSubscription = () => {
+    console.log('Payment: Opening cancel subscription modal');
+    setShowCancelModal(true);
+  };
 
-        // First get the subscription ID
-        const statusResponse = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/check-subscription-status?siteId=${siteId}`);
-        if (!statusResponse.ok) {
-          throw new Error('Failed to get subscription details');
+  const handleConfirmCancel = async () => {
+    setIsCanceling(true);
+    try {
+      // Get siteId from session storage
+      const siteId = await getSiteId();
+      console.log('🔥 PaymentScreen: Cancellation - siteId found:', siteId);
+      
+      if (!siteId) {
+        alert('Unable to find site ID. Please refresh and try again.');
+        return;
+      }
+
+      // Simple approach: use siteId to cancel subscription directly
+      console.log('🔥 PaymentScreen: Canceling subscription for siteId:', siteId);
+      
+      // Calculate if cancellation date is close to billing period end
+      const now = new Date();
+      // For simplicity, assume 30 days from now as fallback
+      const currentPeriodEnd = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
+      const daysUntilPeriodEnd = Math.ceil((currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // If less than 7 days until period end, cancel at period end, otherwise cancel immediately
+      const cancelAtPeriodEnd = daysUntilPeriodEnd <= 7;
+      
+      console.log(`🔥 PaymentScreen: Cancellation logic - Days until period end: ${daysUntilPeriodEnd}, Cancel at period end: ${cancelAtPeriodEnd}`);
+
+      const cancelPayload = { 
+        siteId,
+        cancelAtPeriodEnd: cancelAtPeriodEnd
+      };
+      console.log('🔥 PaymentScreen: Cancel payload:', cancelPayload);
+
+      const response = await fetch('https://accessibility-widget.web-8fb.workers.dev/api/accessibility/cancel-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cancelPayload)
+      });
+
+      console.log('🔥 PaymentScreen: Cancel response status:', response.status, response.ok);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('🔥 PaymentScreen: Cancel success result:', result);
+        
+        if (cancelAtPeriodEnd) {
+          alert(`Subscription canceled successfully. Your access will continue until ${new Date(result.subscription.current_period_end * 1000).toLocaleDateString()}.`);
+        } else {
+          alert('Subscription canceled immediately. Your access has ended.');
         }
         
-        const statusData = await statusResponse.json();
-        if (!statusData.id) {
-          throw new Error('No active subscription found');
-        }
+        setPaymentSuccess(false);
+        setShowStripeForm(false);
+        setShowCancelModal(false);
+        
+        // Clear stored subscription data
+        localStorage.removeItem(`subscription_${siteId}`);
+      } else {
+        const error = await response.json();
+        console.log('🔥 PaymentScreen: Cancel error response:', error);
+        alert(`Failed to cancel subscription: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Cancel subscription error:', error);
+      alert('Failed to cancel subscription. Please try again.');
+    } finally {
+      setIsCanceling(false);
+    }
+  };
 
-        const response = await fetch('https://accessibility-widget.web-8fb.workers.dev/api/accessibility/cancel-subscription', {
+  const handleCloseCancelModal = () => {
+    setShowCancelModal(false);
+  };
+
+  const handleUpdateDomain = async () => {
+    if (!newDomain.trim()) {
+      alert('Please enter a valid domain URL');
+      return;
+    }
+
+    setIsUpdatingDomain(true);
+    try {
+      const siteId = await getSiteId();
+      if (!siteId) {
+        alert('Unable to find site ID. Please refresh and try again.');
+        return;
+      }
+
+      // Get subscription ID from localStorage or server
+      let subscriptionId = null;
+      const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
+      if (storedSubscription) {
+        const subscriptionData = JSON.parse(storedSubscription);
+        subscriptionId = subscriptionData.subscriptionId;
+      }
+
+      if (!subscriptionId) {
+        // Try to get from server
+        const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            siteId,
-            subscriptionId: statusData.id 
-          })
+          body: JSON.stringify({ siteId })
         });
-
+        
         if (response.ok) {
-          const result = await response.json();
-          alert(`Subscription canceled successfully. Your access will continue until ${new Date(result.currentPeriodEnd * 1000).toLocaleDateString()}.`);
-          setPaymentSuccess(false);
-          setShowStripeForm(false);
-          
-          // Clear stored subscription data
-          localStorage.removeItem(`subscription_${siteId}`);
-        } else {
-          const error = await response.json();
-          alert(`Failed to cancel subscription: ${error.error || 'Unknown error'}`);
+          const data = await response.json();
+          subscriptionId = data.subscription?.id;
         }
-      } catch (error) {
-        console.error('Cancel subscription error:', error);
-        alert('Failed to cancel subscription. Please try again.');
       }
+
+      if (!subscriptionId) {
+        alert('Unable to find subscription ID. Please refresh and try again.');
+        return;
+      }
+
+      // Update subscription metadata
+      const updateResponse = await fetch('https://accessibility-widget.web-8fb.workers.dev/api/accessibility/update-subscription-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          siteId,
+          subscriptionId,
+          metadata: {
+            domain_url: newDomain.trim(),
+            domain: newDomain.trim()
+          }
+        })
+      });
+
+      if (updateResponse.ok) {
+        const result = await updateResponse.json();
+        console.log('Domain updated successfully:', result);
+        
+        // Update localStorage with new domain
+        if (storedSubscription) {
+          const subscriptionData = JSON.parse(storedSubscription);
+          subscriptionData.domain = newDomain.trim();
+          localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
+        }
+        
+        alert('Domain updated successfully!');
+        setShowDomainModal(false);
+        setNewDomain('');
+      } else {
+        const error = await updateResponse.json();
+        console.error('Failed to update domain:', error);
+        alert(`Failed to update domain: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Domain update error:', error);
+      alert('Failed to update domain. Please try again.');
+    } finally {
+      setIsUpdatingDomain(false);
     }
+  };
+
+  const handleCloseDomainModal = () => {
+    setShowDomainModal(false);
+    setNewDomain('');
   };
 
   // When Stripe form is showing, render a full-screen scrollable view
@@ -483,37 +819,47 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               Contact Information
             </h3>
             
-            <div id="link-authentication-element" style={{ marginBottom: '20px' }}>
-              {/* Link Authentication Element will mount here */}
-            </div>
-            
-            <div className="form-group" style={{ marginBottom: '20px' }}>
-              <label htmlFor="domain-url" style={{ 
-                display: 'block', 
-                marginBottom: '8px', 
-                fontSize: '14px', 
-                fontWeight: '500', 
-                color: '#ffffff' 
-              }}>
-                Your Domain URL
-              </label>
-              <input 
-                id="domain-url" 
-                type="url" 
-                placeholder="https://your-domain.com" 
-                required 
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  fontSize: '16px',
-                  border: '1px solid #e6e6e6',
-                  borderRadius: '4px',
-                  backgroundColor: 'white',
-                  color: '#333333',
-                  boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
-                  transition: 'box-shadow 150ms ease, border-color 150ms ease'
-                }}
-              />
+            <div style={{ 
+              display: 'flex', 
+              gap: '16px', 
+              marginBottom: '20px',
+              flexWrap: 'wrap',
+              alignItems: 'flex-end'
+            }}>
+              <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                <div id="link-authentication-element" style={{ marginBottom: 0 }}>
+                  {/* Link Authentication Element will mount here */}
+                </div>
+              </div>
+              
+              <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                <label htmlFor="domain-url" style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#ffffff' 
+                }}>
+                  Your Domain URL
+                </label>
+                <input 
+                  id="domain-url" 
+                  type="url" 
+                  placeholder="https://your-domain.com" 
+                  required 
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    fontSize: '16px',
+                    border: '1px solid #e6e6e6',
+                    borderRadius: '4px',
+                    backgroundColor: 'white',
+                    color: '#333333',
+                    boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
+                    transition: 'box-shadow 150ms ease, border-color 150ms ease'
+                  }}
+                />
+              </div>
             </div>
             
             <h3 style={{ 
@@ -699,6 +1045,218 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             </div>
           </div>
         </div>
+        
+        {/* Cancellation Modal */}
+        {showCancelModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              borderRadius: '12px',
+              padding: '32px',
+              maxWidth: '400px',
+              width: '90%',
+              border: '1px solid #333',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                backgroundColor: '#dc2626',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+                fontSize: '24px'
+              }}>
+                ⚠️
+              </div>
+              
+              <h3 style={{
+                fontSize: '24px',
+                fontWeight: '600',
+                margin: '0 0 16px 0',
+                color: '#fff'
+              }}>
+                Cancel Subscription?
+              </h3>
+              
+              <p style={{ 
+                fontSize: '16px', 
+                color: '#a3a3a3', 
+                margin: '0 0 24px 0',
+                lineHeight: '1.5'
+              }}>
+                Are you sure you want to cancel your subscription? This action cannot be undone.
+              </p>
+              
+              <div style={{ 
+                display: 'flex', 
+                gap: '12px', 
+                justifyContent: 'center' 
+              }}>
+                <button 
+                  onClick={handleCloseCancelModal}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid #333',
+                    color: '#a3a3a3',
+                    fontSize: '14px',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  No, Keep Subscription
+                </button>
+                <button 
+                  onClick={handleConfirmCancel}
+                  disabled={isCanceling}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: isCanceling ? '#6b7280' : '#dc2626',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: '14px',
+                    borderRadius: '6px',
+                    cursor: isCanceling ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isCanceling ? 'Cancelling...' : 'Yes, Cancel'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Domain Change Modal */}
+        {showDomainModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              borderRadius: '12px',
+              padding: '32px',
+              maxWidth: '500px',
+              width: '90%',
+              border: '1px solid #333',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                backgroundColor: '#10b981',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+                fontSize: '24px'
+              }}>
+                🌐
+              </div>
+              
+              <h3 style={{
+                fontSize: '24px',
+                fontWeight: '600',
+                margin: '0 0 16px 0',
+                color: '#fff'
+              }}>
+                Change Domain URL
+              </h3>
+              
+              <p style={{ 
+                fontSize: '16px', 
+                color: '#a3a3a3', 
+                margin: '0 0 24px 0',
+                lineHeight: '1.5'
+              }}>
+                Enter the new domain URL where you want to use the accessibility widget.
+              </p>
+              
+              <div style={{ marginBottom: '24px' }}>
+                <input
+                  type="url"
+                  value={newDomain}
+                  onChange={(e) => setNewDomain(e.target.value)}
+                  placeholder="https://your-new-domain.com"
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    fontSize: '16px',
+                    border: '1px solid #333',
+                    borderRadius: '8px',
+                    backgroundColor: '#2a2a2a',
+                    color: '#fff',
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
+                  onBlur={(e) => e.target.style.borderColor = '#333'}
+                />
+              </div>
+              
+              <div style={{ 
+                display: 'flex', 
+                gap: '12px', 
+                justifyContent: 'center' 
+              }}>
+                <button 
+                  onClick={handleCloseDomainModal}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid #333',
+                    color: '#a3a3a3',
+                    fontSize: '14px',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleUpdateDomain}
+                  disabled={isUpdatingDomain || !newDomain.trim()}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: isUpdatingDomain || !newDomain.trim() ? '#6b7280' : '#10b981',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: '14px',
+                    borderRadius: '6px',
+                    cursor: isUpdatingDomain || !newDomain.trim() ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isUpdatingDomain ? 'Updating...' : 'Update Domain'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

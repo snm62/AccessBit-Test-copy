@@ -352,6 +352,9 @@ if (url.pathname === '/api/accessibility/cancel-subscription' && request.method 
 if (url.pathname === '/api/accessibility/subscription-status' && request.method === 'POST') {
   return handleGetSubscriptionStatus(request, env);
 }
+if (url.pathname === '/api/accessibility/update-subscription-metadata' && request.method === 'POST') {
+  return handleUpdateSubscriptionMetadata(request, env);
+}
 if (url.pathname === '/api/accessibility/create-payment-intent' && request.method === 'POST') {
   return handleCreatePaymentIntent(request, env);
 }
@@ -385,6 +388,16 @@ if (url.pathname === '/api/accessibility/create-payment-intent' && request.metho
       return new Response(JSON.stringify({ message: 'Worker is working', timestamp: new Date().toISOString() }), {
         headers: { 'Content-Type': 'application/json' }
       });
+    }
+    
+    // Check payment status for custom domain
+    if (url.pathname === '/api/accessibility/check-payment-status' && request.method === 'GET') {
+      return handleCheckPaymentStatus(request, env);
+    }
+    
+    // Widget script with payment check
+    if (url.pathname === '/widget.js' && request.method === 'GET') {
+      return handleWidgetScript(request, env);
     }
     
     // Setup payment method
@@ -1693,7 +1706,7 @@ async function handleApplyScript(request, env) {
     
         // Filter out duplicates - remove any existing accessibility widget scripts
     // Filter out duplicates - remove ALL accessibility widget scripts and any with same ID
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@10226fd/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@2eaf707/accessibility-widget.js';
 
     const existingAccessibilityScript = existingScripts.find(script => 
       script.scriptUrl === scriptUrl
@@ -2668,7 +2681,7 @@ async function handleCreateSubscription(request, env) {
       subscriptionData.append('payment_behavior', 'error_if_incomplete');
     } else {
       console.log('Creating subscription without payment method - will be set via SetupIntent webhook');
-      subscriptionData.append('payment_behavior', 'default_incomplete');
+    subscriptionData.append('payment_behavior', 'default_incomplete');
     }
     
     subscriptionData.append('collection_method', 'charge_automatically');
@@ -2723,6 +2736,9 @@ async function handleCreateSubscription(request, env) {
       customerId: customerId,
       subscriptionId: subscription.id,
       paymentStatus: subscription.status,
+      currentPeriodStart: subscription.current_period_start,
+      currentPeriodEnd: subscription.current_period_end,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
       createdAt: new Date().toISOString()
     };
     
@@ -2802,13 +2818,13 @@ async function handleCreateSubscription(request, env) {
       }), origin);
     } else if (subscription.status === 'active') {
       // Subscription is active immediately
-      await env.ACCESSIBILITY_AUTH.put(`domain_${sanitizedDomain}`, JSON.stringify({ 
-        siteId, 
-        verified: true 
-      }));
-      
+    await env.ACCESSIBILITY_AUTH.put(`domain_${sanitizedDomain}`, JSON.stringify({ 
+      siteId, 
+      verified: true 
+    }));
+
       return addSecurityAndCorsHeaders(secureJsonResponse({ 
-        subscriptionId: subscription.id,
+      subscriptionId: subscription.id,
         status: subscription.status,
         requiresAction: false
       }), origin);
@@ -2974,6 +2990,9 @@ async function handleStripeWebhook(request, env) {
         const userData = userDataStr ? JSON.parse(userDataStr) : {};
         userData.paymentStatus = subscription.status === 'active' ? 'active' : 'inactive';
         userData.lastPaymentDate = new Date().toISOString();
+        userData.currentPeriodStart = subscription.current_period_start;
+        userData.currentPeriodEnd = subscription.current_period_end;
+        userData.cancelAtPeriodEnd = subscription.cancel_at_period_end || false;
         await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
         await mergeSiteSettings(env, siteId, {
           siteId,
@@ -3144,6 +3163,9 @@ async function handleStripeWebhook(request, env) {
           userData.paymentMethod = setupIntent.payment_method_types?.[0] || 'card';
           userData.email = email || userData.email;
           userData.domain = domain || userData.domain;
+          userData.currentPeriodStart = updatedSubscription.current_period_start;
+          userData.currentPeriodEnd = updatedSubscription.current_period_end;
+          userData.cancelAtPeriodEnd = updatedSubscription.cancel_at_period_end || false;
           await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
           await mergeSiteSettings(env, siteId, {
             siteId,
@@ -3399,12 +3421,12 @@ async function handleCheckSubscriptionStatus(request, env) {
   const origin = request.headers.get('origin');
   const url = new URL(request.url);
   const subscriptionId = url.searchParams.get('id');
-  
-  if (!subscriptionId) {
-    const errorResponse = secureJsonResponse({ error: 'Missing subscription ID' }, 400);
-    return addSecurityAndCorsHeaders(errorResponse, origin);
-  }
-  
+    
+    if (!subscriptionId) {
+      const errorResponse = secureJsonResponse({ error: 'Missing subscription ID' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
   try {
     const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
       headers: {
@@ -3658,20 +3680,480 @@ async function handleVerifyPaymentMethod(request, env) {
   }
 }
 
+// Check payment status for custom domain
+async function handleCheckPaymentStatus(request, env) {
+  const origin = request.headers.get('origin');
+  const url = new URL(request.url);
+  const domain = url.searchParams.get('domain');
+  const siteId = url.searchParams.get('siteId');
+  
+  try {
+    console.log('Checking payment status for domain:', domain, 'siteId:', siteId);
+    
+    if (!domain) {
+      const errorResponse = secureJsonResponse({ error: 'Missing domain parameter' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    // Check if this is a staging domain (always allow)
+    const isStagingDomain = domain.includes('.webflow.io') || 
+                           domain.includes('.webflow.com') || 
+                           domain.includes('localhost') ||
+                           domain.includes('127.0.0.1') ||
+                           domain.includes('staging');
+    
+    if (isStagingDomain) {
+      console.log('Staging domain detected, allowing access:', domain);
+      return addSecurityAndCorsHeaders(secureJsonResponse({
+        hasAccess: true,
+        isStaging: true,
+        reason: 'Staging domain - no payment required'
+      }), origin);
+    }
+    
+    // For custom domains, check payment status
+    let paymentData = null;
+    
+    // First try to get payment data by siteId if provided
+    if (siteId) {
+      const paymentRecord = await env.ACCESSIBILITY_AUTH.get(`payment:${siteId}`);
+      if (paymentRecord) {
+        paymentData = JSON.parse(paymentRecord);
+        console.log('Found payment data by siteId:', paymentData);
+      }
+    }
+    
+    // If no payment data found by siteId, try to find by domain
+    if (!paymentData) {
+      const domainKey = `domain:${domain}`;
+      const domainData = await env.ACCESSIBILITY_AUTH.get(domainKey);
+      if (domainData) {
+        const domainInfo = JSON.parse(domainData);
+        const siteIdFromDomain = domainInfo.siteId;
+        if (siteIdFromDomain) {
+          const paymentRecord = await env.ACCESSIBILITY_AUTH.get(`payment:${siteIdFromDomain}`);
+          if (paymentRecord) {
+            paymentData = JSON.parse(paymentRecord);
+            console.log('Found payment data by domain lookup:', paymentData);
+          }
+        }
+      }
+    }
+    
+    if (!paymentData) {
+      console.log('No payment data found for domain:', domain);
+      return addSecurityAndCorsHeaders(secureJsonResponse({
+        hasAccess: false,
+        isStaging: false,
+        reason: 'No payment found for this domain',
+        requiresPayment: true
+      }), origin);
+    }
+    
+    // Check if payment is active
+    const now = new Date().getTime();
+    const currentPeriodEnd = paymentData.currentPeriodEnd;
+    const isActive = paymentData.status === 'active' && 
+                    currentPeriodEnd && 
+                    now < (currentPeriodEnd * 1000);
+    
+    if (isActive) {
+      console.log('Payment is active for domain:', domain);
+      return addSecurityAndCorsHeaders(secureJsonResponse({
+        hasAccess: true,
+        isStaging: false,
+        reason: 'Active payment found',
+        paymentStatus: paymentData.status,
+        validUntil: new Date(currentPeriodEnd * 1000).toISOString(),
+        subscriptionId: paymentData.subscriptionId
+      }), origin);
+    } else {
+      console.log('Payment is not active for domain:', domain, 'status:', paymentData.status);
+      return addSecurityAndCorsHeaders(secureJsonResponse({
+        hasAccess: false,
+        isStaging: false,
+        reason: 'Payment not active or expired',
+        paymentStatus: paymentData.status,
+        validUntil: currentPeriodEnd ? new Date(currentPeriodEnd * 1000).toISOString() : null,
+        requiresPayment: true
+      }), origin);
+    }
+    
+  } catch (error) {
+    console.error('Check payment status error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to check payment status',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Widget script with payment check
+async function handleWidgetScript(request, env) {
+  const origin = request.headers.get('origin');
+  const url = new URL(request.url);
+  const domain = url.searchParams.get('domain');
+  const siteId = url.searchParams.get('siteId');
+  
+  try {
+    console.log('Widget script requested for domain:', domain, 'siteId:', siteId);
+    
+    // Get current domain from referer if not provided
+    const currentDomain = domain || request.headers.get('referer') || 'unknown';
+    
+    // Check if this is a staging domain (always allow)
+    const isStagingDomain = currentDomain.includes('.webflow.io') || 
+                           currentDomain.includes('.webflow.com') || 
+                           currentDomain.includes('localhost') ||
+                           currentDomain.includes('127.0.0.1') ||
+                           currentDomain.includes('staging');
+    
+    if (isStagingDomain) {
+      console.log('Staging domain detected, serving widget script:', currentDomain);
+      return new Response(getWidgetScript(true), {
+        headers: { 
+          'Content-Type': 'application/javascript',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'public, max-age=3600'
+        }
+      });
+    }
+    
+    // For custom domains, check payment status
+    let paymentData = null;
+    
+    // First try to get payment data by siteId if provided
+    if (siteId) {
+      const paymentRecord = await env.ACCESSIBILITY_AUTH.get(`payment:${siteId}`);
+      if (paymentRecord) {
+        paymentData = JSON.parse(paymentRecord);
+        console.log('Found payment data by siteId:', paymentData);
+      }
+    }
+    
+    // If no payment data found by siteId, try to find by domain
+    if (!paymentData) {
+      const domainKey = `domain:${currentDomain}`;
+      const domainData = await env.ACCESSIBILITY_AUTH.get(domainKey);
+      if (domainData) {
+        const domainInfo = JSON.parse(domainData);
+        const siteIdFromDomain = domainInfo.siteId;
+        if (siteIdFromDomain) {
+          const paymentRecord = await env.ACCESSIBILITY_AUTH.get(`payment:${siteIdFromDomain}`);
+          if (paymentRecord) {
+            paymentData = JSON.parse(paymentRecord);
+            console.log('Found payment data by domain lookup:', paymentData);
+          }
+        }
+      }
+    }
+    
+    if (!paymentData) {
+      console.log('No payment data found for domain:', currentDomain);
+      return new Response(getWidgetScript(false, 'No payment found for this domain'), {
+        headers: { 
+          'Content-Type': 'application/javascript',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'public, max-age=300'
+        }
+      });
+    }
+    
+    // Check if payment is active
+    const now = new Date().getTime();
+    const currentPeriodEnd = paymentData.currentPeriodEnd;
+    const isActive = paymentData.status === 'active' && 
+                    currentPeriodEnd && 
+                    now < (currentPeriodEnd * 1000);
+    
+    if (isActive) {
+      console.log('Payment is active for domain:', currentDomain);
+      return new Response(getWidgetScript(true), {
+        headers: { 
+          'Content-Type': 'application/javascript',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'public, max-age=3600'
+        }
+      });
+    } else {
+      console.log('Payment is not active for domain:', currentDomain, 'status:', paymentData.status);
+      const reason = paymentData.status === 'active' ? 'Payment expired' : 'Payment not active';
+      return new Response(getWidgetScript(false, reason), {
+        headers: { 
+          'Content-Type': 'application/javascript',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'public, max-age=300'
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('Widget script error:', error);
+    return new Response(getWidgetScript(false, 'Error checking payment status'), {
+      headers: { 
+        'Content-Type': 'application/javascript',
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache'
+      }
+    });
+  }
+}
+
+// Generate widget script based on payment status
+function getWidgetScript(hasAccess, reason = '') {
+  if (hasAccess) {
+    // Full widget script for paid users
+    return `
+(function() {
+  'use strict';
+  
+  // ContrastKit Accessibility Widget Script
+  console.log('ContrastKit Accessibility Widget loaded - Full Access');
+  
+  // Accessibility Widget Implementation
+  const ContrastKitWidget = {
+    isInitialized: false,
+    
+    init: function() {
+      if (this.isInitialized) return;
+      this.isInitialized = true;
+      
+      console.log('ContrastKit Accessibility Widget initialized');
+      
+      // Create accessibility toolbar
+      this.createToolbar();
+      
+      // Add keyboard navigation support
+      this.addKeyboardSupport();
+      
+      // Add screen reader support
+      this.addScreenReaderSupport();
+      
+      console.log('ContrastKit features activated');
+    },
+    
+    createToolbar: function() {
+      const toolbar = document.createElement('div');
+      toolbar.id = 'contrastkit-toolbar';
+      toolbar.innerHTML = \`
+        <div style="
+          position: fixed;
+          top: 20px;
+          left: 20px;
+          background: #1a1a1a;
+          color: white;
+          padding: 12px;
+          border-radius: 8px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-size: 14px;
+          z-index: 9999;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          max-width: 200px;
+        ">
+          <div style="font-weight: 600; margin-bottom: 8px;">Accessibility Tools</div>
+          <button onclick="ContrastKitWidget.increaseFontSize()" style="
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            margin: 2px;
+            cursor: pointer;
+            font-size: 12px;
+          ">A+</button>
+          <button onclick="ContrastKitWidget.decreaseFontSize()" style="
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            margin: 2px;
+            cursor: pointer;
+            font-size: 12px;
+          ">A-</button>
+          <button onclick="ContrastKitWidget.toggleHighContrast()" style="
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            margin: 2px;
+            cursor: pointer;
+            font-size: 12px;
+          ">High Contrast</button>
+        </div>
+      \`;
+      document.body.appendChild(toolbar);
+    },
+    
+    increaseFontSize: function() {
+      const currentSize = parseFloat(getComputedStyle(document.body).fontSize);
+      document.body.style.fontSize = (currentSize + 2) + 'px';
+    },
+    
+    decreaseFontSize: function() {
+      const currentSize = parseFloat(getComputedStyle(document.body).fontSize);
+      document.body.style.fontSize = Math.max(currentSize - 2, 12) + 'px';
+    },
+    
+    toggleHighContrast: function() {
+      document.body.classList.toggle('contrastkit-high-contrast');
+      if (!document.querySelector('#contrastkit-contrast-styles')) {
+        const style = document.createElement('style');
+        style.id = 'contrastkit-contrast-styles';
+        style.textContent = \`
+          .contrastkit-high-contrast {
+            filter: contrast(150%) brightness(120%);
+          }
+          .contrastkit-high-contrast * {
+            background-color: white !important;
+            color: black !important;
+          }
+        \`;
+        document.head.appendChild(style);
+      }
+    },
+    
+    addKeyboardSupport: function() {
+      document.addEventListener('keydown', function(e) {
+        // Alt + A to toggle accessibility toolbar
+        if (e.altKey && e.key === 'a') {
+          const toolbar = document.getElementById('contrastkit-toolbar');
+          if (toolbar) {
+            toolbar.style.display = toolbar.style.display === 'none' ? 'block' : 'none';
+          }
+        }
+      });
+    },
+    
+    addScreenReaderSupport: function() {
+      // Add ARIA labels to interactive elements
+      const buttons = document.querySelectorAll('button:not([aria-label])');
+      buttons.forEach(button => {
+        if (!button.getAttribute('aria-label')) {
+          button.setAttribute('aria-label', button.textContent || 'Button');
+        }
+      });
+    }
+  };
+  
+  // Make widget globally accessible
+  window.ContrastKitWidget = ContrastKitWidget;
+  
+  // Initialize when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      ContrastKitWidget.init();
+    });
+  } else {
+    ContrastKitWidget.init();
+  }
+})();
+`;
+  } else {
+    // Limited script for unpaid users
+    return `
+(function() {
+  'use strict';
+  
+  console.log('ContrastKit Accessibility Widget - Payment Required');
+  console.log('Reason: ${reason}');
+  
+  // Show payment required message
+  const showPaymentMessage = function() {
+    const message = document.createElement('div');
+    message.innerHTML = \`
+      <div style="
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #f59e0b;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        z-index: 9999;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        max-width: 300px;
+      ">
+        <strong>Accessibility Widget</strong><br>
+        Payment required to activate features.
+        <a href="https://accessibility-widget.web-8fb.workers.dev" style="color: white; text-decoration: underline; margin-left: 4px;">
+          Subscribe Now
+        </a>
+      </div>
+    \`;
+    document.body.appendChild(message);
+    
+    // Remove message after 10 seconds
+    setTimeout(() => {
+      if (message.parentNode) {
+        message.parentNode.removeChild(message);
+      }
+    }, 10000);
+  };
+  
+  // Show message when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', showPaymentMessage);
+  } else {
+    showPaymentMessage();
+  }
+})();
+`;
+  }
+}
+
 // Cancel subscription
 async function handleCancelSubscription(request, env) {
   const origin = request.headers.get('origin');
   
   try {
-    const { subscriptionId, siteId } = await request.json();
+    const { subscriptionId, siteId, cancelAtPeriodEnd = true } = await request.json();
     
-    if (!subscriptionId) {
+    let finalSubscriptionId = subscriptionId;
+    
+    // If no subscriptionId provided, try to get it from siteId
+    if (!finalSubscriptionId && siteId) {
+      console.log('No subscriptionId provided, looking up from siteId:', siteId);
+      
+      // Try to get subscription ID from user data
+      const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+      if (userDataStr) {
+        const userData = JSON.parse(userDataStr);
+        finalSubscriptionId = userData.subscriptionId;
+        console.log('Found subscriptionId in user_data:', finalSubscriptionId);
+        console.log('Full user_data:', userData);
+      }
+      
+      // If still not found, try payment snapshot
+      if (!finalSubscriptionId) {
+        const paymentSnapshotStr = await env.ACCESSIBILITY_AUTH.get(`payment:${siteId}`);
+        if (paymentSnapshotStr) {
+          const paymentSnapshot = JSON.parse(paymentSnapshotStr);
+          finalSubscriptionId = paymentSnapshot.subscriptionId;
+          console.log('Found subscriptionId in payment snapshot:', finalSubscriptionId);
+        }
+      }
+    }
+    
+    if (!finalSubscriptionId) {
       const errorResponse = secureJsonResponse({ error: 'Missing subscription ID' }, 400);
       return addSecurityAndCorsHeaders(errorResponse, origin);
     }
     
-    // Cancel subscription at period end (allows customer to use service until end of billing period)
-    const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+    console.log('Cancel subscription request:', { subscriptionId: finalSubscriptionId, siteId, cancelAtPeriodEnd });
+    console.log('About to call Stripe API with subscription ID:', finalSubscriptionId);
+    
+    let subscription;
+    
+    if (cancelAtPeriodEnd) {
+      // Cancel at period end (recommended approach)
+      // This lets the customer continue using service until end of billing period
+      console.log('Canceling subscription at period end');
+      const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${finalSubscriptionId}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
@@ -3684,32 +4166,75 @@ async function handleCancelSubscription(request, env) {
     
     if (!subscriptionResponse.ok) {
       const errorText = await subscriptionResponse.text();
+        console.error('Stripe API error (period end):', errorText);
       throw new Error(`Failed to cancel subscription: ${errorText}`);
     }
     
-    const subscription = await subscriptionResponse.json();
+      subscription = await subscriptionResponse.json();
+      console.log('Stripe cancellation response (period end):', subscription);
+    } else {
+      // Cancel immediately (optional)
+      // This ends access immediately and may generate prorations
+      console.log('Canceling subscription immediately');
+      const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${finalSubscriptionId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+        }
+      });
+      
+      if (!subscriptionResponse.ok) {
+        const errorText = await subscriptionResponse.text();
+        console.error('Stripe API error (immediate):', errorText);
+        throw new Error(`Failed to cancel subscription: ${errorText}`);
+      }
+      
+      subscription = await subscriptionResponse.json();
+      console.log('Stripe cancellation response (immediate):', subscription);
+    }
     
     // Update local data if siteId provided
     if (siteId) {
+      console.log('Updating KV store for cancellation:', { siteId, cancelAtPeriodEnd });
+      
+      // Update user_data_${siteId}
       const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
       if (userDataStr) {
         const userData = JSON.parse(userDataStr);
-        userData.paymentStatus = 'canceling';
+        userData.paymentStatus = cancelAtPeriodEnd ? 'canceling' : 'canceled';
         userData.cancelAtPeriodEnd = subscription.cancel_at_period_end;
         userData.currentPeriodEnd = subscription.current_period_end;
         userData.lastUpdated = new Date().toISOString();
+        userData.cancellationDate = new Date().toISOString();
         
         await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+        console.log('Updated user_data_${siteId} with cancellation status');
+      }
+      
+      // Update payment:${siteId} snapshot
+      const paymentSnapshotStr = await env.ACCESSIBILITY_AUTH.get(`payment:${siteId}`);
+      if (paymentSnapshotStr) {
+        const paymentSnapshot = JSON.parse(paymentSnapshotStr);
+        paymentSnapshot.status = cancelAtPeriodEnd ? 'canceling' : 'canceled';
+        paymentSnapshot.cancelAtPeriodEnd = subscription.cancel_at_period_end;
+        paymentSnapshot.currentPeriodEnd = subscription.current_period_end;
+        paymentSnapshot.cancellationDate = new Date().toISOString();
+        paymentSnapshot.lastUpdated = new Date().toISOString();
         
-        // Also update site settings
+        await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(paymentSnapshot));
+        console.log('Updated payment:${siteId} with cancellation status');
+      }
+      
+      // Update site settings
         await mergeSiteSettings(env, siteId, {
           siteId,
-          paymentStatus: 'canceling',
+        paymentStatus: cancelAtPeriodEnd ? 'canceling' : 'canceled',
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
           currentPeriodEnd: subscription.current_period_end,
-          lastUpdated: userData.lastUpdated
+        cancellationDate: new Date().toISOString(),
+        lastUpdated: new Date().toISOString()
         });
-      }
+      console.log('Updated site settings with cancellation status');
     }
     
     const successResponse = secureJsonResponse({ 
@@ -3720,7 +4245,9 @@ async function handleCancelSubscription(request, env) {
         cancel_at_period_end: subscription.cancel_at_period_end,
         current_period_end: subscription.current_period_end
       },
-      message: 'Subscription will be canceled at the end of the current billing period'
+      message: cancelAtPeriodEnd 
+        ? 'Subscription will be canceled at the end of the current billing period'
+        : 'Subscription has been canceled immediately'
     });
     return addSecurityAndCorsHeaders(successResponse, origin);
     
@@ -3785,12 +4312,146 @@ async function handleGetSubscriptionStatus(request, env) {
         details: subscriptionDetails
       }
     });
+    
+    console.log('🔥 Backend: Returning subscription data:', {
+      id: userData.subscriptionId,
+      status: userData.paymentStatus,
+      currentPeriodEnd: userData.currentPeriodEnd,
+      details: subscriptionDetails ? {
+        current_period_end: subscriptionDetails.current_period_end,
+        status: subscriptionDetails.status
+      } : null
+    });
     return addSecurityAndCorsHeaders(successResponse, origin);
     
   } catch (error) {
     console.error('Get subscription status error:', error);
     const errorResponse = secureJsonResponse({ 
       error: 'Failed to get subscription status',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+async function handleUpdateSubscriptionMetadata(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { siteId, subscriptionId, metadata } = await request.json();
+    
+    if (!siteId || !subscriptionId || !metadata) {
+      const errorResponse = secureJsonResponse({ error: 'Missing required fields' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    console.log('Updating subscription metadata:', { siteId, subscriptionId, metadata });
+    
+    // Retrieve existing subscription to preserve any existing metadata
+    const existingSubscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+      }
+    });
+    
+    if (!existingSubscriptionResponse.ok) {
+      const errorText = await existingSubscriptionResponse.text();
+      console.error('Failed to retrieve existing subscription:', errorText);
+      const errorResponse = secureJsonResponse({ 
+        error: 'Failed to retrieve subscription',
+        details: errorText 
+      }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    const existingSubscription = await existingSubscriptionResponse.json();
+    const existingMetadata = existingSubscription.metadata || {};
+    
+    // Merge existing metadata with new metadata
+    const mergedMetadata = {
+      ...existingMetadata,
+      ...metadata,
+      updated_at: new Date().toISOString()
+    };
+    
+    console.log('Merged metadata:', mergedMetadata);
+    
+    // Update the subscription with merged metadata
+    const updateResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        metadata: JSON.stringify(mergedMetadata)
+      })
+    });
+    
+    if (!updateResponse.ok) {
+      const errorText = await updateResponse.text();
+      console.error('Failed to update subscription metadata:', errorText);
+      const errorResponse = secureJsonResponse({ 
+        error: 'Failed to update subscription metadata',
+        details: errorText 
+      }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    const updatedSubscription = await updateResponse.json();
+    console.log('Subscription metadata updated successfully:', updatedSubscription.metadata);
+    
+    // Update KV store with new domain information
+    try {
+      const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+      if (userDataStr) {
+        const userData = JSON.parse(userDataStr);
+        userData.domain = metadata.domain_url || metadata.domain || userData.domain;
+        userData.lastUpdated = new Date().toISOString();
+        await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+        console.log('Updated user_data with new domain:', userData.domain);
+      }
+      
+      // Update payment snapshot
+      const paymentSnapshotStr = await env.ACCESSIBILITY_AUTH.get(`payment:${siteId}`);
+      if (paymentSnapshotStr) {
+        const paymentSnapshot = JSON.parse(paymentSnapshotStr);
+        paymentSnapshot.metadata = mergedMetadata;
+        paymentSnapshot.lastUpdated = new Date().toISOString();
+        await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(paymentSnapshot));
+        console.log('Updated payment snapshot with new metadata');
+      }
+      
+      // Update domain mapping if domain_url is provided
+      if (metadata.domain_url) {
+        const domainKey = `domain:${metadata.domain_url}`;
+        await env.ACCESSIBILITY_AUTH.put(domainKey, JSON.stringify({
+          siteId: siteId,
+          domain: metadata.domain_url,
+          connectedAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString()
+        }), { expirationTtl: 86400 * 30 }); // 30 days
+        console.log('Updated domain mapping for:', metadata.domain_url);
+      }
+      
+    } catch (kvError) {
+      console.warn('Failed to update KV store:', kvError);
+      // Don't fail the request if KV update fails
+    }
+    
+    const successResponse = secureJsonResponse({ 
+      success: true,
+      subscription: {
+        id: updatedSubscription.id,
+        metadata: updatedSubscription.metadata
+      }
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Update subscription metadata error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to update subscription metadata',
       details: error.message 
     }, 500);
     return addSecurityAndCorsHeaders(errorResponse, origin);

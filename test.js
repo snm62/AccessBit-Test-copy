@@ -31119,3 +31119,117 @@ class AccessibilityWidget {
         }
         
     });
+
+    // Payment Status Check - Added functionality
+    (function() {
+        'use strict';
+        
+        console.log('ContrastKit Payment Status Check: Starting...');
+        
+        // Check payment status before loading widget
+        const checkPaymentStatus = async function() {
+            try {
+                // Get current domain
+                const currentDomain = window.location.hostname;
+                console.log('Payment Check: Current domain:', currentDomain);
+                
+                // Check if this is a staging domain (always allow)
+                const isStagingDomain = currentDomain.includes('.webflow.io') || 
+                                       currentDomain.includes('.webflow.com') || 
+                                       currentDomain.includes('localhost') ||
+                                       currentDomain.includes('127.0.0.1') ||
+                                       currentDomain.includes('staging');
+                
+                if (isStagingDomain) {
+                    console.log('Payment Check: Staging domain detected, allowing full access');
+                    return { hasAccess: true, isStaging: true };
+                }
+                
+                // For custom domains, check payment status
+                const siteId = sessionStorage.getItem('contrastkit') || 
+                              sessionStorage.getItem('webflow_site_id') || 
+                              sessionStorage.getItem('siteId');
+                
+                if (!siteId) {
+                    console.log('Payment Check: No siteId found, checking by domain only');
+                }
+                
+                // Check payment status via API
+                const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/check-payment-status?domain=${encodeURIComponent(currentDomain)}${siteId ? `&siteId=${siteId}` : ''}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Payment check failed: ${response.status}`);
+                }
+                
+                const paymentData = await response.json();
+                console.log('Payment Check: Response:', paymentData);
+                
+                return paymentData;
+                
+            } catch (error) {
+                console.error('Payment Check: Error checking payment status:', error);
+                return { hasAccess: false, error: error.message };
+            }
+        };
+        
+        // Show payment required message
+        const showPaymentMessage = function(reason) {
+            const message = document.createElement('div');
+            message.innerHTML = `
+                <div style="
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #f59e0b;
+                    color: white;
+                    padding: 12px 16px;
+                    border-radius: 8px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    font-size: 14px;
+                    z-index: 9999;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                    max-width: 300px;
+                ">
+                    <strong>Accessibility Widget</strong><br>
+                    ${reason || 'Payment required to activate features.'}
+                    <a href="https://accessibility-widget.web-8fb.workers.dev" style="color: white; text-decoration: underline; margin-left: 4px;">
+                        Subscribe Now
+                    </a>
+                </div>
+            `;
+            document.body.appendChild(message);
+            
+            // Remove message after 10 seconds
+            setTimeout(() => {
+                if (message.parentNode) {
+                    message.parentNode.removeChild(message);
+                }
+            }, 10000);
+        };
+        
+        // Initialize payment check
+        const initPaymentCheck = async function() {
+            const paymentStatus = await checkPaymentStatus();
+            
+            if (paymentStatus.hasAccess) {
+                console.log('Payment Check: Access granted, widget will load normally');
+                // Widget will continue to load normally
+            } else {
+                console.log('Payment Check: Access denied, showing payment message');
+                showPaymentMessage(paymentStatus.reason || 'Payment required to activate features.');
+                
+                // Optionally disable widget functionality
+                if (window.accessibilityWidget) {
+                    window.accessibilityWidget.disable = true;
+                }
+            }
+        };
+        
+        // Run payment check when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPaymentCheck);
+        } else {
+            initPaymentCheck();
+        }
+        
+    })();
