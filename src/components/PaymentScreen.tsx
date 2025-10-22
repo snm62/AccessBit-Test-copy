@@ -1282,7 +1282,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                 Subscription Details
               </div>
               <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>
-                {isAnnual ? 'Annual Plan' : 'Monthly Plan'} - ${isAnnual ? '19' : '24'}/{isAnnual ? 'year' : 'month'}
+                {isAnnual ? 'Annual Plan' : 'Monthly Plan'} - ${isAnnual ? '19' : '24'}/month{isAnnual ? ': Purchased Annually' : ''}
               </div>
               <div style={{ fontSize: '12px', color: '#a3a3a3' }}>
                 Valid until: {subscriptionValidUntil || 'Loading...'}
