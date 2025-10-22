@@ -1,7 +1,7 @@
 import { getAuthStorageItem, removeAuthStorageItem } from './authStorage';
 export function getSessionTokenFromLocalStorage() {
   // COMMENTED OUT: const userinfo = localStorage.getItem("consentbit-userinfo");
-  const userinfo = getAuthStorageItem("contrastKit-userinfo");
+  const userinfo = getAuthStorageItem("accessbit-userinfo");
   if (!userinfo) return null;
   try {
     const tokenss = JSON.parse(userinfo);
@@ -9,7 +9,7 @@ export function getSessionTokenFromLocalStorage() {
   } catch {
     // Invalid JSON, clear it
     // COMMENTED OUT: localStorage.removeItem("consentbit-userinfo");
-    removeAuthStorageItem("contrastKit-userinfo");
+    removeAuthStorageItem("accessbit-userinfo");
     return null;
   }
 }

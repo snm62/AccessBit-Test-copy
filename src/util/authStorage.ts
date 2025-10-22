@@ -11,11 +11,12 @@ export interface SiteInfo {
   siteName?: string;
   shortName: string;
   url?: string;
+  email?: string;
   // Add other site info properties as needed
 }
 // ALL keys now use sessionStorage (commented out localStorage usage)
 const ALL_KEYS = [
-  'contrastkit-userinfo',  // Primary key (no legacy duplicate)
+  'accessbit-userinfo',  // Primary key (no legacy duplicate)
   'siteInfo',
   'explicitly_logged_out',
   'cookiePreferences',
@@ -113,7 +114,7 @@ export function clearAllData(): void {
 */
 export function getAuthData(): AuthData | null {
   // Only use the ContrastKit key
-  const authData = getAuthStorageItem('contrastkit-userinfo');
+  const authData = getAuthStorageItem('accessbit-userinfo');
   if (!authData) return null;
   try {
     return JSON.parse(authData);
@@ -126,7 +127,7 @@ export function getAuthData(): AuthData | null {
 */
 export function setAuthData(authData: AuthData): void {
   // Store only under ContrastKit key
-  setAuthStorageItem('contrastkit-userinfo', JSON.stringify(authData));
+  setAuthStorageItem('accessbit-userinfo', JSON.stringify(authData));
   // Proactively remove any legacy key so it doesn't linger
   try { removeAuthStorageItem('consentbit-userinfo'); } catch {}
 }
@@ -196,7 +197,7 @@ export function migrateAuthDataToSessionStorage(): void {
     return; // Migration already done, skip expensive operations
   }
   // Only migrate essential keys to avoid expensive operations
-  const essentialKeys = ['contrastkit-userinfo', 'siteInfo', 'explicitly_logged_out'];
+  const essentialKeys = ['accessbit-userinfo', 'siteInfo', 'explicitly_logged_out'];
   let migratedCount = 0;
   essentialKeys.forEach(key => {
     const value = localStorage.getItem(key);
@@ -222,7 +223,7 @@ export function debugStorageState(): void {
 * Get ContrastKit authentication data from sessionStorage
 */
 export function getContrastKitAuthData(): AuthData | null {
-  const authData = getAuthStorageItem('contrastkit-userinfo');
+  const authData = getAuthStorageItem('accessbit-userinfo');
   if (!authData) return null;
   try {
     return JSON.parse(authData);
@@ -235,7 +236,7 @@ export function getContrastKitAuthData(): AuthData | null {
 * Set ContrastKit authentication data in sessionStorage
 */
 export function setContrastKitAuthData(authData: AuthData): void {
-  setAuthStorageItem('contrastkit-userinfo', JSON.stringify(authData));
+  setAuthStorageItem('accessbit-userinfo', JSON.stringify(authData));
 }
 
 /**

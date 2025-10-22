@@ -1,0 +1,307 @@
+/* Styles for Existing Payment Tab Integration */
+
+/* Stripe Payment Container */
+.stripe-payment-container {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.stripe-payment-container h3 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #262626;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+/* Form Sections */
+.form-section {
+    margin-bottom: 20px;
+}
+
+.form-section label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #262626;
+    font-size: 14px;
+}
+
+.form-section input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 16px;
+    background: #f9fafb;
+    color: #262626;
+    box-sizing: border-box;
+}
+
+.form-section input:focus {
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    outline: none;
+    background: #ffffff;
+}
+
+/* Form Group (for domain URL field only) - scoped to payment screen */
+#domain-element .form-group {
+    margin-bottom: 16px;
+}
+
+#domain-element .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #32325d;
+}
+
+#domain-element .form-group input {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 16px;
+    border: 1px solid #e6e6e6;
+    border-radius: 4px;
+    background-color: white;
+    box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07);
+    transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+
+#domain-element .form-group input:focus {
+    box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.1), 
+                0px 1px 6px rgba(0, 0, 0, 0.08);
+    border-color: #6772e5;
+    outline: none;
+}
+
+/* Stripe Elements Container */
+#stripe-payment-element {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 16px;
+    background: #ffffff;
+    margin: 10px 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Checkbox Label */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.link-text {
+    font-size: 14px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.link-text a {
+    color: #0066cc;
+    text-decoration: none;
+}
+
+/* Subscribe Button */
+.subscribe-button {
+    width: 100%;
+    background: #0066cc;
+    color: white;
+    border: none;
+    padding: 16px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 20px 0;
+    transition: background-color 0.3s ease;
+}
+
+.subscribe-button:hover {
+    background: #0052a3;
+}
+
+.subscribe-button:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+/* Legal Text */
+.legal-text {
+    font-size: 14px;
+    color: #6b7280;
+    text-align: center;
+    margin: 10px 0;
+    line-height: 1.4;
+}
+
+/* Footer */
+.footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    color: #6b7280;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.footer a {
+    color: #0066cc;
+    text-decoration: none;
+    margin-left: 10px;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+/* Back to Pricing Button */
+.back-to-pricing-btn {
+    width: 100%;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.3s ease;
+}
+
+.back-to-pricing-btn:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+/* Stripe Elements Override Styling */
+#stripe-payment-element .StripeElement {
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    font-size: 16px;
+    color: #262626;
+}
+
+#stripe-payment-element .StripeElement--focus {
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+#stripe-payment-element .StripeElement--invalid {
+    border-color: #ef4444;
+}
+
+#stripe-payment-element .StripeElement--tabs {
+    border: none;
+    background: transparent;
+}
+
+#stripe-payment-element .StripeElement--tabs .StripeElement--tabs__tab {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 4px;
+    background: #ffffff;
+    color: #262626;
+    font-weight: 500;
+}
+
+#stripe-payment-element .StripeElement--tabs .StripeElement--tabs__tab--selected {
+    border-color: #0066cc;
+    background: #f0f8ff;
+    color: #0066cc;
+}
+
+#stripe-payment-element input {
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 16px;
+    color: #262626;
+    background: #ffffff;
+}
+
+#stripe-payment-element input:focus {
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    outline: none;
+}
+
+#stripe-payment-element .StripeElement--error {
+    color: #ef4444;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+#stripe-payment-element .StripeElement--loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .stripe-payment-container {
+        padding: 16px;
+    }
+    
+    .stripe-payment-container h3 {
+        font-size: 20px;
+    }
+    
+    .form-section input {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    
+    #stripe-payment-element .StripeElement--tabs .StripeElement--tabs__tab {
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+}
+
+/* Dark theme support (if your app uses dark theme) */
+@media (prefers-color-scheme: dark) {
+    .stripe-payment-container {
+        background: #1f2937;
+        color: #f9fafb;
+    }
+    
+    .stripe-payment-container h3 {
+        color: #f9fafb;
+    }
+    
+    .form-section label {
+        color: #f9fafb;
+    }
+    
+    .form-section input {
+        background: #374151;
+        border-color: #4b5563;
+        color: #f9fafb;
+    }
+    
+    .form-section input:focus {
+        border-color: #0066cc;
+        background: #4b5563;
+    }
+    
+    #stripe-payment-element {
+        background: #374151;
+        border-color: #4b5563;
+    }
+}

@@ -3,12 +3,43 @@
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Permissions-Policy" content="payment=(self *), camera=(), microphone=(), geolocation=()" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.stripe.com https://cdn.prod.website-files.com; script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com https://cdn.prod.website-files.com; script-src-attr 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.prod.website-files.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.prod.website-files.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.stripe.com https://*.stripe.com https://accessibility-widget.web-8fb.workers.dev https://d3e54v103j8qbb.cloudfront.net; frame-src 'self' https://js.stripe.com; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://*.webflow.com; object-src 'none'; upgrade-insecure-requests;" />
+  <meta name="referrer" content="no-referrer-when-downgrade" />
   <title>ContrastKit</title>
   <link href="./styles.css" rel="stylesheet" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@100;200;300;400;500;600;700;800;900&display=swap"
     rel="stylesheet">
+  
+  <!-- Stripe Integration Scripts -->
+  <script src="https://js.stripe.com/v3/"></script>
+  <script src="./existing-payment-integration.js?v=20250113-14"></script>
+  <link rel="stylesheet" href="./existing-payment-styles.css">
+  
+  <!-- Allow payment functionality in iframe environment -->
+  <script>
+    // Explicitly allow payment functionality
+    if (window.parent !== window) {
+      console.log('Running in iframe - allowing payment functionality');
+      // Try to set permissions policy if possible
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          // Note: 'payment' is not a standard permission name in most browsers
+          // This is expected to fail in most cases
+          navigator.permissions.query({ name: 'payment' }).then(result => {
+            console.log('Payment permission status:', result.state);
+          }).catch(err => {
+            console.log('Payment permission query failed (expected):', err.message);
+          });
+        }
+      } catch (e) {
+        console.log('Permissions API not available:', e);
+      }
+    }
+  </script>
 </head>
 
 <body>
