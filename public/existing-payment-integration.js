@@ -807,8 +807,8 @@ class ExistingPaymentIntegration {
                         fontSize: '16px',
                         border: '1px solid #e6e6e6',
                         borderRadius: '4px',
-                        backgroundColor: 'white',
-                        color: '#333333',
+                        backgroundColor: '#ffffff00',
+                        color: 'white',
                         boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
                         transition: 'box-shadow 150ms ease, border-color 150ms ease',
                         boxSizing: 'border-box'
@@ -824,7 +824,7 @@ class ExistingPaymentIntegration {
                         color: '#ffffff',
                         fontSize: '14px',
                         fontWeight: '500',
-                        marginBottom: '8px',
+                        marginTop: '24px',
                         backgroundColor: 'transparent'
                     },
                     '.Input::placeholder': {

@@ -6405,7 +6405,7 @@ ___CSS_LOADER_EXPORT___.push([module.id, `.payment-screen {
     font-size: 48px;
     line-height: 46px;
   }
-}`, "",{"version":3,"sources":["webpack://./src/styles/payment.css"],"names":[],"mappings":"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","sourcesContent":[".payment-screen {\r\n  min-height: 100vh;\r\n  width: 800px;\r\n  background: rgba(10, 8, 27, 1);\r\n  color: #ffffff;\r\n  font-family: 'DM Sans', sans-serif;\r\n}\r\n\r\n/* Header */\r\n.payment-header {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  align-items: center;\r\n  padding: 18px 30px;\r\n}\r\n\r\n.app-name {\r\n  font-size: 24px;\r\n  font-weight: bold;\r\n  color: #ffffff;\r\n}\r\n\r\n.header-buttons {\r\n  display: flex;\r\n  gap: 15px;\r\n}\r\n\r\n.back-btn,\r\n.next-btn {\r\n  padding: 10px 20px;\r\n  border: none;\r\n  border-radius: 6px;\r\n  cursor: pointer;\r\n  font-size: 14px;\r\n  font-weight: 500;\r\n  transition: all 0.3s ease;\r\n  display: flex;\r\n  gap: 8px;\r\n}\r\n\r\n.back-btn {\r\n  background: rgba(21, 19, 40, 1);\r\n  color: #ffffff;\r\n}\r\n\r\n.back-btn:disabled {\r\n  opacity: 0.6;\r\n  cursor: not-allowed;\r\n}\r\n\r\n.next-btn {\r\n  background: rgba(38, 46, 132, 1);\r\n  color: #ffffff;\r\n}\r\n\r\n.next-btn:hover:not(:disabled) {\r\n  background: #2563eb;\r\n}\r\n\r\n.next-btn:disabled {\r\n  opacity: 0.6;\r\n  cursor: not-allowed;\r\n}\r\n\r\n/* Step Navigation */\r\n.step-navigation {\r\n  display: flex;\r\n  margin: 10px 30px 0px 27px;\r\n  padding: 0px;\r\n  gap: 100px;\r\n  border-bottom: 1px solid #EFEEEC14;\r\n  font-weight: 400;\r\n}\r\n\r\n.step {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 4px;\r\n  position: relative;\r\n  cursor: pointer;\r\n  transition: color 0.3s ease;\r\n  font-weight: 400;\r\n  padding-bottom: 17px;\r\n}\r\n\r\n.step-number {\r\n  font-size: 12px;\r\n  color: #999;\r\n}\r\n\r\n.step-name {\r\n  font-size: 16px;\r\n  color: #999;\r\n}\r\n\r\n.step.active .step-number {\r\n  color: #ffffff;\r\n}\r\n\r\n.step.active .step-name {\r\n  color: #ffffff;\r\n}\r\n\r\n.step:not(.active) .step-name {\r\n  color: rgba(255, 255, 255, 0.7);\r\n}\r\n\r\n.step.completed .step-number {\r\n  color: rgba(43, 110, 47, 1);\r\n}\r\n\r\n.step.completed .step-name {\r\n  color: rgba(43, 110, 47, 1);\r\n}\r\n\r\n/* Main Content */\r\n.payment-screen .main-content {\r\n  display: flex;\r\n  justify-content: center;\r\n  /* align-items: center; */\r\n  height: calc(100vh - 200px);\r\n  padding: 20px;\r\n  text-align: left;\r\n  align-items: flex-start\r\n}\r\n\r\n.payment-card {\r\n  /* background: linear-gradient(29.71deg, #0B091D 18.17%, #2E2B45 127.91%); */\r\n  border-radius: 12px;\r\n  border: 1px solid #EFEEEC14;\r\n  padding: 40px;\r\n  width: 680px;\r\n  height: 220px;\r\n  position: relative;\r\n  overflow: hidden;\r\n  opacity: 1;\r\n  background: left;\r\n  background-size: 760px;\r\n  background-repeat: no-repeat;\r\n  background-image: url(\"../assets/bgpay.png\");\r\n}\r\n\r\n.payment-card::before {\r\n  content: '';\r\n  position: absolute;\r\n  top: 0;\r\n  left: 0;\r\n  right: 0;\r\n  bottom: 0;\r\n  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);\r\n  border-radius: 12px;\r\n  z-index: -1;\r\n}\r\n\r\n.payment-screen .pricing-flex {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 40px;\r\n  width: 100%;\r\n  height: 200px;\r\n}\r\n\r\n.payment-screen .pricing-left {\r\n  text-align: center;\r\n  flex: 1;\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n}\r\n\r\n.main-price {\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  margin-bottom: 24px;\r\n}\r\n\r\n.price-number {\r\n  font-family: 'Funnel Display', sans-serif;\r\n  font-weight: 700;\r\n  font-style: bold;\r\n  font-size: 66px;\r\n  line-height: 64px;\r\n  letter-spacing: 0%;\r\n  text-align: center;\r\n  vertical-align: middle;\r\n  color: white;\r\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\r\n}\r\n\r\n.price-period {\r\n  font-family: 'DM Sans', sans-serif;\r\n  font-weight: 500;\r\n  font-style: medium;\r\n  font-size: 12px;\r\n  line-height: 12px;\r\n  letter-spacing: 0%;\r\n  text-align: center;\r\n  vertical-align: middle;\r\n  color: white;\r\n  margin-top: 28px;\r\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\r\n  opacity: 1;\r\n}\r\n\r\n.payment-screen .pricing-right {\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 21px;\r\n  flex: 1;\r\n  text-align: center;\r\n  height: 100px;\r\n  position: relative;\r\n}\r\n\r\n.secondary-price {\r\n  font-family: 'DM Sans', sans-serif;\r\n  font-weight: 500;\r\n  font-style: medium;\r\n  font-size: 12px;\r\n  line-height: 12px;\r\n  letter-spacing: 0%;\r\n  text-align: center;\r\n  vertical-align: middle;\r\n  color: #FFFFFF;\r\n  width: 120px;\r\n  height: 12px;\r\n  opacity: 1;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  flex-shrink: 0;\r\n  min-height: 12px;\r\n  white-space: nowrap;\r\n  overflow: hidden;\r\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\r\n}\r\n\r\n.payment-toggle {\r\n  display: flex;\r\n  width: 188px;\r\n  height: 40px;\r\n  background: #FEF1F11C;\r\n  border: 1px solid #FFFFFF47;\r\n  border-radius: 8px;\r\n  padding: 4px;\r\n  position: relative;\r\n  margin: 0 auto;\r\n}\r\n\r\n.payment-toggle::before {\r\n  content: '';\r\n  position: absolute;\r\n  top: 4px;\r\n  left: 4px;\r\n  width: calc(50% - 4px);\r\n  height: calc(100% - 8px);\r\n  background: #3CB4E5;\r\n  border-radius: 6px;\r\n  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);\r\n  z-index: 1;\r\n}\r\n\r\n.payment-toggle.monthly::before {\r\n  transform: translateX(0);\r\n}\r\n\r\n.payment-toggle.annually::before {\r\n  transform: translateX(100%);\r\n}\r\n\r\n.toggle-option {\r\n  flex: 1;\r\n  padding: 0;\r\n  border: none;\r\n  border-radius: 6px;\r\n  background: transparent;\r\n  color: #ffffff;\r\n  font-family: 'DM Sans', sans-serif;\r\n  font-weight: 700;\r\n  font-style: bold;\r\n  font-size: 14.88px;\r\n  line-height: 22.4px;\r\n  letter-spacing: 0%;\r\n  text-align: center;\r\n  vertical-align: middle;\r\n  cursor: pointer;\r\n  transition: color 0.3s ease;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  position: relative;\r\n  z-index: 2;\r\n}\r\n\r\n.toggle-option.active {\r\n  color: #262E84;\r\n}\r\n\r\n.toggle-option:not(.active) {\r\n  color: #EFEEEC;\r\n}\r\n\r\n.toggle-option:not(.active):hover {\r\n  color: #ffffff;\r\n}\r\n\r\n.savings-info {\r\n  font-family: 'DM Sans', sans-serif;\r\n  font-weight: 300;\r\n  font-style: light;\r\n  font-size: 15px;\r\n  line-height: 12px;\r\n  letter-spacing: 0%;\r\n  text-align: center;\r\n  vertical-align: middle;\r\n  color: #ffffffAB;\r\n  opacity: 0.67;\r\n  width: 95px;\r\n  height: 12px;\r\n  margin-top: 21px;\r\n  margin-left: auto;\r\n  margin-right: auto;\r\n  transition: opacity 0.3s ease, visibility 0.3s ease;\r\n}\r\n\r\n.purchase-btn {\r\n  background: #262E84;\r\n  color: #FFFFFF;\r\n  border: none;\r\n  border-radius: 3px;\r\n  padding: 10px 51px;\r\n  width: 120px;\r\n  height: 28px;\r\n  gap: 8px;\r\n  opacity: 1;\r\n  cursor: pointer;\r\n  transition: all 0.3s ease;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  font-family: 'DM Sans', sans-serif;\r\n  font-weight: 400;\r\n  font-style: normal;\r\n  font-size: 12px;\r\n  line-height: 100%;\r\n  letter-spacing: -3%;\r\n  white-space: nowrap;\r\n  flex-shrink: 0;\r\n  min-height: 28px;\r\n  box-sizing: border-box;\r\n  position: relative;\r\n}\r\n\r\n.purchase-btn:hover:not(:disabled) {\r\n  background: #2563eb;\r\n  transform: translateY(-1px);\r\n}\r\n\r\n.purchase-btn:disabled {\r\n  opacity: 0.6;\r\n  cursor: not-allowed;\r\n  transform: none;\r\n}\r\n\r\n/* Responsive Design */\r\n@media (max-width: 768px) {\r\n  .payment-screen {\r\n    width: 100%;\r\n  }\r\n\r\n  .payment-header {\r\n    padding: 15px 20px;\r\n  }\r\n\r\n  .step-navigation {\r\n    margin: 10px 20px 0px 20px;\r\n    gap: 50px;\r\n  }\r\n\r\n  .payment-screen .main-content {\r\n    padding: 20px;\r\n  }\r\n\r\n  .payment-card {\r\n    padding: 30px 20px;\r\n  }\r\n\r\n  .payment-screen .pricing-flex {\r\n    flex-direction: column;\r\n    gap: 30px;\r\n  }\r\n\r\n  .payment-screen .pricing-right {\r\n    align-items: center;\r\n  }\r\n\r\n  .secondary-price {\r\n    text-align: center;\r\n  }\r\n\r\n  .price-number {\r\n    font-size: 48px;\r\n    line-height: 46px;\r\n  }\r\n}"],"sourceRoot":""}]);
+}`, "",{"version":3,"sources":["webpack://./src/styles/payment.css"],"names":[],"mappings":"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","sourcesContent":[".payment-screen {\n  min-height: 100vh;\n  width: 800px;\n  background: rgba(10, 8, 27, 1);\n  color: #ffffff;\n  font-family: 'DM Sans', sans-serif;\n}\n\n/* Header */\n.payment-header {\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n  padding: 18px 30px;\n}\n\n.app-name {\n  font-size: 24px;\n  font-weight: bold;\n  color: #ffffff;\n}\n\n.header-buttons {\n  display: flex;\n  gap: 15px;\n}\n\n.back-btn,\n.next-btn {\n  padding: 10px 20px;\n  border: none;\n  border-radius: 6px;\n  cursor: pointer;\n  font-size: 14px;\n  font-weight: 500;\n  transition: all 0.3s ease;\n  display: flex;\n  gap: 8px;\n}\n\n.back-btn {\n  background: rgba(21, 19, 40, 1);\n  color: #ffffff;\n}\n\n.back-btn:disabled {\n  opacity: 0.6;\n  cursor: not-allowed;\n}\n\n.next-btn {\n  background: rgba(38, 46, 132, 1);\n  color: #ffffff;\n}\n\n.next-btn:hover:not(:disabled) {\n  background: #2563eb;\n}\n\n.next-btn:disabled {\n  opacity: 0.6;\n  cursor: not-allowed;\n}\n\n/* Step Navigation */\n.step-navigation {\n  display: flex;\n  margin: 10px 30px 0px 27px;\n  padding: 0px;\n  gap: 100px;\n  border-bottom: 1px solid #EFEEEC14;\n  font-weight: 400;\n}\n\n.step {\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n  position: relative;\n  cursor: pointer;\n  transition: color 0.3s ease;\n  font-weight: 400;\n  padding-bottom: 17px;\n}\n\n.step-number {\n  font-size: 12px;\n  color: #999;\n}\n\n.step-name {\n  font-size: 16px;\n  color: #999;\n}\n\n.step.active .step-number {\n  color: #ffffff;\n}\n\n.step.active .step-name {\n  color: #ffffff;\n}\n\n.step:not(.active) .step-name {\n  color: rgba(255, 255, 255, 0.7);\n}\n\n.step.completed .step-number {\n  color: rgba(43, 110, 47, 1);\n}\n\n.step.completed .step-name {\n  color: rgba(43, 110, 47, 1);\n}\n\n/* Main Content */\n.payment-screen .main-content {\n  display: flex;\n  justify-content: center;\n  /* align-items: center; */\n  height: calc(100vh - 200px);\n  padding: 20px;\n  text-align: left;\n  align-items: flex-start\n}\n\n.payment-card {\n  /* background: linear-gradient(29.71deg, #0B091D 18.17%, #2E2B45 127.91%); */\n  border-radius: 12px;\n  border: 1px solid #EFEEEC14;\n  padding: 40px;\n  width: 680px;\n  height: 220px;\n  position: relative;\n  overflow: hidden;\n  opacity: 1;\n  background: left;\n  background-size: 760px;\n  background-repeat: no-repeat;\n  background-image: url(\"../assets/bgpay.png\");\n}\n\n.payment-card::before {\n  content: '';\n  position: absolute;\n  top: 0;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);\n  border-radius: 12px;\n  z-index: -1;\n}\n\n.payment-screen .pricing-flex {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  gap: 40px;\n  width: 100%;\n  height: 200px;\n}\n\n.payment-screen .pricing-left {\n  text-align: center;\n  flex: 1;\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n}\n\n.main-price {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  margin-bottom: 24px;\n}\n\n.price-number {\n  font-family: 'Funnel Display', sans-serif;\n  font-weight: 700;\n  font-style: bold;\n  font-size: 66px;\n  line-height: 64px;\n  letter-spacing: 0%;\n  text-align: center;\n  vertical-align: middle;\n  color: white;\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\n}\n\n.price-period {\n  font-family: 'DM Sans', sans-serif;\n  font-weight: 500;\n  font-style: medium;\n  font-size: 12px;\n  line-height: 12px;\n  letter-spacing: 0%;\n  text-align: center;\n  vertical-align: middle;\n  color: white;\n  margin-top: 28px;\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\n  opacity: 1;\n}\n\n.payment-screen .pricing-right {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  gap: 21px;\n  flex: 1;\n  text-align: center;\n  height: 100px;\n  position: relative;\n}\n\n.secondary-price {\n  font-family: 'DM Sans', sans-serif;\n  font-weight: 500;\n  font-style: medium;\n  font-size: 12px;\n  line-height: 12px;\n  letter-spacing: 0%;\n  text-align: center;\n  vertical-align: middle;\n  color: #FFFFFF;\n  width: 120px;\n  height: 12px;\n  opacity: 1;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  flex-shrink: 0;\n  min-height: 12px;\n  white-space: nowrap;\n  overflow: hidden;\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\n}\n\n.payment-toggle {\n  display: flex;\n  width: 188px;\n  height: 40px;\n  background: #FEF1F11C;\n  border: 1px solid #FFFFFF47;\n  border-radius: 8px;\n  padding: 4px;\n  position: relative;\n  margin: 0 auto;\n}\n\n.payment-toggle::before {\n  content: '';\n  position: absolute;\n  top: 4px;\n  left: 4px;\n  width: calc(50% - 4px);\n  height: calc(100% - 8px);\n  background: #3CB4E5;\n  border-radius: 6px;\n  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);\n  z-index: 1;\n}\n\n.payment-toggle.monthly::before {\n  transform: translateX(0);\n}\n\n.payment-toggle.annually::before {\n  transform: translateX(100%);\n}\n\n.toggle-option {\n  flex: 1;\n  padding: 0;\n  border: none;\n  border-radius: 6px;\n  background: transparent;\n  color: #ffffff;\n  font-family: 'DM Sans', sans-serif;\n  font-weight: 700;\n  font-style: bold;\n  font-size: 14.88px;\n  line-height: 22.4px;\n  letter-spacing: 0%;\n  text-align: center;\n  vertical-align: middle;\n  cursor: pointer;\n  transition: color 0.3s ease;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  position: relative;\n  z-index: 2;\n}\n\n.toggle-option.active {\n  color: #262E84;\n}\n\n.toggle-option:not(.active) {\n  color: #EFEEEC;\n}\n\n.toggle-option:not(.active):hover {\n  color: #ffffff;\n}\n\n.savings-info {\n  font-family: 'DM Sans', sans-serif;\n  font-weight: 300;\n  font-style: light;\n  font-size: 15px;\n  line-height: 12px;\n  letter-spacing: 0%;\n  text-align: center;\n  vertical-align: middle;\n  color: #ffffffAB;\n  opacity: 0.67;\n  width: 95px;\n  height: 12px;\n  margin-top: 21px;\n  margin-left: auto;\n  margin-right: auto;\n  transition: opacity 0.3s ease, visibility 0.3s ease;\n}\n\n.purchase-btn {\n  background: #262E84;\n  color: #FFFFFF;\n  border: none;\n  border-radius: 3px;\n  padding: 10px 51px;\n  width: 120px;\n  height: 28px;\n  gap: 8px;\n  opacity: 1;\n  cursor: pointer;\n  transition: all 0.3s ease;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-family: 'DM Sans', sans-serif;\n  font-weight: 400;\n  font-style: normal;\n  font-size: 12px;\n  line-height: 100%;\n  letter-spacing: -3%;\n  white-space: nowrap;\n  flex-shrink: 0;\n  min-height: 28px;\n  box-sizing: border-box;\n  position: relative;\n}\n\n.purchase-btn:hover:not(:disabled) {\n  background: #2563eb;\n  transform: translateY(-1px);\n}\n\n.purchase-btn:disabled {\n  opacity: 0.6;\n  cursor: not-allowed;\n  transform: none;\n}\n\n/* Responsive Design */\n@media (max-width: 768px) {\n  .payment-screen {\n    width: 100%;\n  }\n\n  .payment-header {\n    padding: 15px 20px;\n  }\n\n  .step-navigation {\n    margin: 10px 20px 0px 20px;\n    gap: 50px;\n  }\n\n  .payment-screen .main-content {\n    padding: 20px;\n  }\n\n  .payment-card {\n    padding: 30px 20px;\n  }\n\n  .payment-screen .pricing-flex {\n    flex-direction: column;\n    gap: 30px;\n  }\n\n  .payment-screen .pricing-right {\n    align-items: center;\n  }\n\n  .secondary-price {\n    text-align: center;\n  }\n\n  .price-number {\n    font-size: 48px;\n    line-height: 46px;\n  }\n}"],"sourceRoot":""}]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -42886,7 +42886,7 @@ module.exports = __webpack_require__.p + "cc718b52279699cff4c2.png";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "b74b76db66ee85d2ac89.svg";
+module.exports = __webpack_require__.p + "6249de753b98940e36f8.svg";
 
 /***/ }),
 
@@ -42896,7 +42896,7 @@ module.exports = __webpack_require__.p + "b74b76db66ee85d2ac89.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "b940c7b5ba71580122e1.svg";
+module.exports = __webpack_require__.p + "a812367946904ac86a19.svg";
 
 /***/ }),
 
@@ -42906,7 +42906,7 @@ module.exports = __webpack_require__.p + "b940c7b5ba71580122e1.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "315988554fb8c9a6ef02.svg";
+module.exports = __webpack_require__.p + "c804a3361b804dc19057.svg";
 
 /***/ }),
 
@@ -42916,7 +42916,7 @@ module.exports = __webpack_require__.p + "315988554fb8c9a6ef02.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "767243c19641dd480729.svg";
+module.exports = __webpack_require__.p + "5cf22f6bc3baa76fa20b.svg";
 
 /***/ }),
 
@@ -42926,7 +42926,7 @@ module.exports = __webpack_require__.p + "767243c19641dd480729.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "dd5c22c9e5fca44ff45d.svg";
+module.exports = __webpack_require__.p + "05250ff2135c47ca2006.svg";
 
 /***/ }),
 
@@ -42936,7 +42936,7 @@ module.exports = __webpack_require__.p + "dd5c22c9e5fca44ff45d.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "0184ba4764536183e876.svg";
+module.exports = __webpack_require__.p + "c9a436d6d323621f4f4f.svg";
 
 /***/ }),
 
@@ -42946,7 +42946,7 @@ module.exports = __webpack_require__.p + "0184ba4764536183e876.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "7b8b6654090bf3b66e38.svg";
+module.exports = __webpack_require__.p + "d538ef4589887b1cb15c.svg";
 
 /***/ }),
 
@@ -42966,7 +42966,7 @@ module.exports = __webpack_require__.p + "e6960da1d895f76d2033.svg";
   \*******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "b83cd2f7adef1fc4000c.svg";
+module.exports = __webpack_require__.p + "ad2dcefe657227b1fcce.svg";
 
 /***/ }),
 
@@ -42976,7 +42976,7 @@ module.exports = __webpack_require__.p + "b83cd2f7adef1fc4000c.svg";
   \********************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "51512d8a92f8bce807f1.svg";
+module.exports = __webpack_require__.p + "b85a2ae57f4702094a64.svg";
 
 /***/ }),
 
@@ -42986,7 +42986,7 @@ module.exports = __webpack_require__.p + "51512d8a92f8bce807f1.svg";
   \*************************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "1de78215101ebb167ee9.svg";
+module.exports = __webpack_require__.p + "b738aba375d464abfd3e.svg";
 
 /***/ }),
 
@@ -43006,7 +43006,7 @@ module.exports = __webpack_require__.p + "47ddea3bc86368fac454.svg";
   \**************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "20383c1f1067e99ebdfb.svg";
+module.exports = __webpack_require__.p + "3468745b534843156267.svg";
 
 /***/ }),
 
@@ -44296,12 +44296,12 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "back-btn", onClick: () => setShowStripeForm(false), disabled: isProcessing },
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "", style: { transform: 'rotate(180deg)' } }),
                         " Back to Pricing"))),
-            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { padding: '16px 24px', overflowY: 'auto', flex: 1, minHeight: 0 } },
+            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { padding: '5px 20px', overflowY: 'auto', flex: 1, minHeight: 0 } },
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("style", null, `
             /* Stripe Elements styling */
             .StripeElement {
               height: 40px !important;
-              padding: 10px 14px !important;
+              /* padding: 10px 14px !important; */
               border: 1px solid #e6e6e6 !important;
               border-radius: 4px !important;
               background-color: white !important;
@@ -44337,9 +44337,9 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             input[type="text"], 
             input[type="tel"] {
               height: 40px !important;
-              background-color: white !important;
-              color: #333333 !important;
-              border: 1px solid #e6e6e6 !important;
+              background-color: #ffffff00 !important;
+              color: #fff !important;
+              border: 1px solid #ffffff !important;
               box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
               box-sizing: border-box !important;
             }
@@ -44571,10 +44571,10 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         } },
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: '1 1 0', minWidth: 0, maxWidth: 'calc(50% - 8px)' } },
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "link-authentication-element", style: { marginBottom: 0 } })),
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: '1 1 0', minWidth: 0, maxWidth: 'calc(50% - 8px)' } },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: '1 1 0', minWidth: 0, marginLeft: '-69px', maxWidth: 'calc(67% - 8px)' } },
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("label", { htmlFor: "domain-url", style: {
                                     display: 'block',
-                                    marginBottom: '8px',
+                                    marginTop: '25px',
                                     fontSize: '14px',
                                     fontWeight: '500',
                                     color: '#ffffff',
@@ -44592,7 +44592,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                     boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
                                     transition: 'box-shadow 150ms ease, border-color 150ms ease',
                                     boxSizing: 'border-box'
-                                } }))),
+                                }, onFocus: (e) => e.target.style.borderColor = '#0570de', onBlur: (e) => e.target.style.borderColor = '#e6e6e6' }))),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
                             fontSize: '16px',
                             fontWeight: '600',
@@ -44651,8 +44651,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 } },
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-card", style: {
                         textAlign: 'center',
-                        padding: '32px 24px',
-                        maxWidth: '500px',
+                        padding: '20px 20px',
+                        maxWidth: '700px',
                         margin: '0 auto',
                         flex: '1',
                         display: 'flex',
