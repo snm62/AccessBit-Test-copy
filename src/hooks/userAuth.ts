@@ -266,87 +266,134 @@ export function useAuth() {
       return;
     }
     
-    // Check for auth success in URL parameters when window closes
-    const checkAuthSuccess = () => {
+    // Monitor popup window for completion and URL changes
+    const checkPopupClosed = setInterval(() => {
+      if (authWindow.closed) {
+        clearInterval(checkPopupClosed);
+        console.log('OAuth popup closed, checking for auth success...');
+        
+        // Check for auth success when popup closes
+        const url = new URL(window.location.href);
+        const authSuccess = url.searchParams.get('auth_success');
+        
+        if (authSuccess === 'true') {
+          console.log('Auth success detected when popup closed');
+          processAuthSuccess(url);
+        }
+      }
+    }, 1000);
+    
+    // Also monitor for URL changes in the main window (in case popup redirects back)
+    const checkUrlChange = setInterval(() => {
+      const url = new URL(window.location.href);
+      const authSuccess = url.searchParams.get('auth_success');
+      
+      if (authSuccess === 'true') {
+        clearInterval(checkUrlChange);
+        clearInterval(checkPopupClosed);
+        console.log('Auth success detected via URL change');
+        
+        // Process auth success using helper function
+        processAuthSuccess(url);
+      }
+    }, 500);
+    
+    // Check immediately for auth success (in case popup already completed)
+    const checkImmediateAuth = () => {
       try {
         const url = new URL(window.location.href);
         const authSuccess = url.searchParams.get('auth_success');
         
         if (authSuccess === 'true') {
-          console.log('Auth success detected in URL parameters');
+          console.log('Auth success detected immediately in URL parameters');
           
-          // IMPORTANT: Clear all old session data first to prevent cross-site contamination
-          console.log('Clearing old session data before storing new data...');
-          sessionStorage.removeItem("accessbit-userinfo");
-          sessionStorage.removeItem("contrastkit-userinfo");
-          sessionStorage.removeItem("explicitly_logged_out");
-          sessionStorage.removeItem("siteInfo");
+          // Clear intervals since we found auth success
+          clearInterval(checkUrlChange);
+          clearInterval(checkPopupClosed);
           
-          // Get auth data from URL parameters
-          const sessionToken = url.searchParams.get('sessionToken');
-          const firstName = url.searchParams.get('firstName');
-          const email = url.searchParams.get('email');
-          const siteId = url.searchParams.get('siteId');
-          const siteName = url.searchParams.get('siteName');
-          const shortName = url.searchParams.get('shortName');
-          
-          // Store the session data from the OAuth popup
-          // Worker now sends real email in URL parameters, so use it directly
-          const userData = {
-            sessionToken: sessionToken,
+          // Process auth success (same logic as above)
+          processAuthSuccess(url);
+        }
+      } catch (error) {
+        console.warn('Error checking immediate auth:', error);
+      }
+    };
+    
+    // Helper function to process auth success
+    const processAuthSuccess = (url: URL) => {
+      try {
+        // IMPORTANT: Clear all old session data first to prevent cross-site contamination
+        console.log('Clearing old session data before storing new data...');
+        sessionStorage.removeItem("accessbit-userinfo");
+        sessionStorage.removeItem("contrastkit-userinfo");
+        sessionStorage.removeItem("explicitly_logged_out");
+        sessionStorage.removeItem("siteInfo");
+        
+        // Get auth data from URL parameters
+        const sessionToken = url.searchParams.get('sessionToken');
+        const firstName = url.searchParams.get('firstName');
+        const email = url.searchParams.get('email');
+        const siteId = url.searchParams.get('siteId');
+        const siteName = url.searchParams.get('siteName');
+        const shortName = url.searchParams.get('shortName');
+        
+        // Store the session data from the OAuth popup
+        const userData = {
+          sessionToken: sessionToken,
+          firstName: firstName,
+          email: email || '',
+          siteId: siteId,
+          exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+          siteInfo: {
+            siteId: siteId,
+            siteName: siteName,
+            shortName: shortName,
+            email: email || ''
+          }
+        };
+        
+        console.log('Storing new session data for site:', siteId);
+        console.log('New user data:', userData);
+        
+        // Store in sessionStorage for persistence
+        sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
+        sessionStorage.removeItem("explicitly_logged_out");
+        
+        // Clear React Query cache and update with new data
+        queryClient.clear();
+        queryClient.setQueryData<AuthState>(["auth"], {
+          user: {
             firstName: firstName,
             email: email || '',
-            siteId: siteId,
-            exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
-            siteInfo: {
-              siteId: siteId,
-              siteName: siteName,
-              shortName: shortName,
-              email: email || ''
-            }
-          };
-          
-          console.log('Storing new session data for site:', siteId);
-          console.log('New user data:', userData);
-          
-          // Store in sessionStorage for persistence
-          sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
-          sessionStorage.removeItem("explicitly_logged_out");
-          
-          // Clear React Query cache and update with new data
-          queryClient.clear();
-          queryClient.setQueryData<AuthState>(["auth"], {
-            user: {
-              firstName: firstName,
-              email: email || '',
-              siteId: siteId
-            },
-            sessionToken: sessionToken
-          });
-          
-          // Clean up URL parameters
-          const cleanUrl = new URL(window.location.href);
-          cleanUrl.searchParams.delete('auth_success');
-          cleanUrl.searchParams.delete('sessionToken');
-          cleanUrl.searchParams.delete('firstName');
-          cleanUrl.searchParams.delete('email');
-          cleanUrl.searchParams.delete('siteId');
-          cleanUrl.searchParams.delete('siteName');
-          cleanUrl.searchParams.delete('shortName');
-          window.history.replaceState({}, '', cleanUrl.toString());
-        }
+            siteId: siteId
+          },
+          sessionToken: sessionToken
+        });
+        
+        // Clean up URL parameters
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('auth_success');
+        cleanUrl.searchParams.delete('sessionToken');
+        cleanUrl.searchParams.delete('firstName');
+        cleanUrl.searchParams.delete('email');
+        cleanUrl.searchParams.delete('siteId');
+        cleanUrl.searchParams.delete('siteName');
+        cleanUrl.searchParams.delete('shortName');
+        window.history.replaceState({}, '', cleanUrl.toString());
       } catch (error) {
         console.warn('Error processing auth success:', error);
       }
     };
     
-    // Check for auth success when window closes
-    const checkWindow = setInterval(() => {
-      if (authWindow?.closed) {
-        clearInterval(checkWindow);
-        checkAuthSuccess();
-      }
-    }, 1000);
+    // Check immediately for auth success
+    checkImmediateAuth();
+    
+    // Set a timeout to clear intervals after 5 minutes
+    setTimeout(() => {
+      clearInterval(checkUrlChange);
+      clearInterval(checkPopupClosed);
+      console.log('OAuth monitoring timeout reached');
+    }, 5 * 60 * 1000); // 5 minutes
   };
 
   // Function to check if user is authenticated for current site

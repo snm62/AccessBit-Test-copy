@@ -1,6 +1,6 @@
 // Security Headers
 const securityHeaders = {
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.stripe.com; script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com; script-src-attr 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.stripe.com https://*.stripe.com; frame-src 'self' https://js.stripe.com; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://*.webflow.com; object-src 'none'; upgrade-insecure-requests;",
+    'Content-Security-Policy': "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.stripe.com https://cdn.prod.website-files.com; script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com https://cdn.prod.website-files.com; script-src-attr 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.prod.website-files.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.prod.website-files.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.stripe.com https://*.stripe.com https://accessibility-widget.web-8fb.workers.dev https://d3e54v103j8qbb.cloudfront.net; frame-src 'self' https://js.stripe.com; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://*.webflow.com; object-src 'none'; upgrade-insecure-requests;",
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'SAMEORIGIN',
     'X-XSS-Protection': '1; mode=block',
@@ -36,6 +36,7 @@ async function handleWebflowAppInstallation(request, env) {
           event: 'webflow_app_installed',
           customer: {
             email: userEmail,
+            firstName: installationData?.firstName || 'User',
             siteId: siteId,
             siteName: siteName,
             userId: userId
@@ -285,14 +286,29 @@ if (url.pathname === '/api/accessibility/get-token' && request.method === 'GET')
   return handleGetTokenBySiteId(request, env);
 }
 
-  // ADD RATE LIMITING ONLY FOR NON-OAUTH ENDPOINTS
-    if (!rateLimitCheck(clientIP, rateLimitStore)) {
-      const errorResponse = secureJsonResponse(
-        { error: 'Rate limit exceeded' }, 
-        429
-      );
-      return addSecurityAndCorsHeaders(errorResponse, origin);
-    }
+  // ADD RATE LIMITING ONLY FOR NON-OAUTH AND NON-PAYMENT ENDPOINTS
+  // Payment endpoints are exempt from rate limiting to prevent payment failures
+  const isPaymentEndpoint = url.pathname.includes('/setup-payment') ||
+                          url.pathname.includes('/verify-payment-method') ||
+                          url.pathname.includes('/create-subscription') ||
+                          url.pathname.includes('/cancel-subscription') ||
+                          url.pathname.includes('/subscription-status') ||
+                          url.pathname.includes('/update-subscription') ||
+                          url.pathname.includes('/create-payment-intent') ||
+                          url.pathname.includes('/check-subscription-status') ||
+                          url.pathname.includes('/activate-subscription') ||
+                          url.pathname.includes('/reactivate-subscription') ||
+                          url.pathname.includes('/check-payment-status') ||
+                          url.pathname.includes('/domain-lookup') ||
+                          url.pathname.includes('/validate-domain');
+  
+  if (!isPaymentEndpoint && !rateLimitCheck(clientIP, rateLimitStore)) {
+    const errorResponse = secureJsonResponse(
+      { error: 'Rate limit exceeded' }, 
+      429
+    );
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
     
 
     // Get accessibility settings
@@ -390,10 +406,26 @@ if (url.pathname === '/api/accessibility/create-payment-intent' && request.metho
       });
     }
     
-    // Check payment status for custom domain
-    if (url.pathname === '/api/accessibility/check-payment-status' && request.method === 'GET') {
-      return handleCheckPaymentStatus(request, env);
-    }
+// Check payment status for custom domain
+if (url.pathname === '/api/accessibility/check-payment-status' && request.method === 'GET') {
+  return handleCheckPaymentStatus(request, env);
+}
+
+// Manual domain mapping fix endpoint
+if (url.pathname === '/api/accessibility/fix-domain-mapping' && request.method === 'POST') {
+  return handleFixDomainMapping(request, env);
+}
+
+// Debug payment data endpoint
+if (url.pathname === '/api/accessibility/debug-payment' && request.method === 'GET') {
+  return handleDebugPayment(request, env);
+}
+
+
+// Reactivate subscription endpoint
+if (url.pathname === '/api/accessibility/reactivate-subscription' && request.method === 'POST') {
+  return handleReactivateSubscription(request, env);
+}
     
     // Widget script with payment check
     if (url.pathname === '/widget.js' && request.method === 'GET') {
@@ -1532,7 +1564,7 @@ async function handleRegisterScript(request, env) {
       });
     }
     
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@10226fd/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@39b0289/accessibility-widget.js';
     console.log(accessToken);
     // Check if script is already registered - CORRECTED: Use exact match
     const existingScriptsResponse = await fetch(`https://api.webflow.com/v2/sites/${siteIdFromUrl}/registered_scripts`, {
@@ -1706,7 +1738,7 @@ async function handleApplyScript(request, env) {
     
         // Filter out duplicates - remove any existing accessibility widget scripts
     // Filter out duplicates - remove ALL accessibility widget scripts and any with same ID
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@2eaf707/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@39b0289/accessibility-widget.js';
 
     const existingAccessibilityScript = existingScripts.find(script => 
       script.scriptUrl === scriptUrl
@@ -2353,14 +2385,14 @@ async function handleValidateDomain(request, env) {
     const sanitizedDomain = sanitizeInput(domain);
     
     // Check domain mapping
-    const domainDataStr = await env.ACCESSIBILITY_AUTH.get(`domain_${sanitizedDomain}`);
+    const domainDataStr = await env.ACCESSIBILITY_AUTH.get(`domain:${sanitizedDomain}`);
     if (!domainDataStr) {
       const successResponse = secureJsonResponse({ isValid: false });
       return addSecurityAndCorsHeaders(successResponse, origin);
     }
     
     const domainData = JSON.parse(domainDataStr);
-    const isValid = domainData.siteId === siteId && domainData.verified;
+    const isValid = domainData.siteId === siteId;
     
     const successResponse = secureJsonResponse({ isValid });
     return addSecurityAndCorsHeaders(successResponse, origin);
@@ -2582,7 +2614,7 @@ async function handleCreateSubscription(request, env) {
   const origin = request.headers.get('origin');
   
   try {
-    const { siteId, productId, domain, email, domainUrl, paymentMethodId, customerId: providedCustomerId } = await request.json();
+    const { siteId, productId, domain, email, domainUrl, firstName, paymentMethodId, customerId: providedCustomerId } = await request.json();
     
     console.log('Create subscription request data:', { siteId, productId, domain, email, domainUrl, paymentMethodId });
     console.log('Email received:', email);
@@ -2625,14 +2657,12 @@ async function handleCreateSubscription(request, env) {
       const customerData = new URLSearchParams();
       customerData.append('metadata[siteId]', siteId);
       customerData.append('metadata[domain]', domainUrl || sanitizedDomain);
+      customerData.append('metadata[firstName]', firstName || '');
       
       if (email) {
         customerData.append('email', email);
       }
       
-      if (domainUrl) {
-        customerData.append('metadata[domainUrl]', domainUrl);
-      }
       
       const customerResponse = await fetch('https://api.stripe.com/v1/customers', {
         method: 'POST',
@@ -2692,7 +2722,7 @@ async function handleCreateSubscription(request, env) {
     subscriptionData.append('metadata[siteId]', siteId);
     subscriptionData.append('metadata[domain]', domainUrl || sanitizedDomain);
     subscriptionData.append('metadata[email]', email || '');
-    subscriptionData.append('metadata[domainUrl]', domainUrl || '');
+    subscriptionData.append('metadata[firstName]', firstName || '');
     subscriptionData.append('metadata[productId]', productId);
     subscriptionData.append('metadata[createdAt]', new Date().toISOString());
     
@@ -2736,6 +2766,7 @@ async function handleCreateSubscription(request, env) {
       customerId: customerId,
       subscriptionId: subscription.id,
       paymentStatus: subscription.status,
+      firstName: firstName || '',
       currentPeriodStart: subscription.current_period_start,
       currentPeriodEnd: subscription.current_period_end,
       cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
@@ -2758,6 +2789,7 @@ async function handleCreateSubscription(request, env) {
         invoiceId: subscription.latest_invoice || null,
         paymentIntentId: subscription.latest_invoice?.payment_intent || null,
         paymentMethodId: paymentMethodId || null,
+        firstName: firstName || '',
         currentPeriodStart: subscription.current_period_start || null,
         currentPeriodEnd: subscription.current_period_end || null,
         metadata: subscription.metadata || {}
@@ -2964,10 +2996,11 @@ async function handleStripeWebhook(request, env) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              event: 'app_installed',
+              event: 'subscription_created',
               customer: {
                 email: subscription.metadata?.email || '',
-                domain: subscription.metadata?.domainUrl || '',
+                firstName: subscription.metadata?.firstName || 'User',
+                domain: subscription.metadata?.domain || '',
                 siteId: siteId
               },
               subscription: {
@@ -3026,6 +3059,36 @@ async function handleStripeWebhook(request, env) {
         } catch (e) {
           console.warn('Failed to save payment snapshot (updated):', e);
         }
+        
+        // Send webhook to Make.com for subscription updated email automation
+        try {
+          const webhookUrl = env.MAKE_WEBHOOK_URL || 'https://hook.us1.make.com/mjcnn3ydks2o2pbkrdna9czn7bb253z0';
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'subscription_updated',
+              customer: {
+                email: subscription.metadata?.email || '',
+                firstName: subscription.metadata?.firstName || 'User',
+                domain: subscription.metadata?.domain || '',
+                siteId: siteId
+              },
+              subscription: {
+                id: subscription.id,
+                status: subscription.status,
+                productId: subscription.metadata?.productId || '',
+                currentPeriodStart: subscription.current_period_start,
+                currentPeriodEnd: subscription.current_period_end,
+                cancelAtPeriodEnd: subscription.cancel_at_period_end || false
+              },
+              timestamp: new Date().toISOString()
+            })
+          });
+          console.log('Subscription updated webhook sent to Make.com successfully');
+        } catch (webhookError) {
+          console.warn('Subscription updated webhook failed (non-critical):', webhookError);
+        }
       }
     } else if (event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object || {};
@@ -3035,6 +3098,8 @@ async function handleStripeWebhook(request, env) {
         const userData = userDataStr ? JSON.parse(userDataStr) : {};
         userData.paymentStatus = 'cancelled';
         userData.lastPaymentDate = new Date().toISOString();
+        userData.canceled_at = new Date().toISOString();
+        userData.cancellationDate = new Date().toISOString();
         await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
         await mergeSiteSettings(env, siteId, {
           siteId,
@@ -3043,6 +3108,15 @@ async function handleStripeWebhook(request, env) {
         });
         // Overwrite single payment snapshot
         try {
+          // Extract product and price info from subscription items
+          let productId = null;
+          let priceId = null;
+          if (subscription.items && subscription.items.data && subscription.items.data.length > 0) {
+            const item = subscription.items.data[0];
+            productId = item.price?.product || null;
+            priceId = item.price?.id || null;
+          }
+          
           const snap = {
             id: subscription.id,
             siteId,
@@ -3059,13 +3133,43 @@ async function handleStripeWebhook(request, env) {
             currentPeriodStart: subscription.current_period_start || null,
             currentPeriodEnd: subscription.current_period_end || null,
             cancelAtPeriodEnd: true,
-            productId: null,
-            priceId: null,
+            canceled_at: new Date().toISOString(),
+            cancellationDate: new Date().toISOString(),
+            productId: productId,
+            priceId: priceId,
             metadata: subscription.metadata || {}
           };
           await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(snap));
         } catch (e) {
           console.warn('Failed to save payment snapshot (deleted):', e);
+        }
+        
+        // Send webhook to Make.com for subscription cancelled email automation
+        try {
+          const webhookUrl = env.MAKE_WEBHOOK_URL || 'https://hook.us1.make.com/mjcnn3ydks2o2pbkrdna9czn7bb253z0';
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'subscription_cancelled',
+              customer: {
+                email: subscription.metadata?.email || '',
+                firstName: subscription.metadata?.firstName || 'User',
+                domain: subscription.metadata?.domain || '',
+                siteId: siteId
+              },
+              subscription: {
+                id: subscription.id,
+                status: 'canceled',
+                productId: subscription.metadata?.productId || '',
+                cancelledAt: new Date().toISOString()
+              },
+              timestamp: new Date().toISOString()
+            })
+          });
+          console.log('Subscription cancelled webhook sent to Make.com successfully');
+        } catch (webhookError) {
+          console.warn('Subscription cancelled webhook failed (non-critical):', webhookError);
         }
       }
     } else if (event.type === 'payment_intent.succeeded') {
@@ -3106,9 +3210,8 @@ async function handleStripeWebhook(request, env) {
       let subscriptionId = setupIntent.metadata?.subscriptionId;
       const email = setupIntent.metadata?.email;
       const domain = setupIntent.metadata?.domain;
-      const domainUrl = setupIntent.metadata?.domainUrl;
       
-      console.log('🔔 SetupIntent webhook data:', { siteId, subscriptionId, email, domain, domainUrl });
+      console.log('🔔 SetupIntent webhook data:', { siteId, subscriptionId, email, domain });
       
       // If no subscriptionId in metadata, try to find it by customer
       if (siteId && !subscriptionId) {
@@ -3137,7 +3240,6 @@ async function handleStripeWebhook(request, env) {
         // Also update subscription metadata if available
         if (email) updateParams.append('metadata[email]', email);
         if (domain) updateParams.append('metadata[domain]', domain);
-        if (domainUrl) updateParams.append('metadata[domainUrl]', domainUrl);
         if (siteId) updateParams.append('metadata[siteId]', siteId);
         
         const subscriptionUpdateResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
@@ -3446,7 +3548,15 @@ async function handleCheckSubscriptionStatus(request, env) {
       subscriptionId: subscription.id,
       current_period_end: subscription.current_period_end,
       current_period_start: subscription.current_period_start,
-      cancel_at_period_end: subscription.cancel_at_period_end
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      canceled_at: subscription.canceled_at,
+      access_details: {
+        has_access: subscription.status === 'active',
+        access_until: subscription.current_period_end,
+        access_start: subscription.current_period_start,
+        will_cancel: subscription.cancel_at_period_end,
+        canceled_at: subscription.canceled_at
+      }
     }), origin);
     
   } catch (error) {
@@ -3515,7 +3625,7 @@ async function handleSetupPayment(request, env) {
       const customerData = new URLSearchParams();
       customerData.append('email', email);
       customerData.append('metadata[siteId]', siteId);
-      customerData.append('metadata[domainUrl]', domainUrl || '');
+      customerData.append('metadata[domain]', domainUrl || '');
       
       const customerResponse = await fetch('https://api.stripe.com/v1/customers', {
         method: 'POST',
@@ -3542,7 +3652,7 @@ async function handleSetupPayment(request, env) {
     setupIntentData.append('usage', 'off_session');
     setupIntentData.append('metadata[siteId]', siteId);
     setupIntentData.append('metadata[email]', email);
-    setupIntentData.append('metadata[domainUrl]', domainUrl || '');
+    setupIntentData.append('metadata[domain]', domainUrl || '');
     
     const setupIntentResponse = await fetch('https://api.stripe.com/v1/setup_intents', {
       method: 'POST',
@@ -3753,9 +3863,38 @@ async function handleCheckPaymentStatus(request, env) {
     // Check if payment is active
     const now = new Date().getTime();
     const currentPeriodEnd = paymentData.currentPeriodEnd;
-    const isActive = paymentData.status === 'active' && 
-                    currentPeriodEnd && 
-                    now < (currentPeriodEnd * 1000);
+    
+    // Handle different currentPeriodEnd formats and null values
+    let isActive = false;
+    if (paymentData.status === 'active') {
+      if (currentPeriodEnd) {
+        // Convert to milliseconds if it's in seconds (Unix timestamp)
+        const periodEndMs = currentPeriodEnd > 1000000000000 ? currentPeriodEnd : currentPeriodEnd * 1000;
+        isActive = now < periodEndMs;
+        console.log('Payment validation:', {
+          status: paymentData.status,
+          currentPeriodEnd: currentPeriodEnd,
+          periodEndMs: periodEndMs,
+          now: now,
+          isActive: isActive
+        });
+      } else {
+        // If no currentPeriodEnd, consider active if status is active
+        isActive = true;
+        console.log('Payment validation: No currentPeriodEnd, using status only:', paymentData.status);
+      }
+    }
+    
+    // Special case: If payment data exists and status is active but periods are null,
+    // check if this is a recent subscription (within last 30 days)
+    if (!isActive && paymentData.status === 'active' && !currentPeriodEnd) {
+      const subscriptionDate = new Date(paymentData.timestamp);
+      const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+      if (subscriptionDate > thirtyDaysAgo) {
+        isActive = true;
+        console.log('Payment validation: Recent subscription without period data, allowing access');
+      }
+    }
     
     if (isActive) {
       console.log('Payment is active for domain:', domain);
@@ -3863,9 +4002,38 @@ async function handleWidgetScript(request, env) {
     // Check if payment is active
     const now = new Date().getTime();
     const currentPeriodEnd = paymentData.currentPeriodEnd;
-    const isActive = paymentData.status === 'active' && 
-                    currentPeriodEnd && 
-                    now < (currentPeriodEnd * 1000);
+    
+    // Handle different currentPeriodEnd formats and null values
+    let isActive = false;
+    if (paymentData.status === 'active') {
+      if (currentPeriodEnd) {
+        // Convert to milliseconds if it's in seconds (Unix timestamp)
+        const periodEndMs = currentPeriodEnd > 1000000000000 ? currentPeriodEnd : currentPeriodEnd * 1000;
+        isActive = now < periodEndMs;
+        console.log('Payment validation:', {
+          status: paymentData.status,
+          currentPeriodEnd: currentPeriodEnd,
+          periodEndMs: periodEndMs,
+          now: now,
+          isActive: isActive
+        });
+      } else {
+        // If no currentPeriodEnd, consider active if status is active
+        isActive = true;
+        console.log('Payment validation: No currentPeriodEnd, using status only:', paymentData.status);
+      }
+    }
+    
+    // Special case: If payment data exists and status is active but periods are null,
+    // check if this is a recent subscription (within last 30 days)
+    if (!isActive && paymentData.status === 'active' && !currentPeriodEnd) {
+      const subscriptionDate = new Date(paymentData.timestamp);
+      const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+      if (subscriptionDate > thirtyDaysAgo) {
+        isActive = true;
+        console.log('Payment validation: Recent subscription without period data, allowing access');
+      }
+    }
     
     if (isActive) {
       console.log('Payment is active for domain:', currentDomain);
@@ -4206,6 +4374,7 @@ async function handleCancelSubscription(request, env) {
         userData.currentPeriodEnd = subscription.current_period_end;
         userData.lastUpdated = new Date().toISOString();
         userData.cancellationDate = new Date().toISOString();
+        userData.canceled_at = new Date().toISOString();
         
         await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
         console.log('Updated user_data_${siteId} with cancellation status');
@@ -4219,6 +4388,7 @@ async function handleCancelSubscription(request, env) {
         paymentSnapshot.cancelAtPeriodEnd = subscription.cancel_at_period_end;
         paymentSnapshot.currentPeriodEnd = subscription.current_period_end;
         paymentSnapshot.cancellationDate = new Date().toISOString();
+        paymentSnapshot.canceled_at = new Date().toISOString();
         paymentSnapshot.lastUpdated = new Date().toISOString();
         
         await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(paymentSnapshot));
@@ -4243,7 +4413,15 @@ async function handleCancelSubscription(request, env) {
         id: subscription.id,
         status: subscription.status,
         cancel_at_period_end: subscription.cancel_at_period_end,
-        current_period_end: subscription.current_period_end
+        current_period_end: subscription.current_period_end,
+        canceled_at: subscription.canceled_at,
+        access_details: {
+          has_access: subscription.status === 'active',
+          access_until: subscription.current_period_end,
+          access_start: subscription.current_period_start,
+          will_cancel: subscription.cancel_at_period_end,
+          canceled_at: subscription.canceled_at
+        }
       },
       message: cancelAtPeriodEnd 
         ? 'Subscription will be canceled at the end of the current billing period'
@@ -4377,15 +4555,19 @@ async function handleUpdateSubscriptionMetadata(request, env) {
     console.log('Merged metadata:', mergedMetadata);
     
     // Update the subscription with merged metadata
+    // Stripe expects metadata as individual key-value pairs, not a JSON string
+    const formData = new URLSearchParams();
+    Object.entries(mergedMetadata).forEach(([key, value]) => {
+      formData.append(`metadata[${key}]`, value);
+    });
+    
     const updateResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams({
-        metadata: JSON.stringify(mergedMetadata)
-      })
+      body: formData
     });
     
     if (!updateResponse.ok) {
@@ -4406,7 +4588,7 @@ async function handleUpdateSubscriptionMetadata(request, env) {
       const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
       if (userDataStr) {
         const userData = JSON.parse(userDataStr);
-        userData.domain = metadata.domain_url || metadata.domain || userData.domain;
+        userData.domain = metadata.domain || userData.domain;
         userData.lastUpdated = new Date().toISOString();
         await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
         console.log('Updated user_data with new domain:', userData.domain);
@@ -4422,16 +4604,16 @@ async function handleUpdateSubscriptionMetadata(request, env) {
         console.log('Updated payment snapshot with new metadata');
       }
       
-      // Update domain mapping if domain_url is provided
-      if (metadata.domain_url) {
-        const domainKey = `domain:${metadata.domain_url}`;
+      // Update domain mapping if domain is provided
+      if (metadata.domain) {
+        const domainKey = `domain:${metadata.domain}`;
         await env.ACCESSIBILITY_AUTH.put(domainKey, JSON.stringify({
           siteId: siteId,
-          domain: metadata.domain_url,
+          domain: metadata.domain,
           connectedAt: new Date().toISOString(),
           lastUpdated: new Date().toISOString()
         }), { expirationTtl: 86400 * 30 }); // 30 days
-        console.log('Updated domain mapping for:', metadata.domain_url);
+        console.log('Updated domain mapping for:', metadata.domain);
       }
       
     } catch (kvError) {
@@ -4454,6 +4636,149 @@ async function handleUpdateSubscriptionMetadata(request, env) {
       error: 'Failed to update subscription metadata',
       details: error.message 
     }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+async function handleFixDomainMapping(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { domain, siteId } = await request.json();
+    
+    if (!domain || !siteId) {
+      const errorResponse = secureJsonResponse({ error: 'Missing domain or siteId' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    console.log('Fixing domain mapping for:', domain, 'siteId:', siteId);
+    
+    // Create domain mapping
+    const domainKey = `domain:${domain}`;
+    await env.ACCESSIBILITY_AUTH.put(domainKey, JSON.stringify({
+      siteId: siteId,
+      domain: domain,
+      connectedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
+    }), { expirationTtl: 86400 * 30 }); // 30 days
+    
+    console.log('Domain mapping created successfully for:', domain);
+    
+    const successResponse = secureJsonResponse({ 
+      success: true, 
+      message: 'Domain mapping created successfully',
+      domain: domain,
+      siteId: siteId
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Error in handleFixDomainMapping:', error);
+    const errorResponse = secureJsonResponse({ error: 'Failed to fix domain mapping' }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+async function handleDebugPayment(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const url = new URL(request.url);
+    const siteId = url.searchParams.get('siteId');
+    
+    if (!siteId) {
+      const errorResponse = secureJsonResponse({ error: 'Missing siteId parameter' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    console.log('Debug payment data for siteId:', siteId);
+    
+    // Get all possible payment-related keys
+    const paymentKey = `payment:${siteId}`;
+    const userDataKey = `user_data_${siteId}`;
+    const authDataKey = `auth-data:${siteId}`;
+    
+    const paymentData = await env.ACCESSIBILITY_AUTH.get(paymentKey);
+    const userData = await env.ACCESSIBILITY_AUTH.get(userDataKey);
+    const authData = await env.ACCESSIBILITY_AUTH.get(authDataKey);
+    
+    const debugInfo = {
+      siteId: siteId,
+      paymentData: paymentData ? JSON.parse(paymentData) : null,
+      userData: userData ? JSON.parse(userData) : null,
+      authData: authData ? JSON.parse(authData) : null,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log('Debug payment info:', debugInfo);
+    
+    const successResponse = secureJsonResponse(debugInfo);
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Error in handleDebugPayment:', error);
+    const errorResponse = secureJsonResponse({ error: 'Failed to debug payment data' }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+
+// Reactivate subscription (for testing purposes)
+async function handleReactivateSubscription(request, env) {
+  const origin = request.headers.get('origin');
+  
+  try {
+    const { siteId } = await request.json();
+    
+    if (!siteId) {
+      const errorResponse = secureJsonResponse({ error: 'Missing siteId' }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    
+    console.log('Reactivating subscription for siteId:', siteId);
+    
+    // Update user_data_${siteId}
+    const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+    if (userDataStr) {
+      const userData = JSON.parse(userDataStr);
+      userData.paymentStatus = 'active';
+      userData.lastPaymentDate = new Date().toISOString();
+      userData.currentPeriodStart = Math.floor(Date.now() / 1000);
+      userData.currentPeriodEnd = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60); // 1 year from now
+      userData.cancelAtPeriodEnd = false;
+      userData.lastUpdated = new Date().toISOString();
+      
+      await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+      console.log('Updated user_data_${siteId} with active status');
+    }
+    
+    // Update payment:${siteId} snapshot
+    const paymentSnapshotStr = await env.ACCESSIBILITY_AUTH.get(`payment:${siteId}`);
+    if (paymentSnapshotStr) {
+      const paymentSnapshot = JSON.parse(paymentSnapshotStr);
+      paymentSnapshot.status = 'active';
+      paymentSnapshot.lastPaymentDate = new Date().toISOString();
+      paymentSnapshot.currentPeriodStart = Math.floor(Date.now() / 1000);
+      paymentSnapshot.currentPeriodEnd = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60); // 1 year from now
+      paymentSnapshot.cancelAtPeriodEnd = false;
+      paymentSnapshot.lastUpdated = new Date().toISOString();
+      
+      await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(paymentSnapshot));
+      console.log('Updated payment:${siteId} with active status');
+    }
+    
+    const successResponse = secureJsonResponse({
+      success: true,
+      message: 'Subscription reactivated successfully',
+      siteId: siteId,
+      status: 'active',
+      validUntil: new Date(Date.now() + (365 * 24 * 60 * 60 * 1000)).toISOString()
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+    
+  } catch (error) {
+    console.error('Error in handleReactivateSubscription:', error);
+    const errorResponse = secureJsonResponse({ error: 'Failed to reactivate subscription' }, 500);
     return addSecurityAndCorsHeaders(errorResponse, origin);
   }
 }

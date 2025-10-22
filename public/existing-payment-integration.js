@@ -14,6 +14,8 @@ class ExistingPaymentIntegration {
         this.isStripeLoaded = false;
         this.email = '';
         this.domainUrl = '';
+        this.lastSubmissionTime = 0;
+        this.submissionCooldown = 3000; // 3 seconds cooldown between submissions
     }
 
     async loadStripeScripts() {
@@ -797,6 +799,37 @@ class ExistingPaymentIntegration {
                     fontFamily: 'Ideal Sans, system-ui, sans-serif',
                     spacingUnit: '2px',
                     borderRadius: '4px',
+                },
+                rules: {
+                    '.Input': {
+                        height: '40px',
+                        padding: '10px 14px',
+                        fontSize: '16px',
+                        border: '1px solid #e6e6e6',
+                        borderRadius: '4px',
+                        backgroundColor: 'white',
+                        color: '#333333',
+                        boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
+                        transition: 'box-shadow 150ms ease, border-color 150ms ease',
+                        boxSizing: 'border-box'
+                    },
+                    '.Input:focus': {
+                        borderColor: '#0570de',
+                        boxShadow: '0 0 0 1px #0570de'
+                    },
+                    '.Input--invalid': {
+                        borderColor: '#df1b41'
+                    },
+                    '.Label': {
+                        color: '#ffffff',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        marginBottom: '8px',
+                        backgroundColor: 'transparent'
+                    },
+                    '.Input::placeholder': {
+                        color: '#a3a3a3'
+                    }
                 }
             };
             
@@ -839,7 +872,25 @@ class ExistingPaymentIntegration {
             return;
         }
         
+        // Check cooldown period
+        const now = Date.now();
+        if (now - this.lastSubmissionTime < this.submissionCooldown) {
+            console.log('Payment submission too soon, please wait...');
+            this.showError('Please wait a moment before trying again.');
+            return;
+        }
+        
+        // Additional check: if clientSecret is already used, don't proceed
+        if (!this.clientSecret || this.clientSecret.includes('used')) {
+            console.log('Client secret already used or invalid, skipping...');
+            return;
+        }
+        
         this.isConfirming = true;
+        this.lastSubmissionTime = now;
+        
+        // Dispatch payment start event
+        window.dispatchEvent(new CustomEvent('stripe-payment-start'));
         
         try {
             console.log('Confirming payment with email:', this.email, 'and domain:', this.domainUrl);
@@ -869,6 +920,8 @@ class ExistingPaymentIntegration {
                     }
                 }).catch(err => {
                     console.error('Stripe confirmSetup error:', err);
+                    // Mark clientSecret as used to prevent retries
+                    this.clientSecret = this.clientSecret + '_used';
                     this.showError('Setup confirmation failed. Please try again.');
                     return { error: err };
                 });
@@ -886,6 +939,8 @@ class ExistingPaymentIntegration {
                 }
             }).catch(err => {
                 console.error('Stripe confirmPayment error:', err);
+                // Mark clientSecret as used to prevent retries
+                this.clientSecret = this.clientSecret + '_used';
                 this.showError('Payment confirmation failed. Please try again.');
                 return { error: err };
             });
@@ -936,6 +991,21 @@ class ExistingPaymentIntegration {
                             console.warn('Could not resolve plan type from DOM, using annual productId by default');
                         }
 
+                        // Get firstName from session storage
+                        let firstName = '';
+                        try {
+                            const userData = sessionStorage.getItem('contrastkit') || 
+                                           sessionStorage.getItem('accessbit-userinfo') || 
+                                           sessionStorage.getItem('accessibility-userinfo');
+                            if (userData) {
+                                const parsed = JSON.parse(userData);
+                                firstName = parsed.firstName || '';
+                                console.log('First name captured for subscription:', firstName);
+                            }
+                        } catch (e) {
+                            console.log('Could not get firstName from session storage:', e);
+                        }
+
                         const subscriptionResponse = await fetch(`${this.kvApiUrl}/api/accessibility/create-subscription`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -945,6 +1015,7 @@ class ExistingPaymentIntegration {
                                 email: this.email,
                                 domain: this.domainUrl,
                                 domainUrl: this.domainUrl,
+                                firstName: firstName,
                                 paymentMethodId: verifyData.paymentMethodId, // verified payment method ID
                                 customerId: verifyData.customerId // ensure same customer used for subscription
                             })
@@ -1081,13 +1152,25 @@ class ExistingPaymentIntegration {
                 }
             } else {
                 console.error('❌ Payment failed:', error);
-                this.showError(`Payment failed: ${error.message}`);
+                
+                // Handle specific SetupIntent errors
+                if (error.code === 'setup_intent_unexpected_state') {
+                    this.showError('Payment session expired. Please refresh the page and try again.');
+                    // Mark clientSecret as used to prevent retries
+                    this.clientSecret = this.clientSecret + '_used';
+                } else if (error.code === 'rate_limit_exceeded') {
+                    this.showError('Too many requests. Please wait a moment and try again.');
+                } else {
+                    this.showError(`Payment failed: ${error.message}`);
+                }
             }
         } catch (error) {
             console.error('Payment confirmation error:', error);
             this.showError(`Payment confirmation error: ${error.message}`);
         } finally {
             this.isConfirming = false;
+            // Dispatch payment end event
+            window.dispatchEvent(new CustomEvent('stripe-payment-end'));
         }
     }
 

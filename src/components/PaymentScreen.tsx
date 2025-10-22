@@ -248,6 +248,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             }
             
             console.log('🔥 PaymentScreen: Calculated endDate:', endDate);
+            console.log('🔥 PaymentScreen: ProductId from data:', data.subscription.productId || data.subscription.details?.metadata?.productId);
             
             if (endDate && !isNaN(endDate.getTime())) {
               const now = new Date().getTime();
@@ -275,8 +276,12 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               }
             } else {
               console.log('🔥 PaymentScreen: No valid end date found, using fallback');
-              // Fallback: assume 30 days from now for yearly plan
-              const fallbackDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year for yearly plan
+              // Determine fallback period based on productId
+              const productId = data.subscription.productId || data.subscription.details?.metadata?.productId;
+              const isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+              const fallbackDays = isAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
+              const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
+              
               setPaymentSuccess(true);
               setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
               
@@ -412,8 +417,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
           console.log('🔥 PaymentScreen: Stored subscription data for persistence:', subscriptionData);
         } else {
           console.log('🔥 PaymentScreen: No valid end date found, using fallback');
-          // Fallback: assume 1 year from now for yearly plan
-          const fallbackDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+          // Determine fallback period based on productId
+          const productId = subscriptionDetails?.metadata?.productId || subscriptionDetails?.productId;
+          const isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+          const fallbackDays = isAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
+          const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
           setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
           
           const subscriptionData = {
@@ -427,8 +435,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
         }
       } else {
         console.log('🔥 PaymentScreen: No subscription details available, using fallback');
-        // Fallback: assume 1 year from now for yearly plan
-        const fallbackDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+        // Default to monthly plan fallback (30 days) if no productId available
+        const fallbackDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
         
         const subscriptionData = {
@@ -562,11 +570,27 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
       console.error(':x: Stripe error:', msg);
       // You can surface a toast here; keeping console for brevity
     }
+    // Add event listeners for payment processing states
+    function onPaymentStart() {
+      console.log('🔥 PaymentScreen: Payment processing started');
+      setIsProcessing(true);
+    }
+    
+    function onPaymentEnd() {
+      console.log('🔥 PaymentScreen: Payment processing ended');
+      setIsProcessing(false);
+    }
+    
     window.addEventListener('stripe-payment-success', onSuccess as EventListener);
     window.addEventListener('stripe-payment-error', onError as EventListener);
+    window.addEventListener('stripe-payment-start', onPaymentStart as EventListener);
+    window.addEventListener('stripe-payment-end', onPaymentEnd as EventListener);
+    
     return () => {
       window.removeEventListener('stripe-payment-success', onSuccess as EventListener);
       window.removeEventListener('stripe-payment-error', onError as EventListener);
+      window.removeEventListener('stripe-payment-start', onPaymentStart as EventListener);
+      window.removeEventListener('stripe-payment-end', onPaymentEnd as EventListener);
     };
   }, []);
 
@@ -601,11 +625,6 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     onNext();
   };
 
-  const handleRetryPayment = () => {
-    console.log('Payment: Retrying payment');
-    setPaymentSuccess(false);
-    setShowStripeForm(false);
-  };
 
   const handleEditDomain = () => {
     console.log('Payment: Opening domain change modal');
@@ -739,7 +758,6 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
           siteId,
           subscriptionId,
           metadata: {
-            domain_url: newDomain.trim(),
             domain: newDomain.trim()
           }
         })
@@ -804,6 +822,257 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
         </div>
 
         <div style={{ padding: '16px 24px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+          <style>{`
+            /* Stripe Elements styling */
+            .StripeElement {
+              height: 40px !important;
+              padding: 10px 14px !important;
+              border: 1px solid #e6e6e6 !important;
+              border-radius: 4px !important;
+              background-color: white !important;
+              color: #333333 !important;
+              font-size: 16px !important;
+              box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
+              transition: box-shadow 150ms ease, border-color 150ms ease !important;
+              box-sizing: border-box !important;
+            }
+            
+            .StripeElement--focus {
+              border-color: #0570de !important;
+              box-shadow: 0 0 0 1px #0570de !important;
+            }
+            
+            .StripeElement--invalid {
+              border-color: #df1b41 !important;
+            }
+            
+            /* Link Authentication Element styling */
+            #link-authentication-element .StripeElement {
+              height: 40px !important;
+            }
+            
+            /* Payment Element styling */
+            #payment-element .StripeElement {
+              height: 40px !important;
+            }
+            
+            /* Ensure only input fields have white background, not labels */
+            input[type="email"], 
+            input[type="url"], 
+            input[type="text"], 
+            input[type="tel"] {
+              height: 40px !important;
+              background-color: white !important;
+              color: #333333 !important;
+              border: 1px solid #e6e6e6 !important;
+              box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
+              box-sizing: border-box !important;
+            }
+            
+            /* Ensure labels stay white text on transparent background */
+            label {
+              background-color: transparent !important;
+              color: #ffffff !important;
+            }
+            
+            /* Remove white background from text labels only */
+            label {
+              background-color: transparent !important;
+              background: transparent !important;
+            }
+            
+            /* Remove white backgrounds and borders from all possible wrapper elements */
+            .StripeElement,
+            .StripeElement--complete,
+            .StripeElement--empty,
+            .StripeElement--focus,
+            .StripeElement--invalid,
+            .StripeElement--webkit-autofill,
+            div[class*="Stripe"],
+            div[class*="stripe"],
+            span[class*="Stripe"],
+            span[class*="stripe"] {
+              background-color: transparent !important;
+              background: transparent !important;
+              border: none !important;
+              border-color: transparent !important;
+            }
+            
+            /* Target any divs that might be wrapping labels */
+            form div:not([class*="input"]):not([class*="field"]) {
+              background-color: transparent !important;
+              background: transparent !important;
+              border: none !important;
+              border-color: transparent !important;
+            }
+            
+            /* Placeholder text styling */
+            input::placeholder {
+              color: #a3a3a3 !important;
+            }
+            
+            /* Ensure proper alignment of Email and Domain URL fields */
+            #link-authentication-element {
+              height: 40px !important;
+              width: 100% !important;
+              display: flex !important;
+              align-items: center !important;
+              margin-top: 0 !important;
+              margin-bottom: 0 !important;
+              padding-top: 0 !important;
+              padding-bottom: 0 !important;
+            }
+            
+            #link-authentication-element .StripeElement {
+              height: 40px !important;
+              width: 100% !important;
+              margin-bottom: 0 !important;
+              margin-top: 0 !important;
+              flex: 1 !important;
+              padding-top: 0 !important;
+              padding-bottom: 0 !important;
+            }
+            
+            /* Ensure both fields have same height, width and alignment */
+            #link-authentication-element,
+            #domain-url {
+              height: 40px !important;
+              width: 100% !important;
+              vertical-align: top !important;
+              display: flex !important;
+              align-items: center !important;
+              margin-top: 0 !important;
+              margin-bottom: 0 !important;
+              padding-top: 0 !important;
+              padding-bottom: 0 !important;
+            }
+            
+            /* Force both containers to have same baseline */
+            .contact-info-container > div {
+              align-items: flex-start !important;
+              justify-content: flex-start !important;
+            }
+            
+            .contact-info-container > div:first-child,
+            .contact-info-container > div:last-child {
+              align-items: flex-start !important;
+              justify-content: flex-start !important;
+              margin-top: 0 !important;
+              padding-top: 0 !important;
+            }
+            
+            /* Force both containers to have identical height and alignment */
+            .contact-info-container {
+              align-items: flex-start !important;
+            }
+            
+            .contact-info-container > div {
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: flex-start !important;
+              min-height: 60px !important;
+              align-items: stretch !important;
+            }
+            
+            /* Ensure both input containers have same baseline */
+            .contact-info-container > div:first-child,
+            .contact-info-container > div:last-child {
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+              min-height: 60px !important;
+            }
+            
+            /* Make sure Stripe Elements container matches regular input height */
+            #link-authentication-element {
+              min-height: 40px !important;
+              max-height: 40px !important;
+              height: 40px !important;
+              display: flex !important;
+              align-items: center !important;
+              line-height: 1 !important;
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+            
+            /* Remove any extra spacing from Stripe Elements */
+            #link-authentication-element * {
+              line-height: 1 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            
+            #link-authentication-element .StripeElement {
+              height: 40px !important;
+              max-height: 40px !important;
+              line-height: 1 !important;
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+            
+            /* Force alignment of the container divs */
+            .contact-info-container > div {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+            }
+            
+            .contact-info-container > div > * {
+              margin-bottom: 0 !important;
+              margin-top: 0 !important;
+            }
+            
+            /* Ensure both input containers have same vertical positioning */
+            .contact-info-container > div:first-child,
+            .contact-info-container > div:last-child {
+              align-items: flex-start !important;
+              justify-content: flex-start !important;
+            }
+            
+            /* Fix vertical alignment of Stripe Elements */
+            #link-authentication-element {
+              margin-top: 0 !important;
+              margin-bottom: 0 !important;
+              padding-top: 0 !important;
+              padding-bottom: 0 !important;
+            }
+            
+            /* Position Stripe's legal text properly - above the Subscribe button */
+            .StripeElement + *,
+            #payment-element + *,
+            form > div:last-of-type:not(#payment-element),
+            form > p:last-of-type,
+            form > span:last-of-type {
+              margin-bottom: '20px' !important;
+              margin-top: '20px' !important;
+              display: block !important;
+              position: relative !important;
+              z-index: 1 !important;
+            }
+            
+            /* Ensure legal text appears above Subscribe button with proper spacing */
+            form > div:last-of-type:not(#payment-element) {
+              order: -1 !important;
+              margin-bottom: '20px' !important;
+            }
+            
+            /* Fix any overlapping text by ensuring proper stacking */
+            #subscribe-btn {
+              position: relative !important;
+              z-index: 2 !important;
+              margin-top: '20px' !important;
+            }
+            
+            /* Target any Stripe-generated text elements */
+            div[class*="stripe"],
+            p[class*="stripe"],
+            span[class*="stripe"] {
+              position: relative !important;
+              z-index: 1 !important;
+              margin-bottom: '20px' !important;
+            }
+            
+          `}</style>
           <h2 style={{ margin: '0 0 12px 0' }}>Complete Your Payment</h2>
           <div style={{ marginBottom: 12, color: '#a3a3a3' }}>
             {isAnnual ? 'Annual Plan' : 'Monthly Plan'} - ${isAnnual ? '19' : '24'}/{isAnnual ? 'year' : 'month'}
@@ -819,26 +1088,27 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               Contact Information
             </h3>
             
-            <div style={{ 
+            <div className="contact-info-container" style={{ 
               display: 'flex', 
               gap: '16px', 
               marginBottom: '20px',
               flexWrap: 'wrap',
-              alignItems: 'flex-end'
+              alignItems: 'flex-start'
             }}>
-              <div style={{ flex: '1 1 0', minWidth: 0 }}>
+              <div style={{ flex: '1 1 0', minWidth: 0, maxWidth: 'calc(50% - 8px)' }}>
                 <div id="link-authentication-element" style={{ marginBottom: 0 }}>
                   {/* Link Authentication Element will mount here */}
                 </div>
               </div>
               
-              <div style={{ flex: '1 1 0', minWidth: 0 }}>
+              <div style={{ flex: '1 1 0', minWidth: 0, maxWidth: 'calc(50% - 8px)' }}>
                 <label htmlFor="domain-url" style={{ 
                   display: 'block', 
                   marginBottom: '8px', 
                   fontSize: '14px', 
                   fontWeight: '500', 
-                  color: '#ffffff' 
+                  color: '#ffffff',
+                  backgroundColor: 'transparent'
                 }}>
                   Your Domain URL
                 </label>
@@ -849,6 +1119,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                   required 
                   style={{
                     width: '100%',
+                    height: '40px',
                     padding: '10px 14px',
                     fontSize: '16px',
                     border: '1px solid #e6e6e6',
@@ -856,7 +1127,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                     backgroundColor: 'white',
                     color: '#333333',
                     boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
-                    transition: 'box-shadow 150ms ease, border-color 150ms ease'
+                    transition: 'box-shadow 150ms ease, border-color 150ms ease',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
@@ -871,7 +1143,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               Payment
             </h3>
             
-            <div id="payment-element" style={{ marginBottom: '20px' }}>
+            <div id="payment-element" style={{ marginBottom: '60px' }}>
               {/* Payment Element will mount here */}
             </div>
             
@@ -889,14 +1161,28 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               minHeight: '20px'
             }}></div>
             
-            <button id="subscribe-btn" className="subscribe-button" type="submit">
-              Subscribe
+            <button 
+              id="subscribe-btn" 
+              className="subscribe-button" 
+              type="submit" 
+              disabled={isProcessing}
+              style={{
+                opacity: isProcessing ? 0.7 : 1,
+                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                transition: 'opacity 0.2s ease',
+                marginTop: '40px'
+              }}
+            >
+              {isProcessing ? (
+                <>
+                  <span style={{ marginRight: '8px' }}>⏳</span>
+                  Processing...
+                </>
+              ) : (
+                'Subscribe'
+              )}
             </button>
           </form>
-          
-          <div className="legal-text" style={{ marginTop: 12 }}>
-            By completing this purchase, you agree to our Terms of Service and Privacy Policy.
-          </div>
         </div>
       </div>
     );
@@ -913,9 +1199,6 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
         <div className="payment-header">
           <div className="app-name"></div>
           <div className="header-buttons">
-            <button className="back-btn" onClick={handleRetryPayment}>
-              <img src={whitearrow} alt="" style={{ transform: 'rotate(180deg)' }} /> Try Again
-            </button>
             <button className="next-btn" onClick={handleSuccessNext}>
               Continue <img src={whitearrow} alt="" />
             </button>

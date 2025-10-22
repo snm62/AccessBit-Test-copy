@@ -1169,9 +1169,18 @@ class AccessibilityWidget {
             this.forceAllAnimationsToFinalState();
     
             // Initialize payment validation before anything else
-            this.initializePaymentValidation();
-
-            this.init();
+            this.initializePaymentValidation().then(() => {
+                // Only initialize if payment validation passes
+                if (!this.paymentFailed) {
+                    console.log('[CK] Constructor - Payment validation passed, initializing widget');
+                    this.init();
+                } else {
+                    console.log('[CK] Constructor - Payment validation failed, widget disabled');
+                }
+            }).catch((error) => {
+                // Payment validation failed, widget is already disabled
+                console.log('[CK] Constructor - Payment validation failed, widget disabled:', error);
+            });
 
         }
         
@@ -1271,24 +1280,71 @@ class AccessibilityWidget {
             
             try {
                 const siteId = await this.getSiteId();
-                if (!siteId) return false;
-                
-                const response = await fetch(`${this.kvApiUrl}/api/accessibility/payment-status?siteId=${siteId}`);
-                if (!response.ok) return false;
-                
-                const { paymentStatus, trialEndDate } = await response.json();
-                
-                // Check if trial expired
-                if (paymentStatus === 'trial' && new Date() > new Date(trialEndDate)) {
-                    console.log('[CK] checkPaymentStatus() - Trial expired');
+                if (!siteId) {
+                    console.log('[CK] checkPaymentStatus() - No siteId available');
                     return false;
                 }
                 
-                return paymentStatus === 'active' || paymentStatus === 'trial';
+                const response = await fetch(`${this.kvApiUrl}/api/accessibility/check-payment-status?siteId=${siteId}&domain=${encodeURIComponent(window.location.hostname)}`);
+                
+                // Handle rate limit errors with retry
+                if (response.status === 429) {
+                    console.log('[CK] checkPaymentStatus() - Rate limit exceeded, retrying in 2 seconds...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    const retryResponse = await fetch(`${this.kvApiUrl}/api/accessibility/check-payment-status?siteId=${siteId}&domain=${encodeURIComponent(window.location.hostname)}`);
+                    if (!retryResponse.ok) {
+                        console.log('[CK] checkPaymentStatus() - Retry failed:', retryResponse.status);
+                        return false;
+                    }
+                    
+                    const paymentData = await retryResponse.json();
+                    console.log('[CK] checkPaymentStatus() - Full payment response (retry):', JSON.stringify(paymentData, null, 2));
+                    console.log('[CK] checkPaymentStatus() - Retry response keys:', Object.keys(paymentData));
+                    console.log('[CK] checkPaymentStatus() - Retry hasAccess value:', paymentData.hasAccess);
+                    console.log('[CK] checkPaymentStatus() - Retry reason value:', paymentData.reason);
+                    console.log('[CK] checkPaymentStatus() - All retry payment data properties:');
+                    for (const [key, value] of Object.entries(paymentData)) {
+                        console.log(`  ${key}:`, value);
+                    }
+                    return this.processPaymentResponse(paymentData);
+                }
+                
+                if (!response.ok) {
+                    console.log('[CK] checkPaymentStatus() - Response not ok:', response.status);
+                    return false;
+                }
+                
+                const paymentData = await response.json();
+                console.log('[CK] checkPaymentStatus() - Full payment response:', JSON.stringify(paymentData, null, 2));
+                console.log('[CK] checkPaymentStatus() - Response keys:', Object.keys(paymentData));
+                console.log('[CK] checkPaymentStatus() - hasAccess value:', paymentData.hasAccess);
+                console.log('[CK] checkPaymentStatus() - reason value:', paymentData.reason);
+                console.log('[CK] checkPaymentStatus() - All payment data properties:');
+                for (const [key, value] of Object.entries(paymentData)) {
+                    console.log(`  ${key}:`, value);
+                }
+                return this.processPaymentResponse(paymentData);
+                
             } catch (error) {
                 console.error('[CK] checkPaymentStatus() - Error:', error);
                 return false;
             }
+        }
+        
+        processPaymentResponse(paymentData) {
+            console.log('[CK] processPaymentResponse() - Processing payment data:', paymentData);
+            console.log('[CK] processPaymentResponse() - hasAccess:', paymentData.hasAccess);
+            console.log('[CK] processPaymentResponse() - reason:', paymentData.reason);
+            
+            // Check if payment is active
+            if (paymentData.hasAccess === false) {
+                console.log('[CK] checkPaymentStatus() - Payment not active:', paymentData.reason);
+                return false;
+            }
+            
+            console.log('[CK] checkPaymentStatus() - Payment is active');
+            return paymentData.hasAccess === true;
         }
         
         // Validate domain access
@@ -1319,28 +1375,40 @@ class AccessibilityWidget {
         disableWidget() {
             console.log('[CK] disableWidget() - Disabling widget due to payment issues');
             
-            // Hide the widget
-            const widget = document.getElementById('accessibility-widget');
-            if (widget) {
-                widget.style.display = 'none';
+            // Set payment failed flag FIRST
+            this.paymentFailed = true;
+            
+            // Hide the widget container
+            const widgetContainer = document.getElementById('accessibility-widget-container');
+            if (widgetContainer) {
+                widgetContainer.style.display = 'none';
+                widgetContainer.style.visibility = 'hidden';
+                widgetContainer.style.opacity = '0';
+            }
+            
+            // Hide the icon and panel inside shadow DOM
+            const icon = this.shadowRoot?.getElementById('accessibility-icon');
+            const panel = this.shadowRoot?.getElementById('accessibility-panel');
+            
+            if (icon) {
+                icon.style.display = 'none';
+                icon.style.visibility = 'hidden';
+                icon.style.opacity = '0';
+            }
+            if (panel) {
+                panel.style.display = 'none';
+                panel.style.visibility = 'hidden';
+                panel.style.opacity = '0';
             }
             
             // Show payment required message
             this.showPaymentRequiredMessage();
         }
         
-        // Show payment required message
+        // Show payment required message - DISABLED
         showPaymentRequiredMessage() {
-            const message = document.createElement('div');
-            message.id = 'payment-required-message';
-            message.innerHTML = `
-                <div style="position: fixed; top: 20px; right: 20px; background: #ff4444; color: white; padding: 15px; border-radius: 5px; z-index: 10000; font-family: Arial, sans-serif;">
-                    <strong>Accessibility Widget</strong><br>
-                    Your trial has expired. Please complete payment to continue using the widget.
-                    <button onclick="this.parentElement.remove()" style="margin-left: 10px; background: white; color: #ff4444; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">×</button>
-                </div>
-            `;
-            document.body.appendChild(message);
+            // Payment message disabled - no popup will be shown
+            console.log('Accessibility Widget: Payment required message disabled');
         }
         
         // Get user email (implement based on your auth system)
@@ -1354,8 +1422,8 @@ class AccessibilityWidget {
                 } catch (e) {}
             }
             
-            // Fallback to prompt or other methods
-            return prompt('Please enter your email for the accessibility widget:') || 'unknown@domain.com';
+            // Return default email without prompting
+            return 'user@example.com';
         }
         
         // ===== END PAYMENT VALIDATION METHODS =====
@@ -1652,6 +1720,11 @@ class AccessibilityWidget {
     
     
         async init() {
+            // Check if payment failed - if so, don't initialize
+            if (this.paymentFailed) {
+                console.log('[CK] init() - Payment failed, not initializing widget');
+                return;
+            }
     
             this.addFontAwesome();
     
@@ -3138,12 +3211,12 @@ class AccessibilityWidget {
     
     /* Ensure panel always appears on top of icon */
     .accessibility-panel {
+        position: fixed !important;
         z-index: 100001 !important;
-        /* REMOVED: position: fixed !important; - This was preventing widget from scrolling with viewport */
-                overflow-y: auto !important;
-                scroll-behavior: smooth !important;
-                -webkit-overflow-scrolling: touch !important;
-                overscroll-behavior: contain !important;
+        overflow-y: auto !important;
+        scroll-behavior: smooth !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
     }
     
     .accessibility-icon {
@@ -3915,7 +3988,7 @@ class AccessibilityWidget {
             padding: 16px !important;
             max-height: 80vh !important;
             overflow-y: auto !important;
-            /* REMOVED: position: fixed !important; - This was preventing widget from scrolling with viewport */
+            position: fixed !important;
             z-index: 100001 !important;
         }
         
@@ -4238,7 +4311,7 @@ class AccessibilityWidget {
     
     .accessibility-panel {
         display: none !important;
-        /* REMOVED: position: fixed !important; - This was preventing widget from scrolling with viewport */
+        position: fixed !important;
         z-index: 100001 !important;
     }
     
@@ -7486,17 +7559,17 @@ class AccessibilityWidget {
     
                                     <div style="display: flex; align-items: center; gap: 10px;">
     
-                                        <button class="scaling-btn" id="decrease-content-scale-btn" tabindex="0" aria-label="Decrease content scale by 5%" style="background: #6366f1; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                                        <button class="scaling-btn" id="decrease-content-scale-btn" tabindex="0" aria-label="Decrease content scale by 2%" style="background: #6366f1; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
     
-                                            <i class="fas fa-chevron-down"></i> -5%
+                                            <i class="fas fa-chevron-down"></i> -2%
     
                                         </button>
     
                                         <span id="content-scale-value" style="font-weight: bold; min-width: 60px; text-align: center;">100%</span>
     
-                                        <button class="scaling-btn" id="increase-content-scale-btn" tabindex="0" aria-label="Increase content scale by 5%" style="background: #6366f1; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                                        <button class="scaling-btn" id="increase-content-scale-btn" tabindex="0" aria-label="Increase content scale by 2%" style="background: #6366f1; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
     
-                                            <i class="fas fa-chevron-up"></i> +5%
+                                            <i class="fas fa-chevron-up"></i> +2%
     
                                         </button>
     
@@ -13644,8 +13717,12 @@ class AccessibilityWidget {
     
         increaseContentScale() {
             console.log('Accessibility Widget: Increasing content scale from', this.contentScale + '%');
-            this.contentScale = Math.min(this.contentScale + 5, 200); // 5% increment
+            this.contentScale = Math.min(this.contentScale + 2, 120); // 2% increment, max 120%
             this.settings['content-scale'] = this.contentScale;
+            
+            // Mark content scaling as used
+            localStorage.setItem('content-scaling-used', 'true');
+            
             console.log('Accessibility Widget: New content scale:', this.contentScale + '%');
             this.updateContentScale();
             this.updateContentScaleDisplay();
@@ -13654,8 +13731,12 @@ class AccessibilityWidget {
         
         decreaseContentScale() {
             console.log('Accessibility Widget: Decreasing content scale from', this.contentScale + '%');
-            this.contentScale = Math.max(this.contentScale - 5, 50); // 5% decrement, minimum 50%
+            this.contentScale = Math.max(this.contentScale - 2, 50); // 2% decrement, minimum 50%
             this.settings['content-scale'] = this.contentScale;
+            
+            // Mark content scaling as used
+            localStorage.setItem('content-scaling-used', 'true');
+            
             console.log('Accessibility Widget: New content scale:', this.contentScale + '%');
             this.updateContentScale();
             this.updateContentScaleDisplay();
@@ -13664,7 +13745,6 @@ class AccessibilityWidget {
         
         updateContentScale() {
             const body = document.body;
-            const html = document.documentElement;
             
             console.log('Accessibility Widget: updateContentScale called with scale:', this.contentScale + '%');
             
@@ -13672,30 +13752,81 @@ class AccessibilityWidget {
             if (this.contentScale === 100) {
                 console.log('Accessibility Widget: Content scale is 100%, resetting to normal');
                 
-                // Reset any scaling styles
-                body.style.transform = '';
-                body.style.transformOrigin = '';
-                body.style.width = '';
-                body.style.height = '';
-                html.style.transform = '';
-                html.style.transformOrigin = '';
+                // Remove any existing content scaling CSS
+                const existingStyle = document.getElementById('content-scaling-styles');
+                if (existingStyle) {
+                    existingStyle.remove();
+                }
                 
                 return;
             }
             
+            // Create or update CSS that scales content without breaking layouts
+            let style = document.getElementById('content-scaling-styles');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'content-scaling-styles';
+                document.head.appendChild(style);
+            }
+            
             const scale = this.contentScale / 100;
-            console.log('Accessibility Widget: Applying scale:', scale);
-            
-            // Apply simple CSS transform scaling directly to body
-            body.style.transform = `scale(${scale})`;
-            body.style.transformOrigin = 'top left';
-            
-            // Ensure body takes full viewport to prevent gaps
-            body.style.width = '100vw';
-            body.style.height = '100vh';
+            style.textContent = `
+                /* Enhanced content scaling - use transform for proportional scaling */
+                
+                /* Ensure body and html can scroll properly */
+                html, body {
+                    overflow-x: hidden !important;
+                    overflow-y: auto !important;
+                }
+                
+                /* Scale all text content with transform (preserves proportions) */
+                body p, body span, body a, body li, body td, body th, 
+                body h1, body h2, body h3, body h4, body h5, body h6 {
+                    transform: scale(${scale}) !important;
+                    transform-origin: top left !important;
+                }
+                
+                /* Scale images and media with transform (preserves aspect ratio) */
+                body img, body video, body iframe, body canvas {
+                    transform: scale(${scale}) !important;
+                    transform-origin: center !important;
+                }
+                
+                /* Scale buttons and form elements with transform */
+                body button, body input, body textarea, body select {
+                    transform: scale(${scale}) !important;
+                    transform-origin: top left !important;
+                }
+                
+                /* Scale content containers with transform */
+                body .container, body .wrapper, body .content, body .post, body .article,
+                body .card, body .section, body .block, body .text, body .description {
+                    transform: scale(${scale}) !important;
+                    transform-origin: top left !important;
+                }
+                
+                /* Exclude layout containers from scaling */
+                body .nav, body .navbar, body .menu, body .header, body .footer {
+                    transform: none !important;
+                }
+                
+                /* Ensure containers can expand to accommodate scaled content */
+                body .container, body .wrapper, body .content, body .post, body .article,
+                body .card, body .section, body .block, body .text, body .description {
+                    min-height: auto !important;
+                    overflow: visible !important;
+                    word-wrap: break-word !important;
+                    overflow-wrap: break-word !important;
+                }
+                
+                /* Ensure headings maintain their visual hierarchy */
+                body h1, body h2, body h3, body h4, body h5, body h6 {
+                    line-height: 1.2 !important;
+                    margin: 0.5em 0 !important;
+                }
+            `;
             
             console.log('Accessibility Widget: Content scaled to', this.contentScale + '%');
-            console.log('Accessibility Widget: Body transform applied:', body.style.transform);
         }
         
         updateContentScaleDisplay() {
@@ -15115,16 +15246,15 @@ class AccessibilityWidget {
             this.contentScale = 100; // Reset to 100% (normal size)
             this.settings['content-scale'] = 100; // Save to settings
             
-            // Reset scaling styles directly
-            const body = document.body;
-            const html = document.documentElement;
+            // Remove content scaling CSS
+            const existingStyle = document.getElementById('content-scaling-styles');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
             
-            body.style.transform = '';
-            body.style.transformOrigin = '';
-            body.style.width = '';
-            body.style.height = '';
-            html.style.transform = '';
-            html.style.transformOrigin = '';
+            // Reset any body styles
+            const body = document.body;
+            body.style.fontSize = '';
             
             this.updateContentScaleDisplay();
             this.saveSettings(); // Persist the reset
@@ -20127,130 +20257,479 @@ class AccessibilityWidget {
         // Mute Sound Methods
     
         enableMuteSound() {
-    
             console.log('Accessibility Widget: Mute sound enabled');
     
             this.settings['mute-sound'] = true;
             this.saveSettings();
             
-            // Initialize storage for original states if not exists
-    
-            if (!this.originalVolumeStates) {
-    
-                this.originalVolumeStates = new Map();
-    
-            }
-    
-            if (!this.originalPlayingStates) {
-    
-                this.originalPlayingStates = new Map();
-    
-            }
-    
+            // Mute everything immediately
+            this.muteAllMediaDirectly();
             
-    
-            // Find all audio and video elements
-    
-            const audioElements = document.querySelectorAll('audio');
-    
-            const videoElements = document.querySelectorAll('video');
-    
+            // Also try to mute any existing audio contexts
+            this.muteAllAudioContexts();
             
-    
-            // Force mute all media immediately (including already playing)
-            this.forceMuteAllMedia(audioElements, videoElements);
-    
-            // Additional aggressive muting after a short delay to catch any delayed media
-            setTimeout(() => {
-                this.forceMuteAllMedia(audioElements, videoElements);
-            }, 100);
-    
-            // Store original states and mute all media
-    
-            this.muteAllMediaElements(audioElements, videoElements);
-    
+            // Override global audio methods
+            this.overrideGlobalAudioMethods();
             
-    
-            // Handle additional audio sources
-    
-            this.muteWebAudioContexts();
-    
-            this.muteIframeMedia();
-    
-            
-    
-            // Start monitoring for dynamically added media elements
-    
-            this.startMediaObserver();
-            
-            // Additional monitoring to catch any media that might start playing
+            // Start aggressive monitoring
             this.startAggressiveMediaMonitoring();
-    
             
-    
-            console.log(`Accessibility Widget: Muted ${audioElements.length} audio and ${videoElements.length} video elements`);
-    
+            // Add event listeners to catch new media
+            this.addMediaEventListeners();
+            
+            console.log('Accessibility Widget: Mute sound enabled with comprehensive approach');
+        }
+        
+        // Mute all audio contexts (Web Audio API)
+        muteAllAudioContexts() {
+            console.log('Accessibility Widget: Muting all audio contexts');
+            
+            // Suspend all existing audio contexts
+            if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
+                try {
+                    // Get all audio contexts from the window
+                    const contexts = [];
+                    for (let prop in window) {
+                        if (window[prop] instanceof AudioContext || window[prop] instanceof webkitAudioContext) {
+                            contexts.push(window[prop]);
+                        }
+                    }
+                    
+                    contexts.forEach((context, index) => {
+                        if (context.state !== 'closed') {
+                            context.suspend();
+                            console.log(`Accessibility Widget: Suspended audio context ${index}`);
+                        }
+                    });
+                } catch (e) {
+                    console.log('Accessibility Widget: Error suspending audio contexts:', e);
+                }
+            }
+            
+            // Also try to mute any audio elements that might be using Web Audio
+            const audioElements = document.querySelectorAll('audio');
+            audioElements.forEach((element, index) => {
+                try {
+                    // Force mute and pause
+                    element.muted = true;
+                    element.volume = 0;
+                    element.pause();
+                    
+                    // Also try to set the currentTime to 0 to stop playback
+                    element.currentTime = 0;
+                    
+                    console.log(`Accessibility Widget: Force muted audio element ${index}`);
+                } catch (e) {
+                    console.log(`Accessibility Widget: Error muting audio element ${index}:`, e);
+                }
+            });
+        }
+        
+        // Override global audio/video methods to prevent any new audio from playing
+        overrideGlobalAudioMethods() {
+            console.log('Accessibility Widget: Overriding global audio methods');
+            
+            // Override HTMLAudioElement and HTMLVideoElement methods
+            if (typeof HTMLAudioElement !== 'undefined') {
+                const originalPlay = HTMLAudioElement.prototype.play;
+                HTMLAudioElement.prototype.play = function() {
+                    console.log('Accessibility Widget: Blocked audio play attempt');
+                    this.muted = true;
+                    this.volume = 0;
+                    return Promise.resolve();
+                };
+            }
+            
+            if (typeof HTMLVideoElement !== 'undefined') {
+                const originalVideoPlay = HTMLVideoElement.prototype.play;
+                HTMLVideoElement.prototype.play = function() {
+                    console.log('Accessibility Widget: Blocked video play attempt');
+                    this.muted = true;
+                    this.volume = 0;
+                    return Promise.resolve();
+                };
+            }
+            
+            // Override Web Audio API methods
+            if (typeof AudioContext !== 'undefined') {
+                const originalCreateBufferSource = AudioContext.prototype.createBufferSource;
+                AudioContext.prototype.createBufferSource = function() {
+                    console.log('Accessibility Widget: Blocked AudioContext createBufferSource');
+                    return {
+                        connect: () => {},
+                        start: () => {},
+                        stop: () => {},
+                        disconnect: () => {}
+                    };
+                };
+            }
+            
+            // Override common audio library methods
+            if (typeof window !== 'undefined') {
+                // Override Howler.js if present
+                if (window.Howl) {
+                    const originalHowl = window.Howl;
+                    window.Howl = function() {
+                        console.log('Accessibility Widget: Blocked Howler.js audio');
+                        return {
+                            play: () => {},
+                            pause: () => {},
+                            stop: () => {},
+                            mute: () => {},
+                            volume: () => {}
+                        };
+                    };
+                }
+                
+                // Override SoundJS if present
+                if (window.createjs && window.createjs.Sound) {
+                    window.createjs.Sound.play = function() {
+                        console.log('Accessibility Widget: Blocked SoundJS audio');
+                        return null;
+                    };
+                }
+            }
         }
     
     
     
         disableMuteSound() {
-    
             console.log('Accessibility Widget: Mute sound disabled');
     
             this.settings['mute-sound'] = false;
             this.saveSettings();
             
-            // Stop monitoring for media changes
-    
-            this.stopMediaObserver();
-            
             // Stop aggressive media monitoring
             this.stopAggressiveMediaMonitoring();
-    
             
-    
-            // Restore original states for all media elements
-    
-            this.restoreAllMediaElements();
-    
+            // Remove event listeners
+            this.removeMediaEventListeners();
             
-    
+            // Restore all media elements
+            this.restoreAllMediaDirectly();
+            
             console.log('Accessibility Widget: Restored original audio/video volume states');
-    
+        }
+        
+        // Add event listeners to catch new media elements
+        addMediaEventListeners() {
+            console.log('Accessibility Widget: Adding media event listeners');
+            
+            // Listen for new audio/video elements being added to the DOM
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === 1) { // Element node
+                            // Check if it's a media element
+                            if (node.tagName === 'AUDIO' || node.tagName === 'VIDEO') {
+                                console.log('Accessibility Widget: New media element detected:', node);
+                                this.muteElement(node);
+                            }
+                            
+                            // Check for media elements within the added node
+                            const mediaElements = node.querySelectorAll ? node.querySelectorAll('audio, video') : [];
+                            mediaElements.forEach(element => {
+                                console.log('Accessibility Widget: New media element in subtree:', element);
+                                this.muteElement(element);
+                            });
+                        }
+                    });
+                });
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+            
+            // Store observer for cleanup
+            this.mediaObserver = observer;
+        }
+        
+        // Remove media event listeners
+        removeMediaEventListeners() {
+            if (this.mediaObserver) {
+                this.mediaObserver.disconnect();
+                this.mediaObserver = null;
+                console.log('Accessibility Widget: Media event listeners removed');
+            }
+        }
+        
+        // Mute a specific element
+        muteElement(element) {
+            if (element.tagName === 'AUDIO' || element.tagName === 'VIDEO') {
+                element.muted = true;
+                element.volume = 0;
+                if (!element.paused) {
+                    element.pause();
+                }
+                console.log('Accessibility Widget: Muted element:', element);
+            }
+        }
+        
+        // Comprehensive universal muting approach
+        muteAllMediaDirectly() {
+            console.log('Accessibility Widget: Universal muting - detecting ALL possible audio/video content');
+            console.log('Accessibility Widget: Document ready state:', document.readyState);
+            console.log('Accessibility Widget: Total elements on page:', document.querySelectorAll('*').length);
+            
+            let totalMuted = 0;
+            
+            // 1. Standard HTML5 audio/video elements
+            const standardAudio = document.querySelectorAll('audio');
+            const standardVideo = document.querySelectorAll('video');
+            console.log(`Accessibility Widget: Found ${standardAudio.length} standard audio, ${standardVideo.length} standard video`);
+            
+            // Log details about found elements
+            if (standardAudio.length > 0) {
+                console.log('Accessibility Widget: Audio elements found:', standardAudio);
+                standardAudio.forEach((audio, index) => {
+                    console.log(`Accessibility Widget: Audio ${index}:`, {
+                        src: audio.src,
+                        currentSrc: audio.currentSrc,
+                        muted: audio.muted,
+                        volume: audio.volume,
+                        paused: audio.paused,
+                        duration: audio.duration
+                    });
+                });
+            }
+            
+            if (standardVideo.length > 0) {
+                console.log('Accessibility Widget: Video elements found:', standardVideo);
+                standardVideo.forEach((video, index) => {
+                    console.log(`Accessibility Widget: Video ${index}:`, {
+                        src: video.src,
+                        currentSrc: video.currentSrc,
+                        muted: video.muted,
+                        volume: video.volume,
+                        paused: video.paused,
+                        duration: video.duration
+                    });
+                });
+            }
+            
+            [...standardAudio, ...standardVideo].forEach((element, index) => {
+                console.log(`Accessibility Widget: Muting element ${index}:`, element);
+                element.muted = true;
+                element.volume = 0;
+                if (!element.paused) element.pause();
+                totalMuted++;
+            });
+            
+            // 2. Universal detection - find ANY element that might contain audio/video
+            const allElements = document.querySelectorAll('*');
+            const mediaElements = [];
+            console.log(`Accessibility Widget: Scanning ${allElements.length} total elements for media content`);
+            
+            allElements.forEach(element => {
+                const tagName = element.tagName.toLowerCase();
+                const className = element.className || '';
+                const id = element.id || '';
+                const textContent = element.textContent || '';
+                
+                // Check for audio/video indicators in various attributes - BE MORE SPECIFIC
+                const hasAudioVideo = 
+                    // Only check actual media elements
+                    (tagName === 'audio' || tagName === 'video') ||
+                    // Check for specific media-related data attributes
+                    element.hasAttribute('data-audio') || element.hasAttribute('data-video') || 
+                    element.hasAttribute('data-src') || element.hasAttribute('data-url') ||
+                    element.hasAttribute('tmplayer-meta') || element.hasAttribute('data-player') ||
+                    element.hasAttribute('audio-url') || element.hasAttribute('video-url') ||
+                    element.hasAttribute('data-sound') ||
+                    // Check for specific media file extensions in src attributes
+                    (element.src && (element.src.includes('.mp3') || element.src.includes('.wav') || element.src.includes('.ogg') || 
+                     element.src.includes('.mp4') || element.src.includes('.webm') || element.src.includes('.avi'))) ||
+                    // Check for specific media-related classes (be more specific)
+                    (className.includes('audio-player') || className.includes('video-player') || 
+                     className.includes('media-player') || className.includes('sound-player') ||
+                     className.includes('music-player') || className.includes('video-container') ||
+                     className.includes('audio-container'));
+                
+                if (hasAudioVideo) {
+                    console.log(`Accessibility Widget: Found potential media element:`, {
+                        tagName: tagName,
+                        className: className,
+                        id: id,
+                        textContent: textContent.substring(0, 100) + '...',
+                        element: element
+                    });
+                    mediaElements.push(element);
+                }
+            });
+            
+            console.log(`Accessibility Widget: Found ${mediaElements.length} potential media elements through universal detection`);
+            
+            // Mute all detected media elements
+            mediaElements.forEach((element, index) => {
+                console.log(`Accessibility Widget: Muting universal media element ${index}:`, element);
+                
+                // Try to mute if it's a standard media element
+                if (element.tagName === 'AUDIO' || element.tagName === 'VIDEO') {
+                    element.muted = true;
+                    element.volume = 0;
+                    if (!element.paused) element.pause();
+                } else {
+                    // For custom elements, just mute them without hiding
+                    if (element.tagName === 'AUDIO' || element.tagName === 'VIDEO') {
+                        element.muted = true;
+                        element.volume = 0;
+                        if (!element.paused) element.pause();
+                    } else {
+                        // Only hide if it's clearly a media player element
+                        if (className.includes('player') || className.includes('media') || 
+                            id.includes('player') || id.includes('media')) {
+                            element.style.display = 'none';
+                        }
+                    }
+                }
+                totalMuted++;
+            });
+            
+            // 3. Find and mute any audio sources in custom players
+            const audioSources = document.querySelectorAll('[tmplayer-meta="audio-url"], [data-audio], [data-src], [data-url]');
+            console.log(`Accessibility Widget: Found ${audioSources.length} audio sources`);
+            audioSources.forEach((source, index) => {
+                console.log(`Accessibility Widget: Muting audio source ${index}:`, source.textContent);
+                // Only hide if it's clearly an audio source element
+                if (source.tagName === 'AUDIO' || source.tagName === 'VIDEO' || 
+                    source.hasAttribute('tmplayer-meta') || source.hasAttribute('data-audio')) {
+                    source.style.display = 'none';
+                }
+                totalMuted++;
+            });
+            
+            // 4. Check iframes for media
+            const iframes = document.querySelectorAll('iframe');
+            console.log(`Accessibility Widget: Found ${iframes.length} iframes`);
+            iframes.forEach((iframe, index) => {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (iframeDoc) {
+                        const iframeAudio = iframeDoc.querySelectorAll('audio');
+                        const iframeVideo = iframeDoc.querySelectorAll('video');
+                        console.log(`Accessibility Widget: Found ${iframeAudio.length} audio and ${iframeVideo.length} video in iframe ${index}`);
+                        
+                        const iframeMedia = iframeDoc.querySelectorAll('audio, video, [class*="audio"], [class*="video"], [class*="player"]');
+                        console.log(`Accessibility Widget: Found ${iframeMedia.length} media elements in iframe ${index}`);
+                        iframeMedia.forEach(element => {
+                            if (element.tagName === 'AUDIO' || element.tagName === 'VIDEO') {
+                                element.volume = 0;
+                                element.muted = true;
+                                if (!element.paused) element.pause();
+                            } else {
+                                element.style.display = 'none';
+                                element.style.visibility = 'hidden';
+                                element.style.opacity = '0';
+                            }
+                            totalMuted++;
+                        });
+                    }
+                } catch (e) {
+                    console.log(`Accessibility Widget: CORS error accessing iframe ${index}:`, e.message);
+                }
+            });
+            
+            // 5. Check for shadow DOM elements
+            console.log('Accessibility Widget: Checking for shadow DOM elements...');
+            const shadowHosts = document.querySelectorAll('*');
+            shadowHosts.forEach((host, index) => {
+                if (host.shadowRoot) {
+                    try {
+                        const shadowAudio = host.shadowRoot.querySelectorAll('audio');
+                        const shadowVideo = host.shadowRoot.querySelectorAll('video');
+                        console.log(`Accessibility Widget: Found ${shadowAudio.length} audio and ${shadowVideo.length} video in shadow DOM ${index}`);
+                        
+                        [...shadowAudio, ...shadowVideo].forEach(element => {
+                            element.muted = true;
+                            element.volume = 0;
+                            if (!element.paused) element.pause();
+                            totalMuted++;
+                        });
+                    } catch (e) {
+                        console.log(`Accessibility Widget: Error accessing shadow DOM ${index}:`, e.message);
+                    }
+                }
+            });
+            
+            // 5. Suspend all Web Audio API contexts
+            this.muteAllAudioContexts();
+            
+            // 6. Override common audio/video methods globally
+            this.overrideGlobalAudioMethods();
+            
+            console.log(`Accessibility Widget: Universal muting complete - muted ${totalMuted} elements total`);
+        }
+        
+        // Simple direct restoration
+        restoreAllMediaDirectly() {
+            console.log('Accessibility Widget: Directly restoring all media elements');
+            
+            const allAudio = document.querySelectorAll('audio');
+            const allVideo = document.querySelectorAll('video');
+            
+            allAudio.forEach(element => {
+                element.muted = false;
+                element.volume = 1;
+            });
+            
+            allVideo.forEach(element => {
+                element.muted = false;
+                element.volume = 1;
+            });
+            
+            // Restore custom audio players
+            const customAudioPlayers = document.querySelectorAll('[tmplayer-meta="audio-url"], [data-audio], [class*="audio"], [class*="player"], [id*="audio"], [id*="player"]');
+            customAudioPlayers.forEach(element => {
+                element.style.display = '';
+                element.style.visibility = '';
+                element.style.opacity = '';
+                element.style.pointerEvents = '';
+            });
+            
+            // Restore audio sources
+            const audioSources = document.querySelectorAll('[tmplayer-meta="audio-url"]');
+            audioSources.forEach(source => {
+                source.style.display = '';
+                source.style.visibility = '';
+                source.style.opacity = '';
+            });
+            
+            // Restore media divs
+            const mediaDivs = document.querySelectorAll('div[class*="audio"], div[class*="video"], div[class*="player"], div[class*="media"]');
+            mediaDivs.forEach(div => {
+                div.style.display = '';
+                div.style.visibility = '';
+                div.style.opacity = '';
+                div.style.pointerEvents = '';
+            });
+            
+            console.log(`Accessibility Widget: Restored ${allAudio.length} audio, ${allVideo.length} video, ${customAudioPlayers.length} custom players, and ${audioSources.length} audio sources`);
         }
         
         // Additional aggressive monitoring to catch any media that might start playing
         startAggressiveMediaMonitoring() {
-            // Check every 500ms for any media that might have started playing
+            // Check every 50ms for any media that might have started playing
             this.aggressiveMediaInterval = setInterval(() => {
                 if (this.settings['mute-sound']) {
+                    // Use the direct muting approach
+                    this.muteAllMediaDirectly();
+                    
+                    // Also check for any playing media and force mute
                     const allAudio = document.querySelectorAll('audio');
                     const allVideo = document.querySelectorAll('video');
                     
-                    allAudio.forEach(element => {
-                        if (!element.muted || element.volume > 0) {
-                            console.log('Accessibility Widget: Aggressive muting audio element');
+                    [...allAudio, ...allVideo].forEach(element => {
+                        if (!element.paused && !element.muted) {
+                            console.log('Accessibility Widget: Force muting playing media:', element);
                             element.muted = true;
                             element.volume = 0;
-                            if (!element.paused) {
-                                element.pause();
-                            }
-                        }
-                    });
-                    
-                    allVideo.forEach(element => {
-                        if (!element.muted || element.volume > 0) {
-                            console.log('Accessibility Widget: Aggressive muting video element');
-                            element.muted = true;
-                            element.volume = 0;
-                            if (!element.paused) {
-                                element.pause();
-                            }
+                            element.pause();
                         }
                     });
                 }
-            }, 500);
+            }, 50);
             
             console.log('Accessibility Widget: Aggressive media monitoring started');
         }
@@ -20870,25 +21349,21 @@ class AccessibilityWidget {
     
                     left: 0 !important;
     
-                    width: 100% !important;
+                    width: 100vw !important;
     
-                    height: 100% !important;
+                    height: 100vh !important;
     
                     background: #e8f4f8 !important;
     
                     z-index: 99997 !important;
     
-                    overflow-y: auto !important;
-    
-                    padding: 20px !important;
-    
                     font-family: Arial, sans-serif !important;
     
-                    display: block !important;
+                    overflow-y: auto !important;
     
                 ">
     
-                    <div style="max-width: 800px; margin: 0 auto; padding-top: 60px;">
+                    <div style="padding: 20px; max-width: 800px; margin: 0 auto; width: 100%; box-sizing: border-box;">
     
                         ${finalContent}
     
@@ -20944,7 +21419,7 @@ class AccessibilityWidget {
     
             // Get all content elements in document order - focus on actual content elements
     
-            const allElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, a, img, button');
+            const allElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, a, img, button, div, span, li, ul, ol, section, article, main, header, footer, nav, aside, blockquote, pre, code, strong, em, b, i, u, mark, small, sub, sup, del, ins, cite, q, abbr, time, address, details, summary, figure, figcaption, table, tr, td, th, thead, tbody, tfoot, form, input, textarea, select, label, fieldset, legend, dl, dt, dd');
     
             console.log('Read Mode: Found elements:', allElements.length);
     
@@ -21047,6 +21522,95 @@ class AccessibilityWidget {
                     content += `<div style="margin: 10px 0; font-size: 1em; color: #333; font-weight: 500;">[Button] ${text}</div>`;
     
                     processedCount++;
+    
+                } else if (tagName === 'li' && text) {
+    
+                    // List items
+    
+                    content += `<div style="margin: 8px 0; font-size: 1em; color: #444; padding-left: 20px;">• ${text}</div>`;
+    
+                    processedCount++;
+    
+                } else if (tagName === 'div' && text && text.length > 10) {
+    
+                    // Divs with substantial text content
+    
+                    content += `<div style="margin: 10px 0; font-size: 1em; color: #444; line-height: 1.5;">${text}</div>`;
+    
+                    processedCount++;
+    
+                } else if (tagName === 'span' && text && text.length > 5) {
+    
+                    // Spans with text content
+    
+                    content += `<span style="color: #444;">${text}</span>`;
+    
+                    processedCount++;
+    
+                } else if (tagName === 'strong' || tagName === 'b') {
+    
+                    // Bold text
+    
+                    if (text) {
+                        content += `<strong style="font-weight: bold; color: #333;">${text}</strong>`;
+                        processedCount++;
+                    }
+    
+                } else if (tagName === 'em' || tagName === 'i') {
+    
+                    // Italic text
+    
+                    if (text) {
+                        content += `<em style="font-style: italic; color: #444;">${text}</em>`;
+                        processedCount++;
+                    }
+    
+                } else if (tagName === 'blockquote' && text) {
+    
+                    // Blockquotes
+    
+                    content += `<div style="margin: 15px 0; padding-left: 20px; border-left: 3px solid #ccc; font-style: italic; color: #555;">${text}</div>`;
+    
+                    processedCount++;
+    
+                } else if (tagName === 'code' && text) {
+    
+                    // Code
+    
+                    content += `<code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #333;">${text}</code>`;
+    
+                    processedCount++;
+    
+                } else if (tagName === 'table') {
+    
+                    // Tables
+    
+                    const rows = element.querySelectorAll('tr');
+                    if (rows.length > 0) {
+                        content += `<div style="margin: 15px 0; overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">`;
+                        rows.forEach(row => {
+                            const cells = row.querySelectorAll('td, th');
+                            if (cells.length > 0) {
+                                content += `<tr>`;
+                                cells.forEach(cell => {
+                                    const cellTag = cell.tagName.toLowerCase() === 'th' ? 'th' : 'td';
+                                    content += `<${cellTag} style="border: 1px solid #ddd; padding: 8px; text-align: left;">${cell.textContent.trim()}</${cellTag}>`;
+                                });
+                                content += `</tr>`;
+                            }
+                        });
+                        content += `</table></div>`;
+                        processedCount++;
+                    }
+    
+                } else if (tagName === 'section' || tagName === 'article' || tagName === 'main') {
+    
+                    // Sections, articles, main content
+    
+                    if (text && text.length > 20) {
+                        content += `<div style="margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 5px;">${text}</div>`;
+                        processedCount++;
+                    }
     
                 }
     
@@ -28147,6 +28711,14 @@ class AccessibilityWidget {
             console.log('[CK] fetchCustomizationData() - this.kvApiUrl:', this.kvApiUrl);
             
             try {
+                // First check payment status before loading customization data
+                const paymentValid = await this.checkPaymentStatus();
+                if (!paymentValid) {
+                    console.log('[CK] fetchCustomizationData() - Payment validation failed, disabling widget');
+                    this.disableWidget();
+                    return null;
+                }
+                
                 // Get siteId first
                 this.siteId = await this.getSiteId();
                 console.log('[CK] fetchCustomizationData() - Got siteId:', this.siteId);
@@ -28202,6 +28774,14 @@ class AccessibilityWidget {
             setInterval(async () => {
                 console.log('[CK] setupCustomizationRefresh() - Checking for customization updates...');
                 try {
+                    // Check payment status first
+                    const paymentValid = await this.checkPaymentStatus();
+                    if (!paymentValid) {
+                        console.log('[CK] setupCustomizationRefresh() - Payment validation failed, disabling widget');
+                        this.disableWidget();
+                        return;
+                    }
+                    
                     const customizationData = await this.fetchCustomizationData();
                     if (customizationData && customizationData.customization) {
                         console.log('[CK] setupCustomizationRefresh() - Found updated customization data:', customizationData.customization);
@@ -28217,6 +28797,14 @@ class AccessibilityWidget {
                 if (!document.hidden) {
                     console.log('[CK] setupCustomizationRefresh() - Page became visible, checking for updates...');
                     try {
+                        // Check payment status first
+                        const paymentValid = await this.checkPaymentStatus();
+                        if (!paymentValid) {
+                            console.log('[CK] setupCustomizationRefresh() - Payment validation failed on visibility change, disabling widget');
+                            this.disableWidget();
+                            return;
+                        }
+                        
                         const customizationData = await this.fetchCustomizationData();
                         if (customizationData && customizationData.customization) {
                             console.log('[CK] setupCustomizationRefresh() - Found updated customization data on visibility change:', customizationData.customization);
@@ -28311,7 +28899,20 @@ class AccessibilityWidget {
             console.log('[CK] getSiteId() - Domain lookup response status:', response.status);
             console.log('[CK] getSiteId() - Domain lookup response ok:', response.ok);
             
-            if (response.ok) {
+            // Handle rate limit errors with retry
+            if (response.status === 429) {
+                console.log('[CK] getSiteId() - Rate limit exceeded, retrying in 2 seconds...');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                const retryResponse = await fetch(`${this.kvApiUrl}/api/accessibility/domain-lookup?domain=${hostname}`);
+                if (retryResponse.ok) {
+                    const data = await retryResponse.json();
+                    console.log('[CK] getSiteId() - Retry successful, found siteId:', data.siteId);
+                    return data.siteId;
+                } else {
+                    console.log('[CK] getSiteId() - Retry failed:', retryResponse.status);
+                }
+            } else if (response.ok) {
                 const data = await response.json();
                 console.log('[CK] getSiteId() - Domain lookup response data:', data);
                 console.log('[CK] getSiteId() - Found siteId via domain lookup:', data.siteId);
@@ -28341,7 +28942,20 @@ class AccessibilityWidget {
                 console.log('[CK] getSiteId() - Domain lookup response status (no www):', response.status);
                 console.log('[CK] getSiteId() - Domain lookup response ok (no www):', response.ok);
                 
-                if (response.ok) {
+                // Handle rate limit errors with retry
+                if (response.status === 429) {
+                    console.log('[CK] getSiteId() - Rate limit exceeded (no www), retrying in 2 seconds...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    const retryResponse = await fetch(`${this.kvApiUrl}/api/accessibility/domain-lookup?domain=${domainWithoutWww}`);
+                    if (retryResponse.ok) {
+                        const data = await retryResponse.json();
+                        console.log('[CK] getSiteId() - Retry successful (no www), found siteId:', data.siteId);
+                        return data.siteId;
+                    } else {
+                        console.log('[CK] getSiteId() - Retry failed (no www):', retryResponse.status);
+                    }
+                } else if (response.ok) {
                     const data = await response.json();
                     console.log('[CK] getSiteId() - Domain lookup response data (no www):', data);
                     console.log('[CK] getSiteId() - Found siteId via domain lookup (no www):', data.siteId);
@@ -28552,7 +29166,28 @@ class AccessibilityWidget {
                 console.warn('[CK] showIcon() - Icon not found in shadow DOM');
                 return;
             }
-    
+            
+            // Check if payment failed - if so, don't show icon
+            if (this.paymentFailed) {
+                console.log('[CK] showIcon() - Payment failed, not showing icon');
+                icon.style.display = 'none';
+                icon.style.visibility = 'hidden';
+                icon.style.opacity = '0';
+                return;
+            }
+            
+            // Additional check: if widget container is hidden due to payment issues, don't show icon
+            const widgetContainer = document.getElementById('accessibility-widget-container');
+            if (widgetContainer && (widgetContainer.style.display === 'none' || 
+                widgetContainer.style.visibility === 'hidden' || 
+                widgetContainer.style.opacity === '0')) {
+                console.log('[CK] showIcon() - Widget container is hidden, not showing icon');
+                icon.style.display = 'none';
+                icon.style.visibility = 'hidden';
+                icon.style.opacity = '0';
+                return;
+            }
+            
             // Check device type
             const isMobile = window.innerWidth <= 768;
             const hideTrigger = this.customizationData?.hideTriggerButton === 'Yes';
@@ -31174,37 +31809,8 @@ class AccessibilityWidget {
         
         // Show payment required message
         const showPaymentMessage = function(reason) {
-            const message = document.createElement('div');
-            message.innerHTML = `
-                <div style="
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #f59e0b;
-                    color: white;
-                    padding: 12px 16px;
-                    border-radius: 8px;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    font-size: 14px;
-                    z-index: 9999;
-                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-                    max-width: 300px;
-                ">
-                    <strong>Accessibility Widget</strong><br>
-                    ${reason || 'Payment required to activate features.'}
-                    <a href="https://accessibility-widget.web-8fb.workers.dev" style="color: white; text-decoration: underline; margin-left: 4px;">
-                        Subscribe Now
-                    </a>
-                </div>
-            `;
-            document.body.appendChild(message);
-            
-            // Remove message after 10 seconds
-            setTimeout(() => {
-                if (message.parentNode) {
-                    message.parentNode.removeChild(message);
-                }
-            }, 10000);
+            // Payment message disabled - no popup will be shown
+            console.log('Accessibility Widget: Payment message disabled');
         };
         
         // Initialize payment check

@@ -42680,6 +42680,7 @@ const App = () => {
                                 userEmail: email,
                                 siteName: (siteInfo === null || siteInfo === void 0 ? void 0 : siteInfo.siteName) || 'Unknown Site',
                                 installationData: {
+                                    firstName: parsed.firstName || 'User',
                                     timestamp: new Date().toISOString(),
                                     source: 'webflow_app'
                                 }
@@ -43717,6 +43718,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     // Check for existing subscription status on component mount
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         const checkExistingSubscription = () => __awaiter(void 0, void 0, void 0, function* () {
+            var _a, _b, _c, _d;
             try {
                 const siteId = yield getSiteId();
                 console.log('🔥 PaymentScreen: Checking existing subscription for siteId:', siteId);
@@ -43764,6 +43766,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             }
                         }
                         console.log('🔥 PaymentScreen: Calculated endDate:', endDate);
+                        console.log('🔥 PaymentScreen: ProductId from data:', data.subscription.productId || ((_b = (_a = data.subscription.details) === null || _a === void 0 ? void 0 : _a.metadata) === null || _b === void 0 ? void 0 : _b.productId));
                         if (endDate && !isNaN(endDate.getTime())) {
                             const now = new Date().getTime();
                             console.log('🔥 PaymentScreen: Checking validity - now:', now, 'endDate:', endDate.getTime());
@@ -43790,8 +43793,11 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         }
                         else {
                             console.log('🔥 PaymentScreen: No valid end date found, using fallback');
-                            // Fallback: assume 30 days from now for yearly plan
-                            const fallbackDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year for yearly plan
+                            // Determine fallback period based on productId
+                            const productId = data.subscription.productId || ((_d = (_c = data.subscription.details) === null || _c === void 0 ? void 0 : _c.metadata) === null || _d === void 0 ? void 0 : _d.productId);
+                            const isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+                            const fallbackDays = isAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
+                            const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
                             setPaymentSuccess(true);
                             setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
                             const subscriptionData = {
@@ -43838,6 +43844,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     // Listen for payment success events
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         const handlePaymentSuccess = (event) => __awaiter(void 0, void 0, void 0, function* () {
+            var _a;
             console.log('🔥 PaymentScreen: Payment success event received:', event.detail);
             console.log('🔥 PaymentScreen: Setting paymentSuccess to true');
             setPaymentSuccess(true);
@@ -43925,8 +43932,11 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 }
                 else {
                     console.log('🔥 PaymentScreen: No valid end date found, using fallback');
-                    // Fallback: assume 1 year from now for yearly plan
-                    const fallbackDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+                    // Determine fallback period based on productId
+                    const productId = ((_a = subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.metadata) === null || _a === void 0 ? void 0 : _a.productId) || (subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.productId);
+                    const isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+                    const fallbackDays = isAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
+                    const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
                     setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
                     const subscriptionData = {
                         status: 'active',
@@ -43940,8 +43950,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             }
             else {
                 console.log('🔥 PaymentScreen: No subscription details available, using fallback');
-                // Fallback: assume 1 year from now for yearly plan
-                const fallbackDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+                // Default to monthly plan fallback (30 days) if no productId available
+                const fallbackDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
                 setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
                 const subscriptionData = {
                     status: 'active',
@@ -44068,11 +44078,24 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             console.error(':x: Stripe error:', msg);
             // You can surface a toast here; keeping console for brevity
         }
+        // Add event listeners for payment processing states
+        function onPaymentStart() {
+            console.log('🔥 PaymentScreen: Payment processing started');
+            setIsProcessing(true);
+        }
+        function onPaymentEnd() {
+            console.log('🔥 PaymentScreen: Payment processing ended');
+            setIsProcessing(false);
+        }
         window.addEventListener('stripe-payment-success', onSuccess);
         window.addEventListener('stripe-payment-error', onError);
+        window.addEventListener('stripe-payment-start', onPaymentStart);
+        window.addEventListener('stripe-payment-end', onPaymentEnd);
         return () => {
             window.removeEventListener('stripe-payment-success', onSuccess);
             window.removeEventListener('stripe-payment-error', onError);
+            window.removeEventListener('stripe-payment-start', onPaymentStart);
+            window.removeEventListener('stripe-payment-end', onPaymentEnd);
         };
     }, []);
     const handlePayment = () => __awaiter(void 0, void 0, void 0, function* () {
@@ -44104,11 +44127,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     const handleSuccessNext = () => {
         console.log('Payment: Moving to next step after success');
         onNext();
-    };
-    const handleRetryPayment = () => {
-        console.log('Payment: Retrying payment');
-        setPaymentSuccess(false);
-        setShowStripeForm(false);
     };
     const handleEditDomain = () => {
         console.log('Payment: Opening domain change modal');
@@ -44225,7 +44243,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     siteId,
                     subscriptionId,
                     metadata: {
-                        domain_url: newDomain.trim(),
                         domain: newDomain.trim()
                     }
                 })
@@ -44281,6 +44298,257 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "", style: { transform: 'rotate(180deg)' } }),
                         " Back to Pricing"))),
             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { padding: '16px 24px', overflowY: 'auto', flex: 1, minHeight: 0 } },
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("style", null, `
+            /* Stripe Elements styling */
+            .StripeElement {
+              height: 40px !important;
+              padding: 10px 14px !important;
+              border: 1px solid #e6e6e6 !important;
+              border-radius: 4px !important;
+              background-color: white !important;
+              color: #333333 !important;
+              font-size: 16px !important;
+              box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
+              transition: box-shadow 150ms ease, border-color 150ms ease !important;
+              box-sizing: border-box !important;
+            }
+            
+            .StripeElement--focus {
+              border-color: #0570de !important;
+              box-shadow: 0 0 0 1px #0570de !important;
+            }
+            
+            .StripeElement--invalid {
+              border-color: #df1b41 !important;
+            }
+            
+            /* Link Authentication Element styling */
+            #link-authentication-element .StripeElement {
+              height: 40px !important;
+            }
+            
+            /* Payment Element styling */
+            #payment-element .StripeElement {
+              height: 40px !important;
+            }
+            
+            /* Ensure only input fields have white background, not labels */
+            input[type="email"], 
+            input[type="url"], 
+            input[type="text"], 
+            input[type="tel"] {
+              height: 40px !important;
+              background-color: white !important;
+              color: #333333 !important;
+              border: 1px solid #e6e6e6 !important;
+              box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
+              box-sizing: border-box !important;
+            }
+            
+            /* Ensure labels stay white text on transparent background */
+            label {
+              background-color: transparent !important;
+              color: #ffffff !important;
+            }
+            
+            /* Remove white background from text labels only */
+            label {
+              background-color: transparent !important;
+              background: transparent !important;
+            }
+            
+            /* Remove white backgrounds and borders from all possible wrapper elements */
+            .StripeElement,
+            .StripeElement--complete,
+            .StripeElement--empty,
+            .StripeElement--focus,
+            .StripeElement--invalid,
+            .StripeElement--webkit-autofill,
+            div[class*="Stripe"],
+            div[class*="stripe"],
+            span[class*="Stripe"],
+            span[class*="stripe"] {
+              background-color: transparent !important;
+              background: transparent !important;
+              border: none !important;
+              border-color: transparent !important;
+            }
+            
+            /* Target any divs that might be wrapping labels */
+            form div:not([class*="input"]):not([class*="field"]) {
+              background-color: transparent !important;
+              background: transparent !important;
+              border: none !important;
+              border-color: transparent !important;
+            }
+            
+            /* Placeholder text styling */
+            input::placeholder {
+              color: #a3a3a3 !important;
+            }
+            
+            /* Ensure proper alignment of Email and Domain URL fields */
+            #link-authentication-element {
+              height: 40px !important;
+              width: 100% !important;
+              display: flex !important;
+              align-items: center !important;
+              margin-top: 0 !important;
+              margin-bottom: 0 !important;
+              padding-top: 0 !important;
+              padding-bottom: 0 !important;
+            }
+            
+            #link-authentication-element .StripeElement {
+              height: 40px !important;
+              width: 100% !important;
+              margin-bottom: 0 !important;
+              margin-top: 0 !important;
+              flex: 1 !important;
+              padding-top: 0 !important;
+              padding-bottom: 0 !important;
+            }
+            
+            /* Ensure both fields have same height, width and alignment */
+            #link-authentication-element,
+            #domain-url {
+              height: 40px !important;
+              width: 100% !important;
+              vertical-align: top !important;
+              display: flex !important;
+              align-items: center !important;
+              margin-top: 0 !important;
+              margin-bottom: 0 !important;
+              padding-top: 0 !important;
+              padding-bottom: 0 !important;
+            }
+            
+            /* Force both containers to have same baseline */
+            .contact-info-container > div {
+              align-items: flex-start !important;
+              justify-content: flex-start !important;
+            }
+            
+            .contact-info-container > div:first-child,
+            .contact-info-container > div:last-child {
+              align-items: flex-start !important;
+              justify-content: flex-start !important;
+              margin-top: 0 !important;
+              padding-top: 0 !important;
+            }
+            
+            /* Force both containers to have identical height and alignment */
+            .contact-info-container {
+              align-items: flex-start !important;
+            }
+            
+            .contact-info-container > div {
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: flex-start !important;
+              min-height: 60px !important;
+              align-items: stretch !important;
+            }
+            
+            /* Ensure both input containers have same baseline */
+            .contact-info-container > div:first-child,
+            .contact-info-container > div:last-child {
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+              min-height: 60px !important;
+            }
+            
+            /* Make sure Stripe Elements container matches regular input height */
+            #link-authentication-element {
+              min-height: 40px !important;
+              max-height: 40px !important;
+              height: 40px !important;
+              display: flex !important;
+              align-items: center !important;
+              line-height: 1 !important;
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+            
+            /* Remove any extra spacing from Stripe Elements */
+            #link-authentication-element * {
+              line-height: 1 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            
+            #link-authentication-element .StripeElement {
+              height: 40px !important;
+              max-height: 40px !important;
+              line-height: 1 !important;
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+            
+            /* Force alignment of the container divs */
+            .contact-info-container > div {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+            }
+            
+            .contact-info-container > div > * {
+              margin-bottom: 0 !important;
+              margin-top: 0 !important;
+            }
+            
+            /* Ensure both input containers have same vertical positioning */
+            .contact-info-container > div:first-child,
+            .contact-info-container > div:last-child {
+              align-items: flex-start !important;
+              justify-content: flex-start !important;
+            }
+            
+            /* Fix vertical alignment of Stripe Elements */
+            #link-authentication-element {
+              margin-top: 0 !important;
+              margin-bottom: 0 !important;
+              padding-top: 0 !important;
+              padding-bottom: 0 !important;
+            }
+            
+            /* Position Stripe's legal text properly - above the Subscribe button */
+            .StripeElement + *,
+            #payment-element + *,
+            form > div:last-of-type:not(#payment-element),
+            form > p:last-of-type,
+            form > span:last-of-type {
+              margin-bottom: '20px' !important;
+              margin-top: '20px' !important;
+              display: block !important;
+              position: relative !important;
+              z-index: 1 !important;
+            }
+            
+            /* Ensure legal text appears above Subscribe button with proper spacing */
+            form > div:last-of-type:not(#payment-element) {
+              order: -1 !important;
+              margin-bottom: '20px' !important;
+            }
+            
+            /* Fix any overlapping text by ensuring proper stacking */
+            #subscribe-btn {
+              position: relative !important;
+              z-index: 2 !important;
+              margin-top: '20px' !important;
+            }
+            
+            /* Target any Stripe-generated text elements */
+            div[class*="stripe"],
+            p[class*="stripe"],
+            span[class*="stripe"] {
+              position: relative !important;
+              z-index: 1 !important;
+              margin-bottom: '20px' !important;
+            }
+            
+          `),
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h2", { style: { margin: '0 0 12px 0' } }, "Complete Your Payment"),
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { marginBottom: 12, color: '#a3a3a3' } },
                     isAnnual ? 'Annual Plan' : 'Monthly Plan',
@@ -44295,25 +44563,27 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             margin: '0 0 16px 0',
                             color: '#ffffff'
                         } }, "Contact Information"),
-                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "contact-info-container", style: {
                             display: 'flex',
                             gap: '16px',
                             marginBottom: '20px',
                             flexWrap: 'wrap',
-                            alignItems: 'flex-end'
+                            alignItems: 'flex-start'
                         } },
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: '1 1 0', minWidth: 0 } },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: '1 1 0', minWidth: 0, maxWidth: 'calc(50% - 8px)' } },
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "link-authentication-element", style: { marginBottom: 0 } })),
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: '1 1 0', minWidth: 0 } },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: '1 1 0', minWidth: 0, maxWidth: 'calc(50% - 8px)' } },
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("label", { htmlFor: "domain-url", style: {
                                     display: 'block',
                                     marginBottom: '8px',
                                     fontSize: '14px',
                                     fontWeight: '500',
-                                    color: '#ffffff'
+                                    color: '#ffffff',
+                                    backgroundColor: 'transparent'
                                 } }, "Your Domain URL"),
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("input", { id: "domain-url", type: "url", placeholder: "https://your-domain.com", required: true, style: {
                                     width: '100%',
+                                    height: '40px',
                                     padding: '10px 14px',
                                     fontSize: '16px',
                                     border: '1px solid #e6e6e6',
@@ -44321,7 +44591,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                     backgroundColor: 'white',
                                     color: '#333333',
                                     boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
-                                    transition: 'box-shadow 150ms ease, border-color 150ms ease'
+                                    transition: 'box-shadow 150ms ease, border-color 150ms ease',
+                                    boxSizing: 'border-box'
                                 } }))),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
                             fontSize: '16px',
@@ -44329,7 +44600,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             margin: '0 0 16px 0',
                             color: '#ffffff'
                         } }, "Payment"),
-                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "payment-element", style: { marginBottom: '20px' } }),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "payment-element", style: { marginBottom: '60px' } }),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "error-message", style: {
                             color: '#fa755a',
                             fontSize: '14px',
@@ -44342,8 +44613,14 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             marginBottom: '16px',
                             minHeight: '20px'
                         } }),
-                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { id: "subscribe-btn", className: "subscribe-button", type: "submit" }, "Subscribe")),
-                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "legal-text", style: { marginTop: 12 } }, "By completing this purchase, you agree to our Terms of Service and Privacy Policy."))));
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { id: "subscribe-btn", className: "subscribe-button", type: "submit", disabled: isProcessing, style: {
+                            opacity: isProcessing ? 0.7 : 1,
+                            cursor: isProcessing ? 'not-allowed' : 'pointer',
+                            transition: 'opacity 0.2s ease',
+                            marginTop: '40px'
+                        } }, isProcessing ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement((react__WEBPACK_IMPORTED_MODULE_0___default().Fragment), null,
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", { style: { marginRight: '8px' } }, "\u23F3"),
+                        "Processing...")) : ('Subscribe'))))));
     }
     // Debug logging
     console.log('🔥 PaymentScreen: Current state - paymentSuccess:', paymentSuccess, 'showStripeForm:', showStripeForm);
@@ -44353,9 +44630,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-header" },
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "app-name" }),
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "header-buttons" },
-                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "back-btn", onClick: handleRetryPayment },
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "", style: { transform: 'rotate(180deg)' } }),
-                        " Try Again"),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "next-btn", onClick: handleSuccessNext },
                         "Continue ",
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "" })))),
@@ -45269,79 +45543,118 @@ function useAuth() {
         if (!authWindow) {
             return;
         }
-        // Check for auth success in URL parameters when window closes
-        const checkAuthSuccess = () => {
+        // Monitor popup window for completion and URL changes
+        const checkPopupClosed = setInterval(() => {
+            if (authWindow.closed) {
+                clearInterval(checkPopupClosed);
+                console.log('OAuth popup closed, checking for auth success...');
+                // Check for auth success when popup closes
+                const url = new URL(window.location.href);
+                const authSuccess = url.searchParams.get('auth_success');
+                if (authSuccess === 'true') {
+                    console.log('Auth success detected when popup closed');
+                    processAuthSuccess(url);
+                }
+            }
+        }, 1000);
+        // Also monitor for URL changes in the main window (in case popup redirects back)
+        const checkUrlChange = setInterval(() => {
+            const url = new URL(window.location.href);
+            const authSuccess = url.searchParams.get('auth_success');
+            if (authSuccess === 'true') {
+                clearInterval(checkUrlChange);
+                clearInterval(checkPopupClosed);
+                console.log('Auth success detected via URL change');
+                // Process auth success using helper function
+                processAuthSuccess(url);
+            }
+        }, 500);
+        // Check immediately for auth success (in case popup already completed)
+        const checkImmediateAuth = () => {
             try {
                 const url = new URL(window.location.href);
                 const authSuccess = url.searchParams.get('auth_success');
                 if (authSuccess === 'true') {
-                    console.log('Auth success detected in URL parameters');
-                    // IMPORTANT: Clear all old session data first to prevent cross-site contamination
-                    console.log('Clearing old session data before storing new data...');
-                    sessionStorage.removeItem("accessbit-userinfo");
-                    sessionStorage.removeItem("contrastkit-userinfo");
-                    sessionStorage.removeItem("explicitly_logged_out");
-                    sessionStorage.removeItem("siteInfo");
-                    // Get auth data from URL parameters
-                    const sessionToken = url.searchParams.get('sessionToken');
-                    const firstName = url.searchParams.get('firstName');
-                    const email = url.searchParams.get('email');
-                    const siteId = url.searchParams.get('siteId');
-                    const siteName = url.searchParams.get('siteName');
-                    const shortName = url.searchParams.get('shortName');
-                    // Store the session data from the OAuth popup
-                    // Worker now sends real email in URL parameters, so use it directly
-                    const userData = {
-                        sessionToken: sessionToken,
+                    console.log('Auth success detected immediately in URL parameters');
+                    // Clear intervals since we found auth success
+                    clearInterval(checkUrlChange);
+                    clearInterval(checkPopupClosed);
+                    // Process auth success (same logic as above)
+                    processAuthSuccess(url);
+                }
+            }
+            catch (error) {
+                console.warn('Error checking immediate auth:', error);
+            }
+        };
+        // Helper function to process auth success
+        const processAuthSuccess = (url) => {
+            try {
+                // IMPORTANT: Clear all old session data first to prevent cross-site contamination
+                console.log('Clearing old session data before storing new data...');
+                sessionStorage.removeItem("accessbit-userinfo");
+                sessionStorage.removeItem("contrastkit-userinfo");
+                sessionStorage.removeItem("explicitly_logged_out");
+                sessionStorage.removeItem("siteInfo");
+                // Get auth data from URL parameters
+                const sessionToken = url.searchParams.get('sessionToken');
+                const firstName = url.searchParams.get('firstName');
+                const email = url.searchParams.get('email');
+                const siteId = url.searchParams.get('siteId');
+                const siteName = url.searchParams.get('siteName');
+                const shortName = url.searchParams.get('shortName');
+                // Store the session data from the OAuth popup
+                const userData = {
+                    sessionToken: sessionToken,
+                    firstName: firstName,
+                    email: email || '',
+                    siteId: siteId,
+                    exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+                    siteInfo: {
+                        siteId: siteId,
+                        siteName: siteName,
+                        shortName: shortName,
+                        email: email || ''
+                    }
+                };
+                console.log('Storing new session data for site:', siteId);
+                console.log('New user data:', userData);
+                // Store in sessionStorage for persistence
+                sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
+                sessionStorage.removeItem("explicitly_logged_out");
+                // Clear React Query cache and update with new data
+                queryClient.clear();
+                queryClient.setQueryData(["auth"], {
+                    user: {
                         firstName: firstName,
                         email: email || '',
-                        siteId: siteId,
-                        exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
-                        siteInfo: {
-                            siteId: siteId,
-                            siteName: siteName,
-                            shortName: shortName,
-                            email: email || ''
-                        }
-                    };
-                    console.log('Storing new session data for site:', siteId);
-                    console.log('New user data:', userData);
-                    // Store in sessionStorage for persistence
-                    sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
-                    sessionStorage.removeItem("explicitly_logged_out");
-                    // Clear React Query cache and update with new data
-                    queryClient.clear();
-                    queryClient.setQueryData(["auth"], {
-                        user: {
-                            firstName: firstName,
-                            email: email || '',
-                            siteId: siteId
-                        },
-                        sessionToken: sessionToken
-                    });
-                    // Clean up URL parameters
-                    const cleanUrl = new URL(window.location.href);
-                    cleanUrl.searchParams.delete('auth_success');
-                    cleanUrl.searchParams.delete('sessionToken');
-                    cleanUrl.searchParams.delete('firstName');
-                    cleanUrl.searchParams.delete('email');
-                    cleanUrl.searchParams.delete('siteId');
-                    cleanUrl.searchParams.delete('siteName');
-                    cleanUrl.searchParams.delete('shortName');
-                    window.history.replaceState({}, '', cleanUrl.toString());
-                }
+                        siteId: siteId
+                    },
+                    sessionToken: sessionToken
+                });
+                // Clean up URL parameters
+                const cleanUrl = new URL(window.location.href);
+                cleanUrl.searchParams.delete('auth_success');
+                cleanUrl.searchParams.delete('sessionToken');
+                cleanUrl.searchParams.delete('firstName');
+                cleanUrl.searchParams.delete('email');
+                cleanUrl.searchParams.delete('siteId');
+                cleanUrl.searchParams.delete('siteName');
+                cleanUrl.searchParams.delete('shortName');
+                window.history.replaceState({}, '', cleanUrl.toString());
             }
             catch (error) {
                 console.warn('Error processing auth success:', error);
             }
         };
-        // Check for auth success when window closes
-        const checkWindow = setInterval(() => {
-            if (authWindow === null || authWindow === void 0 ? void 0 : authWindow.closed) {
-                clearInterval(checkWindow);
-                checkAuthSuccess();
-            }
-        }, 1000);
+        // Check immediately for auth success
+        checkImmediateAuth();
+        // Set a timeout to clear intervals after 5 minutes
+        setTimeout(() => {
+            clearInterval(checkUrlChange);
+            clearInterval(checkPopupClosed);
+            console.log('OAuth monitoring timeout reached');
+        }, 5 * 60 * 1000); // 5 minutes
     });
     // Function to check if user is authenticated for current site
     const isAuthenticatedForCurrentSite = () => __awaiter(this, void 0, void 0, function* () {
