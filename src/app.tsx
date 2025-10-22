@@ -54,7 +54,6 @@ const App: React.FC = () => {
                 userEmail: email,
                 siteName: siteInfo?.siteName || 'Unknown Site',
                 installationData: {
-                  firstName: parsed.firstName || 'User',
                   timestamp: new Date().toISOString(),
                   source: 'webflow_app'
                 }

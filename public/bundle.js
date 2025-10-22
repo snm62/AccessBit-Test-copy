@@ -42680,7 +42680,6 @@ const App = () => {
                                 userEmail: email,
                                 siteName: (siteInfo === null || siteInfo === void 0 ? void 0 : siteInfo.siteName) || 'Unknown Site',
                                 installationData: {
-                                    firstName: parsed.firstName || 'User',
                                     timestamp: new Date().toISOString(),
                                     source: 'webflow_app'
                                 }
@@ -44554,8 +44553,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     isAnnual ? 'Annual Plan' : 'Monthly Plan',
                     " - $",
                     isAnnual ? '19' : '24',
-                    "/",
-                    isAnnual ? 'year' : 'month'),
+                    "/month",
+                    isAnnual ? ': Purchased Annually' : ''),
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("form", { id: "payment-form", "data-plan-type": isAnnual ? 'annual' : 'monthly' },
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
                             fontSize: '16px',
@@ -44906,7 +44905,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                 isAnnual ? '19' : '24'),
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "price-period" },
                                 "/",
-                                isAnnual ? 'Paid Annually' : 'Paid Monthly')),
+                                isAnnual ? 'month: Purchased Annually' : 'month')),
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: `payment-toggle ${isAnnual ? 'annually' : 'monthly'}` },
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: `toggle-option ${!isAnnual ? 'active' : ''}`, onClick: () => setIsAnnual(false) }, "Monthly"),
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: `toggle-option ${isAnnual ? 'active' : ''}`, onClick: () => setIsAnnual(true) }, "Annually")),
@@ -44915,8 +44914,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "secondary-price" },
                             "$",
                             isAnnual ? '19' : '24',
-                            "/Paid ",
-                            isAnnual ? 'Annually' : 'Monthly'),
+                            "/month",
+                            isAnnual ? ': Purchased Annually' : ''),
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "purchase-btn", onClick: handlePurchaseNow, disabled: isProcessing },
                             "Purchase Now ",
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { style: { width: "11px" }, src: whitearrow, alt: "" }))))))));

@@ -1,6 +1,33 @@
 ﻿// CRITICAL: Immediate seizure-safe check - runs before any animations can start
 (function() {
     try {
+        // Skip accessibility widget if in reader mode or if page is being processed for reader mode
+        const isReaderMode = document.documentElement.classList.contains('reader-mode') || 
+            document.body.classList.contains('reader-mode') ||
+            window.location.search.includes('reader-mode') ||
+            document.querySelector('[data-reader-mode]') ||
+            document.querySelector('.reader-mode') ||
+            document.querySelector('#reader-mode') ||
+            window.location.hash.includes('reader') ||
+            document.title.toLowerCase().includes('reader') ||
+            // Check for common reader mode indicators
+            document.querySelector('meta[name="reader-mode"]') ||
+            document.querySelector('meta[name="reading-mode"]') ||
+            // Check if page is being processed by a reader
+            window.navigator.userAgent.includes('Reader') ||
+            window.navigator.userAgent.includes('Readability') ||
+            // Check for reader mode URL parameters
+            window.location.search.includes('read') ||
+            window.location.search.includes('print') ||
+            // Check for reader mode classes that might be added by browsers
+            document.documentElement.getAttribute('data-reader-mode') ||
+            document.body.getAttribute('data-reader-mode');
+            
+        if (isReaderMode) {
+            console.log('Accessibility Widget: Reader mode detected, skipping widget initialization');
+            return;
+        }
+        
         // Check localStorage immediately for seizure-safe mode
         const seizureSafeFromStorage = localStorage.getItem('accessibility-widget-seizure-safe');
         if (seizureSafeFromStorage === 'true') {
@@ -13771,7 +13798,12 @@ class AccessibilityWidget {
             
             const scale = this.contentScale / 100;
             style.textContent = `
-                /* Enhanced content scaling - use transform for proportional scaling */
+                /* Content scaling via root font-size to preserve layout flow */
+                html {
+                    font-size: ${this.contentScale}% !important;
+                }
+                
+                /* Do not alter line-height; let site CSS control it */
                 
                 /* Ensure body and html can scroll properly */
                 html, body {
@@ -13779,50 +13811,20 @@ class AccessibilityWidget {
                     overflow-y: auto !important;
                 }
                 
-                /* Scale all text content with transform (preserves proportions) */
-                body p, body span, body a, body li, body td, body th, 
-                body h1, body h2, body h3, body h4, body h5, body h6 {
-                    transform: scale(${scale}) !important;
-                    transform-origin: top left !important;
+                /* Media scales with text */
+                img, video, canvas, iframe {
+                    max-width: 100% !important;
+                    height: auto !important;
                 }
                 
-                /* Scale images and media with transform (preserves aspect ratio) */
-                body img, body video, body iframe, body canvas {
-                    transform: scale(${scale}) !important;
-                    transform-origin: center !important;
+                /* Form controls follow root scaling; avoid transforms */
+                button, input, textarea, select {
+                    font-size: inherit !important;
                 }
                 
-                /* Scale buttons and form elements with transform */
-                body button, body input, body textarea, body select {
-                    transform: scale(${scale}) !important;
-                    transform-origin: top left !important;
-                }
-                
-                /* Scale content containers with transform */
-                body .container, body .wrapper, body .content, body .post, body .article,
-                body .card, body .section, body .block, body .text, body .description {
-                    transform: scale(${scale}) !important;
-                    transform-origin: top left !important;
-                }
-                
-                /* Exclude layout containers from scaling */
-                body .nav, body .navbar, body .menu, body .header, body .footer {
-                    transform: none !important;
-                }
-                
-                /* Ensure containers can expand to accommodate scaled content */
-                body .container, body .wrapper, body .content, body .post, body .article,
-                body .card, body .section, body .block, body .text, body .description {
-                    min-height: auto !important;
-                    overflow: visible !important;
-                    word-wrap: break-word !important;
-                    overflow-wrap: break-word !important;
-                }
-                
-                /* Ensure headings maintain their visual hierarchy */
-                body h1, body h2, body h3, body h4, body h5, body h6 {
-                    line-height: 1.2 !important;
-                    margin: 0.5em 0 !important;
+                /* Keep the accessibility UI unscaled */
+                .accessibility-panel, #accessibility-icon, .accessibility-icon, accessibility-widget, ACCESSIBILITY-WIDGET {
+                    font-size: initial !important;
                 }
             `;
             
@@ -20565,39 +20567,28 @@ class AccessibilityWidget {
             mediaElements.forEach((element, index) => {
                 console.log(`Accessibility Widget: Muting universal media element ${index}:`, element);
                 
-                // Try to mute if it's a standard media element
+                // Only mute actual media elements - DO NOT HIDE ANY CONTENT
                 if (element.tagName === 'AUDIO' || element.tagName === 'VIDEO') {
                     element.muted = true;
                     element.volume = 0;
                     if (!element.paused) element.pause();
-                } else {
-                    // For custom elements, just mute them without hiding
-                    if (element.tagName === 'AUDIO' || element.tagName === 'VIDEO') {
-                        element.muted = true;
-                        element.volume = 0;
-                        if (!element.paused) element.pause();
-                    } else {
-                        // Only hide if it's clearly a media player element
-                        if (className.includes('player') || className.includes('media') || 
-                            id.includes('player') || id.includes('media')) {
-                            element.style.display = 'none';
-                        }
-                    }
+                    totalMuted++;
                 }
-                totalMuted++;
+                // Don't hide any other elements - just mute actual media
             });
             
-            // 3. Find and mute any audio sources in custom players
+            // 3. Find and mute any audio sources in custom players - ONLY MUTE, DON'T HIDE
             const audioSources = document.querySelectorAll('[tmplayer-meta="audio-url"], [data-audio], [data-src], [data-url]');
             console.log(`Accessibility Widget: Found ${audioSources.length} audio sources`);
             audioSources.forEach((source, index) => {
                 console.log(`Accessibility Widget: Muting audio source ${index}:`, source.textContent);
-                // Only hide if it's clearly an audio source element
-                if (source.tagName === 'AUDIO' || source.tagName === 'VIDEO' || 
-                    source.hasAttribute('tmplayer-meta') || source.hasAttribute('data-audio')) {
-                    source.style.display = 'none';
+                // Only mute actual media elements - don't hide anything
+                if (source.tagName === 'AUDIO' || source.tagName === 'VIDEO') {
+                    source.muted = true;
+                    source.volume = 0;
+                    if (!source.paused) source.pause();
+                    totalMuted++;
                 }
-                totalMuted++;
             });
             
             // 4. Check iframes for media
@@ -20614,16 +20605,13 @@ class AccessibilityWidget {
                         const iframeMedia = iframeDoc.querySelectorAll('audio, video, [class*="audio"], [class*="video"], [class*="player"]');
                         console.log(`Accessibility Widget: Found ${iframeMedia.length} media elements in iframe ${index}`);
                         iframeMedia.forEach(element => {
+                            // Only mute actual media elements - don't hide anything
                             if (element.tagName === 'AUDIO' || element.tagName === 'VIDEO') {
                                 element.volume = 0;
                                 element.muted = true;
                                 if (!element.paused) element.pause();
-                            } else {
-                                element.style.display = 'none';
-                                element.style.visibility = 'hidden';
-                                element.style.opacity = '0';
+                                totalMuted++;
                             }
-                            totalMuted++;
                         });
                     }
                 } catch (e) {
@@ -20679,33 +20667,7 @@ class AccessibilityWidget {
                 element.volume = 1;
             });
             
-            // Restore custom audio players
-            const customAudioPlayers = document.querySelectorAll('[tmplayer-meta="audio-url"], [data-audio], [class*="audio"], [class*="player"], [id*="audio"], [id*="player"]');
-            customAudioPlayers.forEach(element => {
-                element.style.display = '';
-                element.style.visibility = '';
-                element.style.opacity = '';
-                element.style.pointerEvents = '';
-            });
-            
-            // Restore audio sources
-            const audioSources = document.querySelectorAll('[tmplayer-meta="audio-url"]');
-            audioSources.forEach(source => {
-                source.style.display = '';
-                source.style.visibility = '';
-                source.style.opacity = '';
-            });
-            
-            // Restore media divs
-            const mediaDivs = document.querySelectorAll('div[class*="audio"], div[class*="video"], div[class*="player"], div[class*="media"]');
-            mediaDivs.forEach(div => {
-                div.style.display = '';
-                div.style.visibility = '';
-                div.style.opacity = '';
-                div.style.pointerEvents = '';
-            });
-            
-            console.log(`Accessibility Widget: Restored ${allAudio.length} audio, ${allVideo.length} video, ${customAudioPlayers.length} custom players, and ${audioSources.length} audio sources`);
+            console.log(`Accessibility Widget: Restored ${allAudio.length} audio and ${allVideo.length} video elements`);
         }
         
         // Additional aggressive monitoring to catch any media that might start playing
@@ -31836,6 +31798,43 @@ class AccessibilityWidget {
             document.addEventListener('DOMContentLoaded', initPaymentCheck);
         } else {
             initPaymentCheck();
+        }
+        
+        // Final reader mode check - prevent any widget initialization in reader mode
+        const checkReaderMode = () => {
+            if (document.documentElement.classList.contains('reader-mode') || 
+                document.body.classList.contains('reader-mode') ||
+                window.location.search.includes('reader-mode') ||
+                document.querySelector('[data-reader-mode]') ||
+                document.querySelector('.reader-mode') ||
+                document.querySelector('#reader-mode') ||
+                window.location.hash.includes('reader') ||
+                document.title.toLowerCase().includes('reader')) {
+                console.log('Accessibility Widget: Reader mode detected at final check, disabling all widget functionality');
+                return false;
+            }
+            return true;
+        };
+        
+        // Override all widget functions if reader mode is detected
+        if (!checkReaderMode()) {
+            // Disable all widget functionality
+            if (window.accessibilityWidget) {
+                window.accessibilityWidget.disable = true;
+                window.accessibilityWidget.init = () => {};
+                window.accessibilityWidget.show = () => {};
+                window.accessibilityWidget.hide = () => {};
+            }
+            
+            // Remove any injected styles
+            const widgetStyles = document.querySelectorAll('style[id*="accessibility"], style[id*="widget"]');
+            widgetStyles.forEach(style => style.remove());
+            
+            // Remove any injected elements
+            const widgetElements = document.querySelectorAll('[id*="accessibility"], [class*="accessibility-widget"]');
+            widgetElements.forEach(el => el.remove());
+            
+            return; // Exit early
         }
         
     })();

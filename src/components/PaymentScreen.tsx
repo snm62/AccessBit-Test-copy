@@ -1075,7 +1075,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
           `}</style>
           <h2 style={{ margin: '0 0 12px 0' }}>Complete Your Payment</h2>
           <div style={{ marginBottom: 12, color: '#a3a3a3' }}>
-            {isAnnual ? 'Annual Plan' : 'Monthly Plan'} - ${isAnnual ? '19' : '24'}/{isAnnual ? 'year' : 'month'}
+            {isAnnual ? 'Annual Plan' : 'Monthly Plan'} - ${isAnnual ? '19' : '24'}/month{isAnnual ? ': Purchased Annually' : ''}
           </div>
           
           <form id="payment-form" data-plan-type={isAnnual ? 'annual' : 'monthly'}>
@@ -1583,7 +1583,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             <div className="pricing-left">
               <div className="main-price">
                 <div className="price-number">${isAnnual ? '19' : '24'}</div>
-                <div className="price-period">/{isAnnual ? 'Paid Annually' : 'Paid Monthly'}</div>
+                <div className="price-period">/{isAnnual ? 'month: Purchased Annually' : 'month'}</div>
               </div>
               
               <div className={`payment-toggle ${isAnnual ? 'annually' : 'monthly'}`}>
@@ -1609,7 +1609,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             {/* Right side - Secondary pricing and button */}
             <div className="pricing-right">
               <div className="secondary-price">
-                ${isAnnual ? '19' : '24'}/Paid {isAnnual ? 'Annually' : 'Monthly'}
+                ${isAnnual ? '19' : '24'}/month{isAnnual ? ': Purchased Annually' : ''}
               </div>
               
               <button 
