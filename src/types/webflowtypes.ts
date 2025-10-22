@@ -26,4 +26,10 @@ export interface WebflowAPI {
     location: 'head' | 'footer';
     code: string;
   }) => Promise<void>;
+  getSites?: () => Promise<Array<{
+    siteId: string;
+    siteName: string;
+    shortName: string;
+    url: string;
+  }>>;
 }

@@ -79,7 +79,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAuthorize, onNeedHelp ,
         <div className="welcome-content">
           <h1 className="welcome-title">
             Welcome to{" "}
-            <span className="welcome-title-highlight">ContrastKit</span>
+            <span className="welcome-title-highlight">AccessBit</span>
           </h1>
           {isCheckingAuth ? (
             <p className="welcome-instructions">

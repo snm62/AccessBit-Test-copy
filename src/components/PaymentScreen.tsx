@@ -30,11 +30,258 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
   const [showStripeForm, setShowStripeForm] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [subscriptionValidUntil, setSubscriptionValidUntil] = useState<string | null>(null);
+  const [actualPlanType, setActualPlanType] = useState<'annual' | 'monthly' | null>(null);
+  
+  // No fallbacks - only use fresh data from server
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  // Debug: Monitor actualPlanType changes
+  useEffect(() => {
+    console.log('🔥 PaymentScreen: actualPlanType changed to:', actualPlanType);
+  }, [actualPlanType]);
   const [isCanceling, setIsCanceling] = useState(false);
   const [showDomainModal, setShowDomainModal] = useState(false);
   const [newDomain, setNewDomain] = useState('');
   const [isUpdatingDomain, setIsUpdatingDomain] = useState(false);
+  const [domainValidationError, setDomainValidationError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{type: 'success' | 'error' | 'info', message: string} | null>(null);
+
+  // Helper function to show notifications
+  const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
+    setNotification({ type, message });
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      setNotification(null);
+    }, 5000);
+  };
+
+  // Domain validation function
+  const validateDomain = (domain: string) => {
+    // Remove protocol if present
+    const cleanDomain = domain.replace(/^https?:\/\//, '').toLowerCase();
+    
+    // Basic format validation
+    const domainRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    if (!domainRegex.test(cleanDomain)) {
+      return {
+        isValid: false,
+        error: 'Please enter a valid domain format (e.g., yoursite.com)'
+      };
+    }
+    
+    // Block major commercial domains
+    const blockedDomains = [
+      'amazon.com', 'amazon.in', 'amazon.co.uk', 'amazon.ca', 'amazon.de', 'amazon.fr', 'amazon.it', 'amazon.es', 'amazon.com.au', 'amazon.co.jp',
+      'flipkart.com', 'flipkart.in',
+      'google.com', 'google.co.in', 'google.co.uk', 'google.ca', 'google.com.au',
+      'facebook.com', 'instagram.com', 'twitter.com', 'linkedin.com', 'youtube.com',
+      'microsoft.com', 'apple.com', 'netflix.com', 'spotify.com', 'uber.com',
+      'airbnb.com', 'booking.com', 'expedia.com', 'tripadvisor.com',
+      'ebay.com', 'etsy.com', 'shopify.com', 'walmart.com', 'target.com',
+      'github.com', 'stackoverflow.com', 'reddit.com', 'wikipedia.org',
+      'paypal.com', 'stripe.com', 'square.com', 'venmo.com',
+      'dropbox.com', 'onedrive.com', 'icloud.com', 'gmail.com', 'outlook.com',
+      'yahoo.com', 'hotmail.com', 'aol.com', 'protonmail.com',
+      'zoom.us', 'teams.microsoft.com', 'slack.com', 'discord.com',
+      'twitch.tv', 'tiktok.com', 'snapchat.com', 'pinterest.com',
+      'medium.com', 'substack.com', 'wordpress.com', 'blogger.com',
+      'tumblr.com', 'flickr.com', 'imgur.com', 'deviantart.com'
+    ];
+    
+    // Check if domain is blocked
+    for (const blockedDomain of blockedDomains) {
+      if (cleanDomain === blockedDomain || cleanDomain.endsWith('.' + blockedDomain)) {
+        return {
+          isValid: false,
+          error: 'This domain is not allowed. Please enter your own website domain.'
+        };
+      }
+    }
+    
+    // Block common TLDs that are likely not user domains
+    const suspiciousTlds = ['.tk', '.ml', '.ga', '.cf', '.co.nf'];
+    for (const tld of suspiciousTlds) {
+      if (cleanDomain.endsWith(tld)) {
+        return {
+          isValid: false,
+          error: 'Please enter a professional domain name (avoid free domains)'
+        };
+      }
+    }
+    
+    // Block localhost and IP addresses
+    if (cleanDomain.includes('localhost') || cleanDomain.includes('127.0.0.1') || 
+        cleanDomain.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+      return {
+        isValid: false,
+        error: 'Please enter a public domain name, not localhost or IP address'
+      };
+    }
+    
+    // Block subdomains of major platforms (but allow Webflow staging URLs)
+    const blockedSubdomains = [
+      'github.io', 'netlify.app', 'vercel.app', 'herokuapp.com', 'firebaseapp.com',
+      'wordpress.com', 'blogspot.com', 'tumblr.com', 'wix.com', 'squarespace.com',
+      'weebly.com', 'shopify.com', 'bigcommerce.com'
+    ];
+    
+    // Allow Webflow staging URLs (they have specific patterns)
+    const isWebflowStaging = cleanDomain.includes('.webflow.io') && 
+      (cleanDomain.includes('-') || cleanDomain.match(/^[a-z0-9-]+\.webflow\.io$/));
+    
+    if (!isWebflowStaging) {
+      for (const blockedSubdomain of blockedSubdomains) {
+        if (cleanDomain.endsWith('.' + blockedSubdomain)) {
+          return {
+            isValid: false,
+            error: 'Please enter your own custom domain, not a subdomain of a platform'
+          };
+        }
+      }
+    }
+    
+    // Require at least one dot (TLD)
+    if (!cleanDomain.includes('.')) {
+      return {
+        isValid: false,
+        error: 'Please enter a complete domain name with extension (e.g., yoursite.com)'
+      };
+    }
+    
+    // Check minimum length
+    if (cleanDomain.length < 4) {
+      return {
+        isValid: false,
+        error: 'Domain name is too short'
+      };
+    }
+    
+    return {
+      isValid: true,
+      error: null
+    };
+  };
+
+  // Domain ownership verification function
+  const verifyDomainOwnership = async (domain: string) => {
+    try {
+      // Get the current site info from Webflow
+      if (typeof window !== 'undefined' && window.webflow && window.webflow.getSiteInfo) {
+        const siteInfo = await window.webflow.getSiteInfo();
+        console.log('🔥 Domain verification: Current site info:', siteInfo);
+        
+        if (!siteInfo || !siteInfo.url) {
+          return {
+            isValid: false,
+            error: 'Unable to verify domain ownership. Please ensure you are logged into your Webflow account.'
+          };
+        }
+        
+        // Clean the domain for comparison
+        const cleanDomain = domain.replace(/^https?:\/\//, '').toLowerCase();
+        const currentSiteUrl = siteInfo.url.replace(/^https?:\/\//, '').toLowerCase();
+        
+        console.log('🔥 Domain verification: Comparing', cleanDomain, 'with', currentSiteUrl);
+        
+        // Check if the domain matches the current site exactly
+        if (cleanDomain === currentSiteUrl) {
+          return {
+            isValid: true,
+            error: null
+          };
+        }
+        
+        // Check if it's a subdomain of the current site
+        if (cleanDomain.endsWith('.' + currentSiteUrl)) {
+          return {
+            isValid: true,
+            error: null
+          };
+        }
+        
+        // Check if it's the same base domain with different subdomain
+        const currentDomainParts = currentSiteUrl.split('.');
+        const inputDomainParts = cleanDomain.split('.');
+        
+        if (currentDomainParts.length >= 2 && inputDomainParts.length >= 2) {
+          const currentBaseDomain = currentDomainParts.slice(-2).join('.');
+          const inputBaseDomain = inputDomainParts.slice(-2).join('.');
+          
+          if (currentBaseDomain === inputBaseDomain) {
+            return {
+              isValid: true,
+              error: null
+            };
+          }
+        }
+        
+        // Try to get additional site information if available
+        try {
+          // Check if there are other sites in the user's account
+          if (window.webflow.getSites) {
+            const sites = await window.webflow.getSites();
+            console.log('🔥 Domain verification: All user sites:', sites);
+            
+            if (sites && Array.isArray(sites)) {
+              for (const site of sites) {
+                if (site.url) {
+                  const siteUrl = site.url.replace(/^https?:\/\//, '').toLowerCase();
+                  
+                  // Check exact match
+                  if (cleanDomain === siteUrl) {
+                    return {
+                      isValid: true,
+                      error: null
+                    };
+                  }
+                  
+                  // Check subdomain match
+                  if (cleanDomain.endsWith('.' + siteUrl)) {
+                    return {
+                      isValid: true,
+                      error: null
+                    };
+                  }
+                  
+                  // Check base domain match
+                  const siteDomainParts = siteUrl.split('.');
+                  if (siteDomainParts.length >= 2) {
+                    const siteBaseDomain = siteDomainParts.slice(-2).join('.');
+                    const inputBaseDomain = inputDomainParts.slice(-2).join('.');
+                    
+                    if (siteBaseDomain === inputBaseDomain) {
+                      return {
+                        isValid: true,
+                        error: null
+                      };
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (sitesError) {
+          console.log('🔥 Domain verification: Could not get additional sites:', sitesError);
+        }
+        
+        return {
+          isValid: false,
+          error: `This domain (${domain}) is not associated with your Webflow account. Please enter a domain that belongs to one of your Webflow sites.`
+        };
+      } else {
+        return {
+          isValid: false,
+          error: 'Unable to verify domain ownership. Please ensure you are using this extension within Webflow Designer.'
+        };
+      }
+    } catch (error) {
+      console.error('🔥 Domain verification error:', error);
+      return {
+        isValid: false,
+        error: 'Unable to verify domain ownership. Please try again or contact support.'
+      };
+    }
+  };
 
   // Helper function to get siteId from various sources
   const getSiteId = async () => {
@@ -103,12 +350,20 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     const urlParams = new URLSearchParams(window.location.search);
     const paymentIntent = urlParams.get('payment_intent');
     const paymentIntentClientSecret = urlParams.get('payment_intent_client_secret');
+    const planType = urlParams.get('plan');
     
     if (paymentIntent && paymentIntentClientSecret) {
       console.log('🔥 PaymentScreen: Detected payment redirect, checking status');
       // If we have payment intent parameters, it means user was redirected back
       // We should show success screen since the webhook will handle the final status
       setPaymentSuccess(true);
+    }
+    
+    // Set plan type from URL parameter if available
+    if (planType && (planType === 'annual' || planType === 'monthly')) {
+      console.log('🔥 PaymentScreen: Setting plan type from URL parameter:', planType);
+      setActualPlanType(planType);
+      setIsAnnual(planType === 'annual');
     }
   }, []);
 
@@ -194,6 +449,22 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     };
   }, []);
 
+  // Clear any existing subscription data from localStorage on component mount
+  useEffect(() => {
+    // Clear all subscription-related localStorage data for security
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('subscription_')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => {
+      console.log('🔥 PaymentScreen: Clearing old subscription data from localStorage:', key);
+      localStorage.removeItem(key);
+    });
+  }, []);
+
   // Check for existing subscription status on component mount
   useEffect(() => {
     const checkExistingSubscription = async () => {
@@ -206,6 +477,22 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
           console.log('🔥 PaymentScreen: No siteId found, skipping subscription check');
           return;
         }
+
+        // Always fetch fresh data from server - no localStorage usage for security
+        console.log('🔥 PaymentScreen: Fetching fresh subscription data from server (no localStorage for security)');
+        
+        // Clear any existing subscription data from localStorage for security
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('subscription_')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => {
+          console.log('🔥 PaymentScreen: Removing old subscription data from localStorage:', key);
+          localStorage.removeItem(key);
+        });
 
         // Always check subscription status from server first (don't trust localStorage)
         console.log('🔥 PaymentScreen: Checking subscription status from server');
@@ -260,62 +547,71 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                 setPaymentSuccess(true);
                 setSubscriptionValidUntil(endDate.toLocaleDateString());
                 
-                // Store subscription data for persistence with correct timestamp
-                const subscriptionData = {
-                  status: data.subscription.status,
-                  validUntil: endDate.getTime(),
-                  subscriptionId: data.subscription.id,
-                  fallback: false // Mark as not a fallback
-                };
-                localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-                console.log('🔥 PaymentScreen: Stored subscription data:', subscriptionData);
+                // Determine plan type from server data only
+                let planType = 'monthly'; // default
+                let isAnnual = false;
+                
+                // Get plan type from server response
+                const productId = data.subscription.productId || data.subscription.details?.metadata?.productId;
+                if (productId) {
+                  isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+                  planType = isAnnual ? 'annual' : 'monthly';
+                  console.log('🔥 PaymentScreen: Determined plan type from server productId:', productId, 'isAnnual:', isAnnual, 'planType:', planType);
+                } else {
+                  console.log('🔥 PaymentScreen: No productId found in server response, using default monthly');
+                }
+                
+                // No localStorage storage for security - data is fetched fresh from server each time
+                console.log('🔥 PaymentScreen: Subscription data processed (no localStorage for security)');
+                
+                // Set the actual plan type for display
+                setActualPlanType(planType as 'annual' | 'monthly');
               } else {
                 console.log('🔥 PaymentScreen: Subscription expired, not showing success screen');
-                // Clear any stored data
-                localStorage.removeItem(`subscription_${siteId}`);
+                // No localStorage usage for security - data managed server-side
               }
             } else {
               console.log('🔥 PaymentScreen: No valid end date found, using fallback');
-              // Determine fallback period based on productId
+              // Determine fallback period based on productId and plan type from payment form
               const productId = data.subscription.productId || data.subscription.details?.metadata?.productId;
-              const isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+              
+              // First try to get plan type from payment form
+              let isAnnual = false;
+              try {
+                const paymentForm = document.getElementById('payment-form');
+                if (paymentForm) {
+                  const planTypeAttr = paymentForm.getAttribute('data-plan-type');
+                  isAnnual = planTypeAttr === 'annual';
+                  console.log('🔥 PaymentScreen: Got plan type from payment form:', planTypeAttr, 'isAnnual:', isAnnual);
+                }
+              } catch (e) {
+                console.log('🔥 PaymentScreen: Could not get plan type from payment form, using productId fallback');
+              }
+              
+              // Fallback to productId if payment form plan type not available
+              if (!isAnnual && productId) {
+                isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+                console.log('🔥 PaymentScreen: Using productId fallback - productId:', productId, 'isAnnual:', isAnnual);
+              }
               const fallbackDays = isAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
               const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
               
               setPaymentSuccess(true);
               setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
               
-              const subscriptionData = {
-                status: 'active',
-                validUntil: fallbackDate.getTime(),
-                subscriptionId: data.subscription.id,
-                fallback: true // Mark as fallback
-              };
-              localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-              console.log('🔥 PaymentScreen: Stored fallback subscription data:', subscriptionData);
+              // Set the actual plan type for display
+              setActualPlanType(isAnnual ? 'annual' : 'monthly');
+              
+              // No localStorage storage for security - data is fetched fresh from server each time
+              console.log('🔥 PaymentScreen: Fallback subscription data processed (no localStorage for security)');
             }
           } else {
             console.log('🔥 PaymentScreen: No active subscription found');
-            // Clear any stored data
-            localStorage.removeItem(`subscription_${siteId}`);
           }
         } else {
           console.log('🔥 PaymentScreen: Failed to check subscription status:', response.status);
-          // If server fails, check localStorage as fallback
-          const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
-          if (storedSubscription) {
-            const subscriptionData = JSON.parse(storedSubscription);
-            const now = new Date().getTime();
-            const validUntil = subscriptionData.validUntil;
-            
-            if (validUntil && now < validUntil) {
-              console.log('🔥 PaymentScreen: Using stored subscription data as fallback');
-              setPaymentSuccess(true);
-              setSubscriptionValidUntil(new Date(validUntil).toLocaleDateString());
-            } else {
-              localStorage.removeItem(`subscription_${siteId}`);
-            }
-          }
+          // No localStorage fallback for security - always use server data
+          console.log('🔥 PaymentScreen: Server request failed, no fallback to localStorage for security');
         }
       } catch (error) {
         console.error('Failed to check existing subscription:', error);
@@ -343,12 +639,62 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
       // Try to get subscription details from multiple sources
       let subscriptionDetails = null;
       let subscriptionId = null;
+      let eventPlanType = null;
+      
+      // Get plan type from event first
+      if (event.detail.planType) {
+        eventPlanType = event.detail.planType;
+        console.log('🔥 PaymentScreen: Found plan type in event:', eventPlanType);
+      } else {
+        console.log('🔥 PaymentScreen: No plan type found in event detail:', event.detail);
+      }
       
       // Check if we have subscriptionDetails in the event
       if (event.detail.subscriptionDetails) {
         subscriptionDetails = event.detail.subscriptionDetails;
         subscriptionId = event.detail.subscriptionId;
         console.log('🔥 PaymentScreen: Found subscriptionDetails in event:', subscriptionDetails);
+        
+        // Try to get plan type from subscription details metadata
+        if (!eventPlanType && subscriptionDetails.metadata && subscriptionDetails.metadata.productId) {
+          const productId = subscriptionDetails.metadata.productId;
+          eventPlanType = productId === 'prod_TEHrwLZdPcOsgq' ? 'annual' : 'monthly';
+          console.log('🔥 PaymentScreen: Determined plan type from subscription metadata:', eventPlanType, 'productId:', productId);
+        }
+        
+        // Try to determine plan type from subscription details
+        if (subscriptionDetails.details && subscriptionDetails.details.items && subscriptionDetails.details.items.data && subscriptionDetails.details.items.data.length > 0) {
+          const item = subscriptionDetails.details.items.data[0];
+          const productId = item.price?.product;
+          console.log('🔥 PaymentScreen: Found product ID in subscription details:', productId);
+          
+          // Store the product ID for plan type determination
+          if (productId) {
+            // First try to get plan type from payment form
+            let isAnnual = false;
+            try {
+              const paymentForm = document.getElementById('payment-form');
+              if (paymentForm) {
+                const planTypeAttr = paymentForm.getAttribute('data-plan-type');
+                isAnnual = planTypeAttr === 'annual';
+                console.log('🔥 PaymentScreen: Got plan type from payment form:', planTypeAttr, 'isAnnual:', isAnnual);
+              }
+            } catch (e) {
+              console.log('🔥 PaymentScreen: Could not get plan type from payment form, using productId fallback');
+            }
+            
+            // Fallback to productId if payment form plan type not available
+            if (!isAnnual) {
+              isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+              console.log('🔥 PaymentScreen: Using productId fallback - productId:', productId, 'isAnnual:', isAnnual);
+            }
+            console.log('🔥 PaymentScreen: Determined plan type from subscription details - isAnnual:', isAnnual);
+            
+            // Update the subscription details with plan type info
+            subscriptionDetails.planType = isAnnual ? 'annual' : 'monthly';
+            subscriptionDetails.productId = productId;
+          }
+        }
       } else {
         // If no subscriptionDetails, try to fetch from server
         console.log('🔥 PaymentScreen: No subscriptionDetails in event, fetching from server');
@@ -407,19 +753,54 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
           setSubscriptionValidUntil(endDate.toLocaleDateString());
           console.log('🔥 PaymentScreen: Set subscription valid until:', endDate.toLocaleDateString());
           
+          // Determine plan type from subscription details or payment form
+          let planTypeForDisplay = 'monthly'; // default
+          try {
+            const paymentForm = document.getElementById('payment-form');
+            if (paymentForm) {
+              const planTypeAttr = paymentForm.getAttribute('data-plan-type');
+              planTypeForDisplay = planTypeAttr || 'monthly';
+              console.log('🔥 PaymentScreen: Got plan type from payment form for display:', planTypeForDisplay);
+            }
+          } catch (e) {
+            console.log('🔥 PaymentScreen: Could not get plan type from payment form for display');
+          }
+          
+          // Set the actual plan type for display
+          setActualPlanType(planTypeForDisplay as 'annual' | 'monthly');
+          
           // Store subscription data for persistence
           const subscriptionData = {
             status: subscriptionDetails.status || 'active',
             validUntil: endDate.getTime(),
             subscriptionId: subscriptionId
           };
-          localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-          console.log('🔥 PaymentScreen: Stored subscription data for persistence:', subscriptionData);
+          // No localStorage storage for security - data is fetched fresh from server each time
+          console.log('🔥 PaymentScreen: Payment success data processed (no localStorage for security)');
         } else {
           console.log('🔥 PaymentScreen: No valid end date found, using fallback');
-          // Determine fallback period based on productId
-          const productId = subscriptionDetails?.metadata?.productId || subscriptionDetails?.productId;
-          const isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+          // Determine fallback period based on productId or plan type
+          const productId = subscriptionDetails?.metadata?.productId || subscriptionDetails?.productId || subscriptionDetails?.productId;
+          const planType = subscriptionDetails?.planType;
+          
+          // First try to get plan type from payment form
+          let isAnnual = false;
+          try {
+            const paymentForm = document.getElementById('payment-form');
+            if (paymentForm) {
+              const planTypeAttr = paymentForm.getAttribute('data-plan-type');
+              isAnnual = planTypeAttr === 'annual';
+              console.log('🔥 PaymentScreen: Got plan type from payment form:', planTypeAttr, 'isAnnual:', isAnnual);
+            }
+          } catch (e) {
+            console.log('🔥 PaymentScreen: Could not get plan type from payment form, using fallback');
+          }
+          
+          // Fallback to productId or planType if payment form plan type not available
+          if (!isAnnual) {
+            isAnnual = productId === 'prod_TEHrwLZdPcOsgq' || planType === 'annual';
+            console.log('🔥 PaymentScreen: Using fallback - productId:', productId, 'planType:', planType, 'isAnnual:', isAnnual);
+          }
           const fallbackDays = isAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
           const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
           setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
@@ -428,26 +809,203 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             status: 'active',
             validUntil: fallbackDate.getTime(),
             subscriptionId: subscriptionId || 'unknown',
-            fallback: true // Mark as fallback
+            fallback: true, // Mark as fallback
+            isAnnual: isAnnual, // Store the plan type
+            productId: productId, // Store the product ID for future reference
+            planType: planType // Store the plan type
           };
-          localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-          console.log('🔥 PaymentScreen: Stored fallback subscription data:', subscriptionData);
+          // No localStorage storage for security - data is fetched fresh from server each time
+          console.log('🔥 PaymentScreen: Payment success fallback data processed (no localStorage for security)');
         }
       } else {
         console.log('🔥 PaymentScreen: No subscription details available, using fallback');
-        // Default to monthly plan fallback (30 days) if no productId available
-        const fallbackDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        
+        // Try to get the plan type from the payment form that was just used
+        let paymentFormPlanType = null;
+        try {
+          const paymentForm = document.getElementById('payment-form');
+          if (paymentForm) {
+            const planTypeAttr = paymentForm.getAttribute('data-plan-type');
+            paymentFormPlanType = planTypeAttr;
+            console.log('🔥 PaymentScreen: Found plan type from payment form:', paymentFormPlanType);
+            console.log('🔥 PaymentScreen: Payment form element:', paymentForm);
+            console.log('🔥 PaymentScreen: All data attributes on payment form:', Array.from(paymentForm.attributes).map(attr => `${attr.name}="${attr.value}"`));
+          } else {
+            console.log('🔥 PaymentScreen: Payment form element not found');
+            }
+          } catch (e) {
+          console.log('🔥 PaymentScreen: Could not get plan type from payment form:', e);
+        }
+        
+        // Use the actual plan type from the event, payment form, or fall back to current state
+        // Priority: eventPlanType > paymentFormPlanType > component state
+        const currentPlanIsAnnual = eventPlanType ? eventPlanType === 'annual' : 
+                                   paymentFormPlanType ? paymentFormPlanType === 'annual' : 
+                                   isAnnual;
+        console.log('🔥 PaymentScreen: Plan type determination - eventPlanType:', eventPlanType, 'paymentFormPlanType:', paymentFormPlanType, 'component isAnnual:', isAnnual, 'final currentPlanIsAnnual:', currentPlanIsAnnual);
+        
+        // Additional validation: if we have a plan type from the event, use it as the source of truth
+        if (eventPlanType) {
+          console.log('🔥 PaymentScreen: Using event plan type as source of truth:', eventPlanType);
+        } else if (paymentFormPlanType) {
+          console.log('🔥 PaymentScreen: Using payment form plan type as source of truth:', paymentFormPlanType);
+        } else {
+          console.log('🔥 PaymentScreen: WARNING - No plan type found in event or payment form, using component state:', isAnnual);
+        }
+        
+        const fallbackDays = currentPlanIsAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
+        const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
         setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
+        
+        // Set the actual plan type for display
+        const finalPlanType = currentPlanIsAnnual ? 'annual' : 'monthly';
+        setActualPlanType(finalPlanType);
+        console.log('🔥 PaymentScreen: Setting actualPlanType to:', finalPlanType, 'based on currentPlanIsAnnual:', currentPlanIsAnnual);
         
         const subscriptionData = {
           status: 'active',
           validUntil: fallbackDate.getTime(),
           subscriptionId: subscriptionId || 'unknown',
-          fallback: true // Mark as fallback
+          fallback: true, // Mark as fallback
+          isAnnual: currentPlanIsAnnual, // Store the plan type
+          planType: currentPlanIsAnnual ? 'annual' : 'monthly', // Store the plan type
+          source: eventPlanType ? 'event' : 
+                  paymentFormPlanType ? 'payment-form' : 
+                  'component-state', // Track the source
+          eventPlanType: eventPlanType, // Store the original event plan type for debugging
+          paymentFormPlanType: paymentFormPlanType, // Store the payment form plan type for debugging
+          componentIsAnnual: isAnnual // Store the component state for debugging
         };
-        localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-        console.log('🔥 PaymentScreen: Stored fallback subscription data:', subscriptionData);
+        // No localStorage storage for security - data is fetched fresh from server each time
+        console.log('🔥 PaymentScreen: Payment success final fallback data processed (no localStorage for security)');
       }
+      
+      // Force a refresh of the subscription status to ensure UI is updated with correct data
+      console.log('🔥 PaymentScreen: Forcing subscription status refresh after payment success');
+      
+      // Immediate refresh attempt
+      const immediateRefresh = async () => {
+        try {
+          const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ siteId })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('🔥 PaymentScreen: Immediate refresh response:', data);
+            
+            if (data.success && data.subscription && data.subscription.status === 'active') {
+              let endDate = null;
+              
+              if (data.subscription.details && data.subscription.details.current_period_end) {
+                endDate = new Date(data.subscription.details.current_period_end * 1000);
+                console.log('🔥 PaymentScreen: Immediate refresh - Using current_period_end from details:', data.subscription.details.current_period_end);
+              } else if (data.subscription.currentPeriodEnd) {
+                const periodEnd = data.subscription.currentPeriodEnd;
+                if (periodEnd > 1000000000000) {
+                  endDate = new Date(periodEnd);
+                } else {
+                  endDate = new Date(periodEnd * 1000);
+                }
+                console.log('🔥 PaymentScreen: Immediate refresh - Using currentPeriodEnd:', periodEnd);
+              } else if (data.subscription.current_period_end) {
+                endDate = new Date(data.subscription.current_period_end * 1000);
+                console.log('🔥 PaymentScreen: Immediate refresh - Using current_period_end:', data.subscription.current_period_end);
+              }
+              
+              if (endDate) {
+                setSubscriptionValidUntil(endDate.toLocaleDateString());
+                console.log('🔥 PaymentScreen: Immediate refresh - Updated subscription valid until:', endDate.toLocaleDateString());
+                
+                // Determine plan type from server response metadata
+                let serverPlanType = 'monthly'; // default
+                if (data.subscription.details && data.subscription.details.metadata && data.subscription.details.metadata.productId) {
+                  const productId = data.subscription.details.metadata.productId;
+                  serverPlanType = productId === 'prod_TEHrwLZdPcOsgq' ? 'annual' : 'monthly';
+                  console.log('🔥 PaymentScreen: Immediate refresh - Determined plan type from server metadata:', serverPlanType, 'productId:', productId);
+                }
+                
+                // Set the actual plan type for display
+                setActualPlanType(serverPlanType as 'annual' | 'monthly');
+                console.log('🔥 PaymentScreen: Immediate refresh - Set actualPlanType to:', serverPlanType);
+                
+                const subscriptionData = {
+                  status: data.subscription.status,
+                  validUntil: endDate.getTime(),
+                  subscriptionId: data.subscription.id,
+                  refreshed: true,
+                  planType: serverPlanType,
+                  isAnnual: serverPlanType === 'annual'
+                };
+                // No localStorage storage for security - data is fetched fresh from server each time
+                console.log('🔥 PaymentScreen: Immediate refresh - Updated with server data (no localStorage for security)');
+                return; // Exit early if we got valid data
+              }
+            }
+          }
+        } catch (error) {
+          console.error('🔥 PaymentScreen: Immediate refresh failed:', error);
+        }
+      };
+      
+      // Try immediate refresh first
+      await immediateRefresh();
+      
+      // If immediate refresh didn't work, try again after delay
+      setTimeout(async () => {
+        try {
+          const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ siteId })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('🔥 PaymentScreen: Refresh response after payment success:', data);
+            
+            if (data.success && data.subscription && data.subscription.status === 'active') {
+              // Update the subscription validity with fresh data from server
+              let endDate = null;
+              
+              if (data.subscription.details && data.subscription.details.current_period_end) {
+                endDate = new Date(data.subscription.details.current_period_end * 1000);
+                console.log('🔥 PaymentScreen: Refresh - Using current_period_end from details:', data.subscription.details.current_period_end);
+              } else if (data.subscription.currentPeriodEnd) {
+                const periodEnd = data.subscription.currentPeriodEnd;
+                if (periodEnd > 1000000000000) {
+                  endDate = new Date(periodEnd);
+                } else {
+                  endDate = new Date(periodEnd * 1000);
+                }
+                console.log('🔥 PaymentScreen: Refresh - Using currentPeriodEnd:', periodEnd);
+              } else if (data.subscription.current_period_end) {
+                endDate = new Date(data.subscription.current_period_end * 1000);
+                console.log('🔥 PaymentScreen: Refresh - Using current_period_end:', data.subscription.current_period_end);
+              }
+              
+              if (endDate) {
+                setSubscriptionValidUntil(endDate.toLocaleDateString());
+                console.log('🔥 PaymentScreen: Refresh - Updated subscription valid until:', endDate.toLocaleDateString());
+                
+                // Update localStorage with fresh data from server
+                const subscriptionData = {
+                  status: data.subscription.status,
+                  validUntil: endDate.getTime(),
+                  subscriptionId: data.subscription.id,
+                  refreshed: true // Mark as refreshed from server
+                };
+                // No localStorage storage for security - data is fetched fresh from server each time
+                console.log('🔥 PaymentScreen: Refresh - Updated with server data (no localStorage for security)');
+              }
+            }
+          }
+        } catch (error) {
+          console.error('🔥 PaymentScreen: Failed to refresh subscription status after payment success:', error);
+        }
+      }, 2000); // Wait 2 seconds for server to process the payment and webhook
     };
 
     console.log('🔥 PaymentScreen: Adding stripe-payment-success event listener');
@@ -467,20 +1025,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
         
         if (!siteId) return;
 
-        const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
-        if (storedSubscription) {
-          const subscriptionData = JSON.parse(storedSubscription);
-          const now = new Date().getTime();
-          const validUntil = subscriptionData.validUntil;
-          
-          if (validUntil && now >= validUntil) {
-            // Subscription expired
-            console.log('🔥 PaymentScreen: Subscription expired, hiding success screen');
-            setPaymentSuccess(false);
-            setSubscriptionValidUntil(null);
-            localStorage.removeItem(`subscription_${siteId}`);
-          }
-        }
+        // No localStorage usage for security - always fetch fresh data from server
+        console.log('🔥 PaymentScreen: Subscription expiration check - fetching fresh data from server');
       };
 
       // Check immediately
@@ -644,7 +1190,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
       console.log('🔥 PaymentScreen: Cancellation - siteId found:', siteId);
       
       if (!siteId) {
-        alert('Unable to find site ID. Please refresh and try again.');
+        showNotification('error', 'Unable to find site ID. Please refresh and try again.');
         return;
       }
 
@@ -681,25 +1227,25 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
         console.log('🔥 PaymentScreen: Cancel success result:', result);
         
         if (cancelAtPeriodEnd) {
-          alert(`Subscription canceled successfully. Your access will continue until ${new Date(result.subscription.current_period_end * 1000).toLocaleDateString()}.`);
+          showNotification('success', `Subscription canceled successfully. Your access will continue until ${new Date(result.subscription.current_period_end * 1000).toLocaleDateString()}.`);
         } else {
-          alert('Subscription canceled immediately. Your access has ended.');
+          showNotification('info', 'Subscription canceled immediately. Your access has ended.');
         }
         
         setPaymentSuccess(false);
         setShowStripeForm(false);
         setShowCancelModal(false);
         
-        // Clear stored subscription data
-        localStorage.removeItem(`subscription_${siteId}`);
+        // No localStorage usage for security - data is managed server-side
+        console.log('🔥 PaymentScreen: Subscription canceled - data managed server-side');
       } else {
         const error = await response.json();
         console.log('🔥 PaymentScreen: Cancel error response:', error);
-        alert(`Failed to cancel subscription: ${error.error || 'Unknown error'}`);
+        showNotification('error', `Failed to cancel subscription: ${error.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Cancel subscription error:', error);
-      alert('Failed to cancel subscription. Please try again.');
+      showNotification('error', 'Failed to cancel subscription. Please try again.');
     } finally {
       setIsCanceling(false);
     }
@@ -711,7 +1257,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
 
   const handleUpdateDomain = async () => {
     if (!newDomain.trim()) {
-      alert('Please enter a valid domain URL');
+      showNotification('error', 'Please enter a domain URL');
       return;
     }
 
@@ -719,17 +1265,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     try {
       const siteId = await getSiteId();
       if (!siteId) {
-        alert('Unable to find site ID. Please refresh and try again.');
+        showNotification('error', 'Unable to find site ID. Please refresh and try again.');
         return;
       }
 
-      // Get subscription ID from localStorage or server
+      // Get subscription ID from server - no localStorage for security
       let subscriptionId = null;
-      const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
-      if (storedSubscription) {
-        const subscriptionData = JSON.parse(storedSubscription);
-        subscriptionId = subscriptionData.subscriptionId;
-      }
+      console.log('🔥 PaymentScreen: Fetching subscription ID from server for domain update');
 
       if (!subscriptionId) {
         // Try to get from server
@@ -746,7 +1288,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
       }
 
       if (!subscriptionId) {
-        alert('Unable to find subscription ID. Please refresh and try again.');
+        showNotification('error', 'Unable to find subscription ID. Please refresh and try again.');
         return;
       }
 
@@ -768,23 +1310,20 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
         console.log('Domain updated successfully:', result);
         
         // Update localStorage with new domain
-        if (storedSubscription) {
-          const subscriptionData = JSON.parse(storedSubscription);
-          subscriptionData.domain = newDomain.trim();
-          localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-        }
+        // No localStorage usage for security - domain is updated server-side
+        console.log('🔥 PaymentScreen: Domain updated server-side (no localStorage for security)');
         
-        alert('Domain updated successfully!');
+        showNotification('success', 'Domain updated successfully!');
         setShowDomainModal(false);
         setNewDomain('');
       } else {
         const error = await updateResponse.json();
         console.error('Failed to update domain:', error);
-        alert(`Failed to update domain: ${error.error || 'Unknown error'}`);
+        showNotification('error', `Failed to update domain: ${error.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Domain update error:', error);
-      alert('Failed to update domain. Please try again.');
+      showNotification('error', 'Failed to update domain. Please try again.');
     } finally {
       setIsUpdatingDomain(false);
     }
@@ -793,6 +1332,12 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
   const handleCloseDomainModal = () => {
     setShowDomainModal(false);
     setNewDomain('');
+    setDomainValidationError(null);
+  };
+
+  const handleDomainInputChange = (value: string) => {
+    setNewDomain(value);
+    setDomainValidationError(null);
   };
 
   // When Stripe form is showing, render a full-screen scrollable view
@@ -858,7 +1403,6 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             
             /* Ensure only input fields have white background, not labels */
             input[type="email"], 
-            input[type="url"], 
             input[type="text"], 
             input[type="tel"] {
               height: 40px !important;
@@ -867,6 +1411,64 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               border: 1px solid #ffffff !important;
               box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
               box-sizing: border-box !important;
+            }
+            
+            /* Domain URL field - force transparent background */
+            input[type="url"] {
+              height: 40px !important;
+              background-color: transparent !important;
+              background: transparent !important;
+              color: #ffffff !important;
+              border: 1px solid #e6e6e6 !important;
+              box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
+              box-sizing: border-box !important;
+            }
+            
+            /* Override browser autofill and focus states for domain URL */
+            input[type="url"]:focus,
+            input[type="url"]:active,
+            input[type="url"]:hover,
+            input[type="url"]:autofill,
+            input[type="url"]:-webkit-autofill,
+            input[type="url"]:-webkit-autofill:hover,
+            input[type="url"]:-webkit-autofill:focus,
+            input[type="url"]:-webkit-autofill:active {
+              background-color: transparent !important;
+              background: transparent !important;
+              color: #ffffff !important;
+              -webkit-box-shadow: 0 0 0 30px transparent inset !important;
+              box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
+            }
+            
+            /* Ultra-aggressive override for domain URL field by ID */
+            #domain-url,
+            #domain-url:focus,
+            #domain-url:active,
+            #domain-url:hover,
+            #domain-url:autofill,
+            #domain-url:-webkit-autofill,
+            #domain-url:-webkit-autofill:hover,
+            #domain-url:-webkit-autofill:focus,
+            #domain-url:-webkit-autofill:active,
+            #domain-url:-moz-autofill,
+            #domain-url:-moz-autofill:hover,
+            #domain-url:-moz-autofill:focus,
+            #domain-url:-moz-autofill:active {
+              background-color: transparent !important;
+              background: transparent !important;
+              background-image: none !important;
+              color: #ffffff !important;
+              -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+              -moz-box-shadow: 0 0 0 1000px transparent inset !important;
+              box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
+            }
+            
+            /* Force override any inherited styles */
+            input#domain-url {
+              background: transparent !important;
+              background-color: transparent !important;
+              background-image: none !important;
+              color: #ffffff !important;
             }
             
             /* Ensure labels stay white text on transparent background */
@@ -1073,12 +1675,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             }
             
           `}</style>
-          <h2 style={{ margin: '0 0 12px 0' }}>Complete Your Payment</h2>
+          <h2 style={{ margin: '0 0 4px 0' }}>Complete Your Payment</h2>
           <div style={{ marginBottom: 12, color: '#a3a3a3' }}>
-            {isAnnual ? 'Annual Plan' : 'Monthly Plan'} - ${isAnnual ? '19' : '24'}/month{isAnnual ? ': Purchased Annually' : ''}
+            {actualPlanType === 'annual' ? 'Annual Plan' : 'Monthly Plan'} - ${actualPlanType === 'annual' ? '19' : '24'}/month{actualPlanType === 'annual' ? ': Purchased Annually' : ''}
           </div>
           
-          <form id="payment-form" data-plan-type={isAnnual ? 'annual' : 'monthly'}>
+          {actualPlanType ? (
+            <form id="payment-form" data-plan-type={actualPlanType === 'annual' ? 'annual' : 'monthly'}>
             <h3 style={{ 
               fontSize: '16px', 
               fontWeight: '600', 
@@ -1124,14 +1727,29 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                     fontSize: '16px',
                     border: '1px solid #e6e6e6',
                     borderRadius: '4px',
-                    backgroundColor: 'white',
-                    color: '#333333',
+                    backgroundColor: 'transparent',
+                    color: '#ffffff',
                     boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
                     transition: 'box-shadow 150ms ease, border-color 150ms ease',
                     boxSizing: 'border-box'
                   }}
-                  onFocus={(e) => e.target.style.borderColor = '#0570de'}
-                  onBlur={(e) => e.target.style.borderColor = '#e6e6e6'}
+                  onFocus={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    target.style.borderColor = '#0570de';
+                    target.style.backgroundColor = 'transparent';
+                    target.style.background = 'transparent';
+                  }}
+                  onBlur={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    target.style.borderColor = '#e6e6e6';
+                    target.style.backgroundColor = 'transparent';
+                    target.style.background = 'transparent';
+                  }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    target.style.backgroundColor = 'transparent';
+                    target.style.background = 'transparent';
+                  }}
                 />
               </div>
             </div>
@@ -1172,7 +1790,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                 opacity: isProcessing ? 0.7 : 1,
                 cursor: isProcessing ? 'not-allowed' : 'pointer',
                 transition: 'opacity 0.2s ease',
-                marginTop: '40px'
+                marginTop: '60px'
               }}
             >
               {isProcessing ? (
@@ -1185,6 +1803,18 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               )}
             </button>
           </form>
+          ) : (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: '200px',
+              color: '#a3a3a3',
+              fontSize: '16px'
+            }}>
+              Loading payment form...
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1201,6 +1831,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
         <div className="payment-header">
           <div className="app-name"></div>
           <div className="header-buttons">
+            <button className="back-btn" onClick={onBack} disabled={isProcessing}>
+              <img src={whitearrow} alt="" style={{ transform: 'rotate(180deg)' }} /> Back
+            </button>
             <button className="next-btn" onClick={handleSuccessNext}>
               Continue <img src={whitearrow} alt="" />
             </button>
@@ -1241,25 +1874,12 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             flexDirection: 'column',
             justifyContent: 'center'
           }}>
-            <div style={{ 
-              width: '64px', 
-              height: '64px', 
-              borderRadius: '50%', 
-              backgroundColor: '#10b981', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              margin: '0 auto 20px',
-              fontSize: '24px'
-            }}>
-              ✓
-            </div>
             
             <h2 style={{ 
               fontSize: '24px', 
               fontWeight: '600', 
               margin: '0 0 12px 0',
-              color: '#10b981'
+              color: 'rgba(43, 110, 47, 1)'
             }}>
               Payment Successful!
             </h2>
@@ -1274,17 +1894,14 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             </p>
             
             <div style={{ 
-              backgroundColor: '#1a1a1a', 
-              borderRadius: '8px', 
               padding: '12px 16px', 
-              margin: '20px 0',
-              border: '1px solid #333'
+              margin: '20px 0'
             }}>
               <div style={{ fontSize: '12px', color: '#a3a3a3', marginBottom: '6px' }}>
                 Subscription Details
               </div>
               <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>
-                {isAnnual ? 'Annual Plan' : 'Monthly Plan'} - ${isAnnual ? '19' : '24'}/month{isAnnual ? ': Purchased Annually' : ''}
+                {(actualPlanType || 'monthly') === 'annual' ? 'Annual Plan' : 'Monthly Plan'} - ${(actualPlanType || 'monthly') === 'annual' ? '19' : '24'}/month{(actualPlanType || 'monthly') === 'annual' ? ': Purchased Annually' : ''}
               </div>
               <div style={{ fontSize: '12px', color: '#a3a3a3' }}>
                 Valid until: {subscriptionValidUntil || 'Loading...'}
@@ -1321,8 +1938,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                   borderRadius: '6px',
                   whiteSpace: 'nowrap',
                   minWidth: '140px',
-                  backgroundColor: '#dc2626',
-                  border: '1px solid #dc2626'
+                  backgroundColor: 'rgba(38, 46, 132, 1)',
+                  border: '1px solid rgba(38, 46, 132, 1)'
                 }}
               >
                 Cancel Subscription <img src={whitearrow} alt="" />
@@ -1346,7 +1963,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             zIndex: 1000
           }}>
             <div style={{
-              backgroundColor: '#1a1a1a',
+              backgroundColor: 'rgba(46, 43, 69, 1)',
               borderRadius: '12px',
               padding: '32px',
               maxWidth: '400px',
@@ -1355,19 +1972,6 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
               textAlign: 'center'
             }}>
-              <div style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                backgroundColor: '#dc2626',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 20px',
-                fontSize: '24px'
-              }}>
-                ⚠️
-              </div>
               
               <h3 style={{
                 fontSize: '24px',
@@ -1450,19 +2054,6 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
               textAlign: 'center'
             }}>
-              <div style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                backgroundColor: '#10b981',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 20px',
-                fontSize: '24px'
-              }}>
-                🌐
-              </div>
               
               <h3 style={{
                 fontSize: '24px',
@@ -1476,20 +2067,22 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               <p style={{ 
                 fontSize: '16px', 
                 color: '#a3a3a3', 
-                margin: '0 0 24px 0',
+                margin: '0 0 16px 0',
                 lineHeight: '1.5'
               }}>
                 Enter the new domain URL where you want to use the accessibility widget.
               </p>
               
-              <div style={{ marginBottom: '24px' }}>
+              
+              <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}>
                 <input
                   type="url"
                   value={newDomain}
-                  onChange={(e) => setNewDomain(e.target.value)}
+                  onChange={(e) => handleDomainInputChange(e.target.value)}
                   placeholder="https://your-new-domain.com"
                   style={{
                     width: '100%',
+                    maxWidth: '400px',
                     padding: '12px 16px',
                     fontSize: '16px',
                     border: '1px solid #333',
@@ -1502,6 +2095,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                   onFocus={(e) => e.target.style.borderColor = '#10b981'}
                   onBlur={(e) => e.target.style.borderColor = '#333'}
                 />
+                
               </div>
               
               <div style={{ 
@@ -1591,13 +2185,19 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               <div className={`payment-toggle ${isAnnual ? 'annually' : 'monthly'}`}>
                 <button 
                   className={`toggle-option ${!isAnnual ? 'active' : ''}`}
-                  onClick={() => setIsAnnual(false)}
+                  onClick={() => {
+                    setIsAnnual(false);
+                    setActualPlanType('monthly');
+                  }}
                 >
                   Monthly
                 </button>
                 <button 
                   className={`toggle-option ${isAnnual ? 'active' : ''}`}
-                  onClick={() => setIsAnnual(true)}
+                  onClick={() => {
+                    setIsAnnual(true);
+                    setActualPlanType('annual');
+                  }}
                 >
                   Annually
                 </button>
@@ -1627,6 +2227,63 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
 
         {/* Stripe replaced full-screen above; nothing inline here */}
       </div>
+      
+      {/* Notification Popup */}
+      {notification && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          zIndex: 10000,
+          backgroundColor: notification.type === 'success' ? '#10b981' : 
+                          notification.type === 'error' ? '#ef4444' : 'rgba(46, 43, 69, 1)',
+          color: 'white',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          maxWidth: '400px',
+          fontSize: '14px',
+          fontWeight: '500',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          animation: 'slideInRight 0.3s ease-out',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}>
+          <div style={{
+            width: '20px',
+            height: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '16px'
+          }}>
+            {notification.type === 'success' ? '' : 
+             notification.type === 'error' ? '' : ''}
+          </div>
+          <div style={{ flex: 1 }}>
+            {notification.message}
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'white',
+              cursor: 'pointer',
+              padding: '4px',
+              borderRadius: '4px',
+              fontSize: '18px',
+              lineHeight: 1,
+              opacity: 0.8
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 };

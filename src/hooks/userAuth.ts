@@ -283,6 +283,38 @@ export function useAuth() {
       }
     }, 1000);
     
+    // Listen for postMessage from popup
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'oauth-success') {
+        console.log('OAuth success message received from popup:', event.data);
+        clearInterval(checkPopupClosed);
+        clearInterval(checkUrlChange);
+        
+        // Process the auth success with the data from the popup
+        const authData = event.data.data;
+        processAuthSuccessFromData(authData);
+      }
+    };
+    
+    // Listen for storage events (when popup stores data)
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'accessbit-userinfo' && event.newValue) {
+        console.log('Auth data stored by popup:', event.newValue);
+        clearInterval(checkPopupClosed);
+        clearInterval(checkUrlChange);
+        
+        try {
+          const authData = JSON.parse(event.newValue);
+          processAuthSuccessFromData(authData);
+        } catch (error) {
+          console.error('Failed to parse auth data from storage event:', error);
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    window.addEventListener('storage', handleStorageChange);
+    
     // Also monitor for URL changes in the main window (in case popup redirects back)
     const checkUrlChange = setInterval(() => {
       const url = new URL(window.location.href);
@@ -382,6 +414,57 @@ export function useAuth() {
         window.history.replaceState({}, '', cleanUrl.toString());
       } catch (error) {
         console.warn('Error processing auth success:', error);
+      }
+    };
+    
+    // Helper function to process auth success from data object
+    const processAuthSuccessFromData = (authData: any) => {
+      try {
+        console.log('Processing auth success from data:', authData);
+        
+        // IMPORTANT: Clear all old session data first to prevent cross-site contamination
+        console.log('Clearing old session data before storing new data...');
+        sessionStorage.removeItem("accessbit-userinfo");
+        sessionStorage.removeItem("contrastkit-userinfo");
+        sessionStorage.removeItem("explicitly_logged_out");
+        sessionStorage.removeItem("siteInfo");
+        
+        // Store the session data from the OAuth popup
+        const userData = {
+          sessionToken: authData.sessionToken,
+          firstName: authData.firstName,
+          email: authData.email || '',
+          siteId: authData.siteId,
+          exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+          siteInfo: {
+            siteId: authData.siteId,
+            siteName: authData.siteName,
+            shortName: authData.shortName,
+            email: authData.email || ''
+          }
+        };
+        
+        console.log('Storing new session data for site:', authData.siteId);
+        console.log('New user data:', userData);
+        
+        // Store in sessionStorage for persistence
+        sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
+        sessionStorage.removeItem("explicitly_logged_out");
+        
+        // Clear React Query cache and update with new data
+        queryClient.clear();
+        queryClient.setQueryData<AuthState>(["auth"], {
+          user: {
+            firstName: authData.firstName,
+            email: authData.email || '',
+            siteId: authData.siteId
+          },
+          sessionToken: authData.sessionToken
+        });
+        
+        console.log('OAuth success processed successfully');
+      } catch (error) {
+        console.warn('Error processing auth success from data:', error);
       }
     };
     
@@ -530,7 +613,7 @@ export function useAuth() {
       if (!sessionToken || !userEmail) {
         console.log(`[PUBLISH] ${requestId} No auth state, checking sessionStorage...`);
         // Fallback: get from sessionStorage
-        const storedUser = sessionStorage.getItem("accessbit-userinfo");
+        const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
         console.log(`[PUBLISH] ${requestId} Stored user from sessionStorage:`, storedUser);
         
         if (storedUser) {

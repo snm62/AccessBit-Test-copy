@@ -14,6 +14,7 @@ class ExistingPaymentIntegration {
         this.isStripeLoaded = false;
         this.email = '';
         this.domainUrl = '';
+        this.planType = null;
         this.lastSubmissionTime = 0;
         this.submissionCooldown = 3000; // 3 seconds cooldown between submissions
     }
@@ -213,6 +214,51 @@ class ExistingPaymentIntegration {
         setTimeout(monitorDomainField, 2000);
     }
 
+    capturePlanType() {
+        console.log('🔍 CAPTURING PLAN TYPE...');
+        
+        try {
+            // Try multiple selectors to find the payment form
+            const paymentForm = document.getElementById('payment-form') || 
+                               document.querySelector('form[id*="payment"]') || 
+                               document.querySelector('form[data-plan-type]') ||
+                               document.querySelector('form');
+            
+            console.log('🔍 Payment form found:', !!paymentForm);
+            console.log('🔍 Payment form element:', paymentForm);
+            
+            if (paymentForm) {
+                const planType = paymentForm.getAttribute('data-plan-type');
+                this.planType = planType;
+                console.log('🔍 Plan type captured from payment form:', this.planType);
+                console.log('🔍 All payment form attributes:', Array.from(paymentForm.attributes).map(attr => `${attr.name}="${attr.value}"`));
+                
+                // If no data-plan-type attribute, try to find it in other ways
+                if (!planType) {
+                    console.log('🔍 No data-plan-type attribute found, trying alternative methods...');
+                    
+                    // Look for plan type in form inputs or other elements
+                    const planInputs = document.querySelectorAll('input[name*="plan"], input[value*="monthly"], input[value*="annual"]');
+                    console.log('🔍 Plan inputs found:', planInputs.length);
+                    
+                    // Look for plan type in the form's parent or nearby elements
+                    const planContainer = paymentForm.closest('[data-plan-type]') || 
+                                        paymentForm.parentElement?.querySelector('[data-plan-type]');
+                    if (planContainer) {
+                        const containerPlanType = planContainer.getAttribute('data-plan-type');
+                        this.planType = containerPlanType;
+                        console.log('🔍 Plan type found in container:', containerPlanType);
+                    }
+                }
+            } else {
+                console.log('🔍 No payment form found for plan type capture');
+                console.log('🔍 Available forms:', document.querySelectorAll('form'));
+            }
+        } catch (e) {
+            console.log('🔍 Error capturing plan type:', e);
+        }
+    }
+
     captureDomainUrl() {
         console.log('🔍 CAPTURING DOMAIN URL...');
         
@@ -290,6 +336,19 @@ class ExistingPaymentIntegration {
         }
         
         console.log('Processing payment...');
+        
+        // Capture plan type BEFORE creating subscription
+        console.log('🔍 About to capture plan type...');
+        this.capturePlanType();
+        console.log('🔍 Captured plan type result:', this.planType);
+        
+        // If plan type not captured, try again after a short delay
+        if (!this.planType) {
+            console.log('🔍 Plan type not captured, trying again after delay...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            this.capturePlanType();
+            console.log('🔍 Second attempt - captured plan type result:', this.planType);
+        }
         
         // Capture domain URL BEFORE creating subscription
         this.captureDomainUrl();
@@ -1113,6 +1172,56 @@ class ExistingPaymentIntegration {
                     }
                 }
                 
+                // Use the captured plan type from payment processing
+                let planType = this.planType;
+                console.log('🔥 Payment success: Using captured plan type:', planType);
+                
+                // Fallback: Try to get plan type from payment form if not captured
+                if (!planType) {
+                    try {
+                        const paymentForm = document.getElementById('payment-form');
+                        console.log('🔥 Payment success: Payment form element found:', !!paymentForm);
+                        if (paymentForm) {
+                            planType = paymentForm.getAttribute('data-plan-type');
+                            console.log('🔥 Payment success: Found plan type from payment form fallback:', planType);
+                        } else {
+                            console.log('🔥 Payment success: Payment form element not found');
+                            // Try alternative selectors
+                            const altForm = document.querySelector('form[id*="payment"]') || document.querySelector('form[data-plan-type]');
+                            if (altForm) {
+                                planType = altForm.getAttribute('data-plan-type');
+                                console.log('🔥 Payment success: Found plan type from alternative form:', planType);
+                            }
+                        }
+                    } catch (e) {
+                        console.log('🔥 Payment success: Could not get plan type from payment form:', e);
+                    }
+                }
+                
+                // Fallback: Try to determine plan type from subscription details
+                if (!planType && subscriptionDetails && subscriptionDetails.metadata && subscriptionDetails.metadata.productId) {
+                    const productId = subscriptionDetails.metadata.productId;
+                    planType = productId === 'prod_TEHrwLZdPcOsgq' ? 'annual' : 'monthly';
+                    console.log('🔥 Payment success: Determined plan type from subscription metadata:', planType, 'productId:', productId);
+                }
+                
+                // Final fallback: Try to get plan type from server using subscription ID
+                if (!planType && this.subscriptionId) {
+                    try {
+                        console.log('🔥 Payment success: Trying to get plan type from server using subscription ID:', this.subscriptionId);
+                        const planResponse = await fetch(`${this.kvApiUrl}/api/accessibility/get-subscription-plan?id=${this.subscriptionId}`);
+                        if (planResponse.ok) {
+                            const planData = await planResponse.json();
+                            if (planData.planType) {
+                                planType = planData.planType;
+                                console.log('🔥 Payment success: Got plan type from server:', planType);
+                            }
+                        }
+                    } catch (error) {
+                        console.log('🔥 Payment success: Failed to get plan type from server:', error);
+                    }
+                }
+                
                 window.dispatchEvent(new CustomEvent('stripe-payment-success', {
                     detail: {
                         siteId: this.siteId,
@@ -1123,7 +1232,8 @@ class ExistingPaymentIntegration {
                         setupIntent: setupIntent,
                         intentId: intentId,
                         subscriptionId: this.subscriptionId,
-                        subscriptionDetails: subscriptionDetails
+                        subscriptionDetails: subscriptionDetails,
+                        planType: planType // Include plan type in the event
                     }
                 }));
                 

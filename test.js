@@ -20410,7 +20410,71 @@ class AccessibilityWidget {
             // Restore all media elements
             this.restoreAllMediaDirectly();
             
+            // Restore global audio methods
+            this.restoreGlobalAudioMethods();
+            
+            // Restore iframe players
+            this.restoreIframePlayers();
+            
+            // Restore embed/object players
+            this.restoreEmbedPlayers();
+            
+            // Restore custom players
+            this.restoreCustomPlayers();
+            
             console.log('Accessibility Widget: Restored original audio/video volume states');
+        }
+        
+        // Restore iframe players
+        restoreIframePlayers() {
+            const allIframes = document.querySelectorAll('iframe');
+            allIframes.forEach(iframe => {
+                iframe.style.display = '';
+                iframe.style.visibility = '';
+                iframe.style.opacity = '';
+            });
+        }
+        
+        // Restore embed/object players
+        restoreEmbedPlayers() {
+            const allEmbeds = document.querySelectorAll('embed, object');
+            allEmbeds.forEach(embed => {
+                embed.style.display = '';
+                embed.style.visibility = '';
+                embed.style.opacity = '';
+            });
+        }
+        
+        // Restore custom players
+        restoreCustomPlayers() {
+            const customPlayers = document.querySelectorAll('[class*="player"], [class*="audio"], [class*="video"], [class*="sound"], [class*="music"]');
+            customPlayers.forEach(player => {
+                player.style.display = '';
+                player.style.visibility = '';
+                player.style.opacity = '';
+            });
+        }
+        
+        // Restore global audio methods
+        restoreGlobalAudioMethods() {
+            console.log('Accessibility Widget: Restoring original audio methods');
+            
+            if (this.originalMethods) {
+                // Restore HTMLAudioElement methods
+                if (this.originalMethods.audioPlay && typeof HTMLAudioElement !== 'undefined') {
+                    HTMLAudioElement.prototype.play = this.originalMethods.audioPlay;
+                }
+                
+                // Restore HTMLVideoElement methods
+                if (this.originalMethods.videoPlay && typeof HTMLVideoElement !== 'undefined') {
+                    HTMLVideoElement.prototype.play = this.originalMethods.videoPlay;
+                }
+                
+                // Restore Web Audio API methods
+                if (this.originalMethods.createBufferSource && typeof AudioContext !== 'undefined') {
+                    AudioContext.prototype.createBufferSource = this.originalMethods.createBufferSource;
+                }
+            }
         }
         
         // Add event listeners to catch new media elements
@@ -20469,6 +20533,125 @@ class AccessibilityWidget {
             }
         }
         
+        // Enhanced muting for iframe-based players (YouTube, Vimeo, etc.)
+        muteIframePlayer(iframe) {
+            console.log('Accessibility Widget: Muting iframe player:', iframe.src);
+            
+            try {
+                // Try to access iframe content (may fail due to CORS)
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (iframeDoc) {
+                    // Mute any audio/video elements inside the iframe
+                    const audioElements = iframeDoc.querySelectorAll('audio');
+                    const videoElements = iframeDoc.querySelectorAll('video');
+                    
+                    [...audioElements, ...videoElements].forEach(element => {
+                        element.muted = true;
+                        element.volume = 0;
+                        if (!element.paused) element.pause();
+                    });
+                }
+            } catch (e) {
+                console.log('Accessibility Widget: Cannot access iframe content (CORS):', e.message);
+            }
+            
+            // Try to mute via postMessage (for supported players)
+            try {
+                iframe.contentWindow?.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'mute',
+                    args: ''
+                }), '*');
+                
+                iframe.contentWindow?.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'setVolume',
+                    args: '0'
+                }), '*');
+                
+                iframe.contentWindow?.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'pauseVideo',
+                    args: ''
+                }), '*');
+            } catch (e) {
+                console.log('Accessibility Widget: Cannot send postMessage to iframe:', e.message);
+            }
+            
+            // Hide the iframe as last resort
+            iframe.style.display = 'none';
+            iframe.style.visibility = 'hidden';
+            iframe.style.opacity = '0';
+        }
+        
+        // Enhanced muting for embed/object players
+        muteEmbedPlayer(embed) {
+            console.log('Accessibility Widget: Muting embed player:', embed);
+            
+            // Try to mute the embed
+            if (embed.muted !== undefined) {
+                embed.muted = true;
+            }
+            if (embed.volume !== undefined) {
+                embed.volume = 0;
+            }
+            
+            // Hide the embed
+            embed.style.display = 'none';
+            embed.style.visibility = 'hidden';
+            embed.style.opacity = '0';
+        }
+        
+        // Enhanced muting for custom players
+        muteCustomPlayer(element) {
+            console.log('Accessibility Widget: Muting custom player:', element);
+            
+            // Look for audio/video elements within the custom player
+            const audioElements = element.querySelectorAll('audio');
+            const videoElements = element.querySelectorAll('video');
+            
+            [...audioElements, ...videoElements].forEach(mediaElement => {
+                mediaElement.muted = true;
+                mediaElement.volume = 0;
+                if (!mediaElement.paused) mediaElement.pause();
+            });
+            
+            // Try to find and mute any Web Audio API sources
+            try {
+                const audioContexts = this.getAllAudioContexts();
+                audioContexts.forEach(context => {
+                    if (context.state !== 'closed') {
+                        context.suspend();
+                    }
+                });
+            } catch (e) {
+                console.log('Accessibility Widget: Error muting Web Audio contexts:', e);
+            }
+            
+            // Hide the custom player
+            element.style.display = 'none';
+            element.style.visibility = 'hidden';
+            element.style.opacity = '0';
+        }
+        
+        // Get all AudioContext instances
+        getAllAudioContexts() {
+            const contexts = [];
+            
+            // Check window properties
+            for (let prop in window) {
+                try {
+                    if (window[prop] instanceof AudioContext || window[prop] instanceof webkitAudioContext) {
+                        contexts.push(window[prop]);
+                    }
+                } catch (e) {
+                    // Ignore errors when checking properties
+                }
+            }
+            
+            return contexts;
+        }
+        
         // Comprehensive universal muting approach
         muteAllMediaDirectly() {
             console.log('Accessibility Widget: Universal muting - detecting ALL possible audio/video content');
@@ -20481,6 +20664,41 @@ class AccessibilityWidget {
             const standardAudio = document.querySelectorAll('audio');
             const standardVideo = document.querySelectorAll('video');
             console.log(`Accessibility Widget: Found ${standardAudio.length} standard audio, ${standardVideo.length} standard video`);
+            
+            // 2. Enhanced media detection - check for all possible media sources
+            const allMediaElements = [
+                ...document.querySelectorAll('audio'),
+                ...document.querySelectorAll('video'),
+                ...document.querySelectorAll('embed[type*="audio"]'),
+                ...document.querySelectorAll('embed[type*="video"]'),
+                ...document.querySelectorAll('object[type*="audio"]'),
+                ...document.querySelectorAll('object[type*="video"]'),
+                ...document.querySelectorAll('iframe[src*="youtube"]'),
+                ...document.querySelectorAll('iframe[src*="vimeo"]'),
+                ...document.querySelectorAll('iframe[src*="soundcloud"]'),
+                ...document.querySelectorAll('iframe[src*="spotify"]'),
+                ...document.querySelectorAll('iframe[src*="bandcamp"]'),
+                ...document.querySelectorAll('iframe[src*="mixcloud"]'),
+                ...document.querySelectorAll('iframe[src*="twitch"]'),
+                ...document.querySelectorAll('iframe[src*="dailymotion"]'),
+                ...document.querySelectorAll('iframe[src*="player"]'),
+                ...document.querySelectorAll('iframe[src*="embed"]'),
+                ...document.querySelectorAll('[data-audio]'),
+                ...document.querySelectorAll('[data-video]'),
+                ...document.querySelectorAll('[data-sound]'),
+                ...document.querySelectorAll('[data-music]'),
+                ...document.querySelectorAll('.audio-player'),
+                ...document.querySelectorAll('.video-player'),
+                ...document.querySelectorAll('.music-player'),
+                ...document.querySelectorAll('.sound-player'),
+                ...document.querySelectorAll('[class*="player"]'),
+                ...document.querySelectorAll('[class*="audio"]'),
+                ...document.querySelectorAll('[class*="video"]'),
+                ...document.querySelectorAll('[class*="sound"]'),
+                ...document.querySelectorAll('[class*="music"]')
+            ];
+            
+            console.log(`Accessibility Widget: Found ${allMediaElements.length} total media elements`);
             
             // Log details about found elements
             if (standardAudio.length > 0) {
@@ -20511,12 +20729,32 @@ class AccessibilityWidget {
                 });
             }
             
-            [...standardAudio, ...standardVideo].forEach((element, index) => {
-                console.log(`Accessibility Widget: Muting element ${index}:`, element);
-                element.muted = true;
-                element.volume = 0;
-                if (!element.paused) element.pause();
-                totalMuted++;
+            // Process all media elements with enhanced muting
+            allMediaElements.forEach((element, index) => {
+                console.log(`Accessibility Widget: Processing media element ${index}:`, element.tagName, element);
+                
+                // Handle different types of media elements
+                if (element.tagName === 'AUDIO' || element.tagName === 'VIDEO') {
+                    // Standard HTML5 media
+                    element.muted = true;
+                    element.volume = 0;
+                    if (!element.paused) {
+                        element.pause();
+                    }
+                    totalMuted++;
+                } else if (element.tagName === 'IFRAME') {
+                    // Handle iframe-based players (YouTube, Vimeo, etc.)
+                    this.muteIframePlayer(element);
+                    totalMuted++;
+                } else if (element.tagName === 'EMBED' || element.tagName === 'OBJECT') {
+                    // Handle embed/object elements
+                    this.muteEmbedPlayer(element);
+                    totalMuted++;
+                } else {
+                    // Handle custom players and audio/video containers
+                    this.muteCustomPlayer(element);
+                    totalMuted++;
+                }
             });
             
             // 2. Universal detection - find ANY element that might contain audio/video
@@ -20670,18 +20908,21 @@ class AccessibilityWidget {
             console.log(`Accessibility Widget: Restored ${allAudio.length} audio and ${allVideo.length} video elements`);
         }
         
-        // Additional aggressive monitoring to catch any media that might start playing
+        // Enhanced aggressive monitoring to catch any media that might start playing
         startAggressiveMediaMonitoring() {
-            // Check every 50ms for any media that might have started playing
+            // Check every 100ms for any media that might have started playing
             this.aggressiveMediaInterval = setInterval(() => {
                 if (this.settings['mute-sound']) {
                     // Use the direct muting approach
                     this.muteAllMediaDirectly();
                     
-                    // Also check for any playing media and force mute
+                    // Check for any playing media and force mute
                     const allAudio = document.querySelectorAll('audio');
                     const allVideo = document.querySelectorAll('video');
+                    const allIframes = document.querySelectorAll('iframe');
+                    const allEmbeds = document.querySelectorAll('embed, object');
                     
+                    // Mute standard media elements
                     [...allAudio, ...allVideo].forEach(element => {
                         if (!element.paused && !element.muted) {
                             console.log('Accessibility Widget: Force muting playing media:', element);
@@ -20690,10 +20931,37 @@ class AccessibilityWidget {
                             element.pause();
                         }
                     });
+                    
+                    // Mute iframe players
+                    allIframes.forEach(iframe => {
+                        if (iframe.src && (iframe.src.includes('youtube') || iframe.src.includes('vimeo') || 
+                            iframe.src.includes('soundcloud') || iframe.src.includes('spotify') ||
+                            iframe.src.includes('player') || iframe.src.includes('embed'))) {
+                            this.muteIframePlayer(iframe);
+                        }
+                    });
+                    
+                    // Mute embed/object players
+                    allEmbeds.forEach(embed => {
+                        this.muteEmbedPlayer(embed);
+                    });
+                    
+                    // Check for Web Audio API contexts
+                    try {
+                        const audioContexts = this.getAllAudioContexts();
+                        audioContexts.forEach(context => {
+                            if (context.state === 'running') {
+                                console.log('Accessibility Widget: Suspending running AudioContext');
+                                context.suspend();
+                            }
+                        });
+                    } catch (e) {
+                        console.log('Accessibility Widget: Error checking AudioContexts:', e);
+                    }
                 }
-            }, 50);
+            }, 100);
             
-            console.log('Accessibility Widget: Aggressive media monitoring started');
+            console.log('Accessibility Widget: Enhanced aggressive media monitoring started');
         }
         
         // Stop aggressive media monitoring
@@ -21379,15 +21647,40 @@ class AccessibilityWidget {
     
             
     
-            // Get all content elements in document order - focus on actual content elements
+            // First, try to find main content areas (article, main, section with content)
+            const mainContentSelectors = [
+                'main',
+                'article', 
+                '[role="main"]',
+                '.content',
+                '.main-content',
+                '.post-content',
+                '.entry-content',
+                '.article-content',
+                '#content',
+                '#main'
+            ];
     
-            const allElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, a, img, button, div, span, li, ul, ol, section, article, main, header, footer, nav, aside, blockquote, pre, code, strong, em, b, i, u, mark, small, sub, sup, del, ins, cite, q, abbr, time, address, details, summary, figure, figcaption, table, tr, td, th, thead, tbody, tfoot, form, input, textarea, select, label, fieldset, legend, dl, dt, dd');
+            let contentContainer = null;
+            for (const selector of mainContentSelectors) {
+                const element = document.querySelector(selector);
+                if (element && element.innerText.trim().length > 100) {
+                    contentContainer = element;
+                    console.log('Read Mode: Found main content container:', selector);
+                    break;
+                }
+            }
+    
+            // If no main content area found, use body but filter out navigation
+            if (!contentContainer) {
+                contentContainer = document.body;
+                console.log('Read Mode: Using document body as content container');
+            }
+    
+            // Get content elements, focusing on main content areas
+            const allElements = contentContainer.querySelectorAll('h1, h2, h3, h4, h5, h6, p, a, img, button, div, span, li, ul, ol, section, article, main, blockquote, pre, code, strong, em, b, i, u, mark, small, sub, sup, del, ins, cite, q, abbr, time, address, details, summary, figure, figcaption, table, tr, td, th, thead, tbody, tfoot, dl, dt, dd');
     
             console.log('Read Mode: Found elements:', allElements.length);
-    
-            console.log('Read Mode: Document body:', document.body);
-    
-            console.log('Read Mode: Document ready state:', document.readyState);
     
             
     
@@ -21407,11 +21700,41 @@ class AccessibilityWidget {
     
                 }
     
+                // Skip navigation elements
+                if (element.closest('nav') || element.closest('.nav') || element.closest('.navigation') || 
+                    element.closest('.menu') || element.closest('.header') || element.closest('.footer') ||
+                    element.closest('.sidebar') || element.closest('.widget') || element.closest('.advertisement') ||
+                    element.closest('.ad') || element.closest('.banner') || element.closest('.popup') ||
+                    element.closest('.modal') || element.closest('.overlay')) {
+                    return;
+                }
+    
+                // Skip hidden elements
+                if (element.style.display === 'none' || element.style.visibility === 'hidden' || 
+                    element.offsetParent === null || element.getAttribute('aria-hidden') === 'true') {
+                    return;
+                }
+    
+                // Skip elements with no visible text
+                if (!element.innerText || element.innerText.trim().length === 0) {
+                    return;
+                }
+    
+                // Skip elements that contain CSS or JavaScript code
+                const text = element.innerText.trim();
+                if (text.includes('{') && text.includes('}') && (text.includes('color:') || text.includes('background:') || text.includes('function') || text.includes('var ') || text.includes('const ') || text.includes('let '))) {
+                    console.log('Read Mode: Skipping code element:', text.substring(0, 50));
+                    return;
+                }
+    
+                // Skip very short text that's likely not content
+                if (text.length < 3) {
+                    return;
+                }
+    
                 
     
                 const tagName = element.tagName.toLowerCase();
-    
-                const text = element.textContent.trim();
     
                 console.log('Read Mode: Processing element:', tagName, 'text:', text.substring(0, 50));
     
@@ -21493,17 +21816,17 @@ class AccessibilityWidget {
     
                     processedCount++;
     
-                } else if (tagName === 'div' && text && text.length > 10) {
+                } else if (tagName === 'div' && text && text.length > 20 && !text.includes('{') && !text.includes('}') && !text.includes('function') && !text.includes('var ') && !text.includes('const ') && !text.includes('let ')) {
     
-                    // Divs with substantial text content
+                    // Divs with substantial text content (but not code)
     
                     content += `<div style="margin: 10px 0; font-size: 1em; color: #444; line-height: 1.5;">${text}</div>`;
     
                     processedCount++;
     
-                } else if (tagName === 'span' && text && text.length > 5) {
+                } else if (tagName === 'span' && text && text.length > 10 && !text.includes('{') && !text.includes('}') && !text.includes('function') && !text.includes('var ') && !text.includes('const ') && !text.includes('let ')) {
     
-                    // Spans with text content
+                    // Spans with text content (but not code)
     
                     content += `<span style="color: #444;">${text}</span>`;
     
@@ -21598,8 +21921,155 @@ class AccessibilityWidget {
     
             console.log('Read Mode: Content extraction completed. Processed elements:', processedCount, 'Content length:', content.length);
     
+            // If we didn't get much content, try alternative extraction method
+            if (content.length < 200) {
+                console.log('Read Mode: Low content detected, trying alternative extraction...');
+                const alternativeContent = this.extractTextContentAlternative();
+                if (alternativeContent.length > content.length) {
+                    console.log('Read Mode: Using alternative extraction method');
+                    return alternativeContent;
+                }
+            }
+    
             return content;
     
+        }
+    
+        // Alternative content extraction method for better results
+        extractTextContentAlternative() {
+            console.log('Read Mode: Starting alternative content extraction...');
+            
+            let content = '';
+            
+            // Try to find the main content area more aggressively
+            const contentSelectors = [
+                'main',
+                'article',
+                '[role="main"]',
+                '.content',
+                '.main-content',
+                '.post-content',
+                '.entry-content',
+                '.article-content',
+                '#content',
+                '#main',
+                '.post',
+                '.entry',
+                '.page-content',
+                '.site-content'
+            ];
+            
+            let mainContent = null;
+            for (const selector of contentSelectors) {
+                const element = document.querySelector(selector);
+                if (element && element.innerText && element.innerText.trim().length > 50) {
+                    mainContent = element;
+                    console.log('Read Mode: Found content with selector:', selector);
+                    break;
+                }
+            }
+            
+            if (!mainContent) {
+                // Fallback to body but exclude common non-content areas
+                mainContent = document.body;
+                console.log('Read Mode: Using body as fallback');
+            }
+            
+            // Get all text nodes and their parent elements
+            const walker = document.createTreeWalker(
+                mainContent,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: function(node) {
+                        // Skip empty or whitespace-only text nodes
+                        if (!node.textContent || node.textContent.trim().length === 0) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        
+                        // Skip text nodes in script, style, or other non-content elements
+                        const parent = node.parentElement;
+                        if (!parent || parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE' || 
+                            parent.tagName === 'NOSCRIPT' || parent.closest('nav') || 
+                            parent.closest('.nav') || parent.closest('.menu') || 
+                            parent.closest('.header') || parent.closest('.footer') ||
+                            parent.closest('.sidebar') || parent.closest('.widget') ||
+                            parent.closest('.advertisement') || parent.closest('.ad') ||
+                            parent.closest('.banner') || parent.closest('.popup') ||
+                            parent.closest('.modal') || parent.closest('.overlay') ||
+                            parent.closest('.accessibility-panel') || parent.closest('#accessibility-icon')) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        
+                        // Skip text that looks like code
+                        const text = node.textContent.trim();
+                        if (text.includes('{') && text.includes('}') && 
+                            (text.includes('color:') || text.includes('background:') || 
+                             text.includes('function') || text.includes('var ') || 
+                             text.includes('const ') || text.includes('let '))) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                }
+            );
+            
+            let textNodes = [];
+            let node;
+            while (node = walker.nextNode()) {
+                textNodes.push(node);
+            }
+            
+            console.log('Read Mode: Found text nodes:', textNodes.length);
+            
+            // Process text nodes and their parent elements
+            let processedCount = 0;
+            textNodes.forEach(textNode => {
+                const parent = textNode.parentElement;
+                if (!parent) return;
+                
+                const tagName = parent.tagName.toLowerCase();
+                const text = textNode.textContent.trim();
+                
+                if (text.length < 3) return;
+                
+                // Format based on parent element type
+                if (tagName.match(/^h[1-6]$/)) {
+                    const size = tagName === 'h1' ? '2.5em' : 
+                               tagName === 'h2' ? '2em' : 
+                               tagName === 'h3' ? '1.5em' : '1.2em';
+                    content += `<div style="margin: 20px 0; font-size: ${size}; font-weight: bold; color: #333; line-height: 1.3;">${text}</div>`;
+                    processedCount++;
+                } else if (tagName === 'p') {
+                    content += `<div style="margin: 15px 0; font-size: 1.1em; line-height: 1.6; color: #444;">${text}</div>`;
+                    processedCount++;
+                } else if (tagName === 'a' && parent.href) {
+                    content += `<div style="margin: 10px 0; font-size: 1em; color: #0066cc; text-decoration: underline;">${text}</div>`;
+                    processedCount++;
+                } else if (tagName === 'li') {
+                    content += `<div style="margin: 8px 0; font-size: 1em; color: #444; padding-left: 20px;">• ${text}</div>`;
+                    processedCount++;
+                } else if (tagName === 'strong' || tagName === 'b') {
+                    content += `<strong style="font-weight: bold; color: #333;">${text}</strong>`;
+                    processedCount++;
+                } else if (tagName === 'em' || tagName === 'i') {
+                    content += `<em style="font-style: italic; color: #444;">${text}</em>`;
+                    processedCount++;
+                } else if (tagName === 'blockquote') {
+                    content += `<div style="margin: 15px 0; padding-left: 20px; border-left: 3px solid #ccc; font-style: italic; color: #555;">${text}</div>`;
+                    processedCount++;
+                } else if (tagName === 'code') {
+                    content += `<code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #333;">${text}</code>`;
+                    processedCount++;
+                } else if (text.length > 20) {
+                    // Generic text content
+                    content += `<div style="margin: 10px 0; font-size: 1em; color: #444; line-height: 1.5;">${text}</div>`;
+                    processedCount++;
+                }
+            });
+            
+            console.log('Read Mode: Alternative extraction completed. Processed elements:', processedCount, 'Content length:', content.length);
+            return content;
         }
     
     

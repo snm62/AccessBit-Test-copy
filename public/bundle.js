@@ -6005,6 +6005,18 @@ ___CSS_LOADER_EXPORT___.push([module.id, `.payment-screen {
   font-family: 'DM Sans', sans-serif;
 }
 
+/* Notification animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 /* Header */
 .payment-header {
   display: flex;
@@ -6128,13 +6140,13 @@ ___CSS_LOADER_EXPORT___.push([module.id, `.payment-screen {
   border-radius: 12px;
   border: 1px solid #EFEEEC14;
   padding: 40px;
-  width: 680px;
+  width: 720px;
   height: 220px;
   position: relative;
   overflow: hidden;
   opacity: 1;
   background: left;
-  background-size: 760px;
+  background-size: 800px;
   background-repeat: no-repeat;
   background-image: url(${___CSS_LOADER_URL_REPLACEMENT_0___});
 }
@@ -6213,6 +6225,7 @@ ___CSS_LOADER_EXPORT___.push([module.id, `.payment-screen {
   text-align: center;
   height: 100px;
   position: relative;
+  min-width: 180px;
 }
 
 .secondary-price {
@@ -6225,7 +6238,7 @@ ___CSS_LOADER_EXPORT___.push([module.id, `.payment-screen {
   text-align: center;
   vertical-align: middle;
   color: #FFFFFF;
-  width: 120px;
+  width: 160px;
   height: 12px;
   opacity: 1;
   display: flex;
@@ -6234,7 +6247,7 @@ ___CSS_LOADER_EXPORT___.push([module.id, `.payment-screen {
   flex-shrink: 0;
   min-height: 12px;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible;
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -6405,7 +6418,7 @@ ___CSS_LOADER_EXPORT___.push([module.id, `.payment-screen {
     font-size: 48px;
     line-height: 46px;
   }
-}`, "",{"version":3,"sources":["webpack://./src/styles/payment.css"],"names":[],"mappings":"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","sourcesContent":[".payment-screen {\n  min-height: 100vh;\n  width: 800px;\n  background: rgba(10, 8, 27, 1);\n  color: #ffffff;\n  font-family: 'DM Sans', sans-serif;\n}\n\n/* Header */\n.payment-header {\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n  padding: 18px 30px;\n}\n\n.app-name {\n  font-size: 24px;\n  font-weight: bold;\n  color: #ffffff;\n}\n\n.header-buttons {\n  display: flex;\n  gap: 15px;\n}\n\n.back-btn,\n.next-btn {\n  padding: 10px 20px;\n  border: none;\n  border-radius: 6px;\n  cursor: pointer;\n  font-size: 14px;\n  font-weight: 500;\n  transition: all 0.3s ease;\n  display: flex;\n  gap: 8px;\n}\n\n.back-btn {\n  background: rgba(21, 19, 40, 1);\n  color: #ffffff;\n}\n\n.back-btn:disabled {\n  opacity: 0.6;\n  cursor: not-allowed;\n}\n\n.next-btn {\n  background: rgba(38, 46, 132, 1);\n  color: #ffffff;\n}\n\n.next-btn:hover:not(:disabled) {\n  background: #2563eb;\n}\n\n.next-btn:disabled {\n  opacity: 0.6;\n  cursor: not-allowed;\n}\n\n/* Step Navigation */\n.step-navigation {\n  display: flex;\n  margin: 10px 30px 0px 27px;\n  padding: 0px;\n  gap: 100px;\n  border-bottom: 1px solid #EFEEEC14;\n  font-weight: 400;\n}\n\n.step {\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n  position: relative;\n  cursor: pointer;\n  transition: color 0.3s ease;\n  font-weight: 400;\n  padding-bottom: 17px;\n}\n\n.step-number {\n  font-size: 12px;\n  color: #999;\n}\n\n.step-name {\n  font-size: 16px;\n  color: #999;\n}\n\n.step.active .step-number {\n  color: #ffffff;\n}\n\n.step.active .step-name {\n  color: #ffffff;\n}\n\n.step:not(.active) .step-name {\n  color: rgba(255, 255, 255, 0.7);\n}\n\n.step.completed .step-number {\n  color: rgba(43, 110, 47, 1);\n}\n\n.step.completed .step-name {\n  color: rgba(43, 110, 47, 1);\n}\n\n/* Main Content */\n.payment-screen .main-content {\n  display: flex;\n  justify-content: center;\n  /* align-items: center; */\n  height: calc(100vh - 200px);\n  padding: 20px;\n  text-align: left;\n  align-items: flex-start\n}\n\n.payment-card {\n  /* background: linear-gradient(29.71deg, #0B091D 18.17%, #2E2B45 127.91%); */\n  border-radius: 12px;\n  border: 1px solid #EFEEEC14;\n  padding: 40px;\n  width: 680px;\n  height: 220px;\n  position: relative;\n  overflow: hidden;\n  opacity: 1;\n  background: left;\n  background-size: 760px;\n  background-repeat: no-repeat;\n  background-image: url(\"../assets/bgpay.png\");\n}\n\n.payment-card::before {\n  content: '';\n  position: absolute;\n  top: 0;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);\n  border-radius: 12px;\n  z-index: -1;\n}\n\n.payment-screen .pricing-flex {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  gap: 40px;\n  width: 100%;\n  height: 200px;\n}\n\n.payment-screen .pricing-left {\n  text-align: center;\n  flex: 1;\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n}\n\n.main-price {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  margin-bottom: 24px;\n}\n\n.price-number {\n  font-family: 'Funnel Display', sans-serif;\n  font-weight: 700;\n  font-style: bold;\n  font-size: 66px;\n  line-height: 64px;\n  letter-spacing: 0%;\n  text-align: center;\n  vertical-align: middle;\n  color: white;\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\n}\n\n.price-period {\n  font-family: 'DM Sans', sans-serif;\n  font-weight: 500;\n  font-style: medium;\n  font-size: 12px;\n  line-height: 12px;\n  letter-spacing: 0%;\n  text-align: center;\n  vertical-align: middle;\n  color: white;\n  margin-top: 28px;\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\n  opacity: 1;\n}\n\n.payment-screen .pricing-right {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  gap: 21px;\n  flex: 1;\n  text-align: center;\n  height: 100px;\n  position: relative;\n}\n\n.secondary-price {\n  font-family: 'DM Sans', sans-serif;\n  font-weight: 500;\n  font-style: medium;\n  font-size: 12px;\n  line-height: 12px;\n  letter-spacing: 0%;\n  text-align: center;\n  vertical-align: middle;\n  color: #FFFFFF;\n  width: 120px;\n  height: 12px;\n  opacity: 1;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  flex-shrink: 0;\n  min-height: 12px;\n  white-space: nowrap;\n  overflow: hidden;\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\n}\n\n.payment-toggle {\n  display: flex;\n  width: 188px;\n  height: 40px;\n  background: #FEF1F11C;\n  border: 1px solid #FFFFFF47;\n  border-radius: 8px;\n  padding: 4px;\n  position: relative;\n  margin: 0 auto;\n}\n\n.payment-toggle::before {\n  content: '';\n  position: absolute;\n  top: 4px;\n  left: 4px;\n  width: calc(50% - 4px);\n  height: calc(100% - 8px);\n  background: #3CB4E5;\n  border-radius: 6px;\n  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);\n  z-index: 1;\n}\n\n.payment-toggle.monthly::before {\n  transform: translateX(0);\n}\n\n.payment-toggle.annually::before {\n  transform: translateX(100%);\n}\n\n.toggle-option {\n  flex: 1;\n  padding: 0;\n  border: none;\n  border-radius: 6px;\n  background: transparent;\n  color: #ffffff;\n  font-family: 'DM Sans', sans-serif;\n  font-weight: 700;\n  font-style: bold;\n  font-size: 14.88px;\n  line-height: 22.4px;\n  letter-spacing: 0%;\n  text-align: center;\n  vertical-align: middle;\n  cursor: pointer;\n  transition: color 0.3s ease;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  position: relative;\n  z-index: 2;\n}\n\n.toggle-option.active {\n  color: #262E84;\n}\n\n.toggle-option:not(.active) {\n  color: #EFEEEC;\n}\n\n.toggle-option:not(.active):hover {\n  color: #ffffff;\n}\n\n.savings-info {\n  font-family: 'DM Sans', sans-serif;\n  font-weight: 300;\n  font-style: light;\n  font-size: 15px;\n  line-height: 12px;\n  letter-spacing: 0%;\n  text-align: center;\n  vertical-align: middle;\n  color: #ffffffAB;\n  opacity: 0.67;\n  width: 95px;\n  height: 12px;\n  margin-top: 21px;\n  margin-left: auto;\n  margin-right: auto;\n  transition: opacity 0.3s ease, visibility 0.3s ease;\n}\n\n.purchase-btn {\n  background: #262E84;\n  color: #FFFFFF;\n  border: none;\n  border-radius: 3px;\n  padding: 10px 51px;\n  width: 120px;\n  height: 28px;\n  gap: 8px;\n  opacity: 1;\n  cursor: pointer;\n  transition: all 0.3s ease;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-family: 'DM Sans', sans-serif;\n  font-weight: 400;\n  font-style: normal;\n  font-size: 12px;\n  line-height: 100%;\n  letter-spacing: -3%;\n  white-space: nowrap;\n  flex-shrink: 0;\n  min-height: 28px;\n  box-sizing: border-box;\n  position: relative;\n}\n\n.purchase-btn:hover:not(:disabled) {\n  background: #2563eb;\n  transform: translateY(-1px);\n}\n\n.purchase-btn:disabled {\n  opacity: 0.6;\n  cursor: not-allowed;\n  transform: none;\n}\n\n/* Responsive Design */\n@media (max-width: 768px) {\n  .payment-screen {\n    width: 100%;\n  }\n\n  .payment-header {\n    padding: 15px 20px;\n  }\n\n  .step-navigation {\n    margin: 10px 20px 0px 20px;\n    gap: 50px;\n  }\n\n  .payment-screen .main-content {\n    padding: 20px;\n  }\n\n  .payment-card {\n    padding: 30px 20px;\n  }\n\n  .payment-screen .pricing-flex {\n    flex-direction: column;\n    gap: 30px;\n  }\n\n  .payment-screen .pricing-right {\n    align-items: center;\n  }\n\n  .secondary-price {\n    text-align: center;\n  }\n\n  .price-number {\n    font-size: 48px;\n    line-height: 46px;\n  }\n}"],"sourceRoot":""}]);
+}`, "",{"version":3,"sources":["webpack://./src/styles/payment.css"],"names":[],"mappings":"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","sourcesContent":[".payment-screen {\r\n  min-height: 100vh;\r\n  width: 800px;\r\n  background: rgba(10, 8, 27, 1);\r\n  color: #ffffff;\r\n  font-family: 'DM Sans', sans-serif;\r\n}\r\n\r\n/* Notification animations */\r\n@keyframes slideInRight {\r\n  from {\r\n    transform: translateX(100%);\r\n    opacity: 0;\r\n  }\r\n  to {\r\n    transform: translateX(0);\r\n    opacity: 1;\r\n  }\r\n}\r\n\r\n/* Header */\r\n.payment-header {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  align-items: center;\r\n  padding: 18px 30px;\r\n}\r\n\r\n.app-name {\r\n  font-size: 24px;\r\n  font-weight: bold;\r\n  color: #ffffff;\r\n}\r\n\r\n.header-buttons {\r\n  display: flex;\r\n  gap: 15px;\r\n}\r\n\r\n.back-btn,\r\n.next-btn {\r\n  padding: 10px 20px;\r\n  border: none;\r\n  border-radius: 6px;\r\n  cursor: pointer;\r\n  font-size: 14px;\r\n  font-weight: 500;\r\n  transition: all 0.3s ease;\r\n  display: flex;\r\n  gap: 8px;\r\n}\r\n\r\n.back-btn {\r\n  background: rgba(21, 19, 40, 1);\r\n  color: #ffffff;\r\n}\r\n\r\n.back-btn:disabled {\r\n  opacity: 0.6;\r\n  cursor: not-allowed;\r\n}\r\n\r\n.next-btn {\r\n  background: rgba(38, 46, 132, 1);\r\n  color: #ffffff;\r\n}\r\n\r\n.next-btn:hover:not(:disabled) {\r\n  background: #2563eb;\r\n}\r\n\r\n.next-btn:disabled {\r\n  opacity: 0.6;\r\n  cursor: not-allowed;\r\n}\r\n\r\n/* Step Navigation */\r\n.step-navigation {\r\n  display: flex;\r\n  margin: 10px 30px 0px 27px;\r\n  padding: 0px;\r\n  gap: 100px;\r\n  border-bottom: 1px solid #EFEEEC14;\r\n  font-weight: 400;\r\n}\r\n\r\n.step {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 4px;\r\n  position: relative;\r\n  cursor: pointer;\r\n  transition: color 0.3s ease;\r\n  font-weight: 400;\r\n  padding-bottom: 17px;\r\n}\r\n\r\n.step-number {\r\n  font-size: 12px;\r\n  color: #999;\r\n}\r\n\r\n.step-name {\r\n  font-size: 16px;\r\n  color: #999;\r\n}\r\n\r\n.step.active .step-number {\r\n  color: #ffffff;\r\n}\r\n\r\n.step.active .step-name {\r\n  color: #ffffff;\r\n}\r\n\r\n.step:not(.active) .step-name {\r\n  color: rgba(255, 255, 255, 0.7);\r\n}\r\n\r\n.step.completed .step-number {\r\n  color: rgba(43, 110, 47, 1);\r\n}\r\n\r\n.step.completed .step-name {\r\n  color: rgba(43, 110, 47, 1);\r\n}\r\n\r\n/* Main Content */\r\n.payment-screen .main-content {\r\n  display: flex;\r\n  justify-content: center;\r\n  /* align-items: center; */\r\n  height: calc(100vh - 200px);\r\n  padding: 20px;\r\n  text-align: left;\r\n  align-items: flex-start\r\n}\r\n\r\n.payment-card {\r\n  /* background: linear-gradient(29.71deg, #0B091D 18.17%, #2E2B45 127.91%); */\r\n  border-radius: 12px;\r\n  border: 1px solid #EFEEEC14;\r\n  padding: 40px;\r\n  width: 720px;\r\n  height: 220px;\r\n  position: relative;\r\n  overflow: hidden;\r\n  opacity: 1;\r\n  background: left;\r\n  background-size: 800px;\r\n  background-repeat: no-repeat;\r\n  background-image: url(\"../assets/bgpay.png\");\r\n}\r\n\r\n.payment-card::before {\r\n  content: '';\r\n  position: absolute;\r\n  top: 0;\r\n  left: 0;\r\n  right: 0;\r\n  bottom: 0;\r\n  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);\r\n  border-radius: 12px;\r\n  z-index: -1;\r\n}\r\n\r\n.payment-screen .pricing-flex {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 40px;\r\n  width: 100%;\r\n  height: 200px;\r\n}\r\n\r\n.payment-screen .pricing-left {\r\n  text-align: center;\r\n  flex: 1;\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n}\r\n\r\n.main-price {\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  margin-bottom: 24px;\r\n}\r\n\r\n.price-number {\r\n  font-family: 'Funnel Display', sans-serif;\r\n  font-weight: 700;\r\n  font-style: bold;\r\n  font-size: 66px;\r\n  line-height: 64px;\r\n  letter-spacing: 0%;\r\n  text-align: center;\r\n  vertical-align: middle;\r\n  color: white;\r\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\r\n}\r\n\r\n.price-period {\r\n  font-family: 'DM Sans', sans-serif;\r\n  font-weight: 500;\r\n  font-style: medium;\r\n  font-size: 12px;\r\n  line-height: 12px;\r\n  letter-spacing: 0%;\r\n  text-align: center;\r\n  vertical-align: middle;\r\n  color: white;\r\n  margin-top: 28px;\r\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\r\n  opacity: 1;\r\n}\r\n\r\n.payment-screen .pricing-right {\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 21px;\r\n  flex: 1;\r\n  text-align: center;\r\n  height: 100px;\r\n  position: relative;\r\n  min-width: 180px;\r\n}\r\n\r\n.secondary-price {\r\n  font-family: 'DM Sans', sans-serif;\r\n  font-weight: 500;\r\n  font-style: medium;\r\n  font-size: 12px;\r\n  line-height: 12px;\r\n  letter-spacing: 0%;\r\n  text-align: center;\r\n  vertical-align: middle;\r\n  color: #FFFFFF;\r\n  width: 160px;\r\n  height: 12px;\r\n  opacity: 1;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  flex-shrink: 0;\r\n  min-height: 12px;\r\n  white-space: nowrap;\r\n  overflow: visible;\r\n  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);\r\n}\r\n\r\n.payment-toggle {\r\n  display: flex;\r\n  width: 188px;\r\n  height: 40px;\r\n  background: #FEF1F11C;\r\n  border: 1px solid #FFFFFF47;\r\n  border-radius: 8px;\r\n  padding: 4px;\r\n  position: relative;\r\n  margin: 0 auto;\r\n}\r\n\r\n.payment-toggle::before {\r\n  content: '';\r\n  position: absolute;\r\n  top: 4px;\r\n  left: 4px;\r\n  width: calc(50% - 4px);\r\n  height: calc(100% - 8px);\r\n  background: #3CB4E5;\r\n  border-radius: 6px;\r\n  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);\r\n  z-index: 1;\r\n}\r\n\r\n.payment-toggle.monthly::before {\r\n  transform: translateX(0);\r\n}\r\n\r\n.payment-toggle.annually::before {\r\n  transform: translateX(100%);\r\n}\r\n\r\n.toggle-option {\r\n  flex: 1;\r\n  padding: 0;\r\n  border: none;\r\n  border-radius: 6px;\r\n  background: transparent;\r\n  color: #ffffff;\r\n  font-family: 'DM Sans', sans-serif;\r\n  font-weight: 700;\r\n  font-style: bold;\r\n  font-size: 14.88px;\r\n  line-height: 22.4px;\r\n  letter-spacing: 0%;\r\n  text-align: center;\r\n  vertical-align: middle;\r\n  cursor: pointer;\r\n  transition: color 0.3s ease;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  position: relative;\r\n  z-index: 2;\r\n}\r\n\r\n.toggle-option.active {\r\n  color: #262E84;\r\n}\r\n\r\n.toggle-option:not(.active) {\r\n  color: #EFEEEC;\r\n}\r\n\r\n.toggle-option:not(.active):hover {\r\n  color: #ffffff;\r\n}\r\n\r\n.savings-info {\r\n  font-family: 'DM Sans', sans-serif;\r\n  font-weight: 300;\r\n  font-style: light;\r\n  font-size: 15px;\r\n  line-height: 12px;\r\n  letter-spacing: 0%;\r\n  text-align: center;\r\n  vertical-align: middle;\r\n  color: #ffffffAB;\r\n  opacity: 0.67;\r\n  width: 95px;\r\n  height: 12px;\r\n  margin-top: 21px;\r\n  margin-left: auto;\r\n  margin-right: auto;\r\n  transition: opacity 0.3s ease, visibility 0.3s ease;\r\n}\r\n\r\n.purchase-btn {\r\n  background: #262E84;\r\n  color: #FFFFFF;\r\n  border: none;\r\n  border-radius: 3px;\r\n  padding: 10px 51px;\r\n  width: 120px;\r\n  height: 28px;\r\n  gap: 8px;\r\n  opacity: 1;\r\n  cursor: pointer;\r\n  transition: all 0.3s ease;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  font-family: 'DM Sans', sans-serif;\r\n  font-weight: 400;\r\n  font-style: normal;\r\n  font-size: 12px;\r\n  line-height: 100%;\r\n  letter-spacing: -3%;\r\n  white-space: nowrap;\r\n  flex-shrink: 0;\r\n  min-height: 28px;\r\n  box-sizing: border-box;\r\n  position: relative;\r\n}\r\n\r\n.purchase-btn:hover:not(:disabled) {\r\n  background: #2563eb;\r\n  transform: translateY(-1px);\r\n}\r\n\r\n.purchase-btn:disabled {\r\n  opacity: 0.6;\r\n  cursor: not-allowed;\r\n  transform: none;\r\n}\r\n\r\n/* Responsive Design */\r\n@media (max-width: 768px) {\r\n  .payment-screen {\r\n    width: 100%;\r\n  }\r\n\r\n  .payment-header {\r\n    padding: 15px 20px;\r\n  }\r\n\r\n  .step-navigation {\r\n    margin: 10px 20px 0px 20px;\r\n    gap: 50px;\r\n  }\r\n\r\n  .payment-screen .main-content {\r\n    padding: 20px;\r\n  }\r\n\r\n  .payment-card {\r\n    padding: 30px 20px;\r\n  }\r\n\r\n  .payment-screen .pricing-flex {\r\n    flex-direction: column;\r\n    gap: 30px;\r\n  }\r\n\r\n  .payment-screen .pricing-right {\r\n    align-items: center;\r\n  }\r\n\r\n  .secondary-price {\r\n    text-align: center;\r\n  }\r\n\r\n  .price-number {\r\n    font-size: 48px;\r\n    line-height: 46px;\r\n  }\r\n}"],"sourceRoot":""}]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -42886,7 +42899,7 @@ module.exports = __webpack_require__.p + "cc718b52279699cff4c2.png";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "6249de753b98940e36f8.svg";
+module.exports = __webpack_require__.p + "b74b76db66ee85d2ac89.svg";
 
 /***/ }),
 
@@ -42896,7 +42909,7 @@ module.exports = __webpack_require__.p + "6249de753b98940e36f8.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "a812367946904ac86a19.svg";
+module.exports = __webpack_require__.p + "b940c7b5ba71580122e1.svg";
 
 /***/ }),
 
@@ -42906,7 +42919,7 @@ module.exports = __webpack_require__.p + "a812367946904ac86a19.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "c804a3361b804dc19057.svg";
+module.exports = __webpack_require__.p + "315988554fb8c9a6ef02.svg";
 
 /***/ }),
 
@@ -42916,7 +42929,7 @@ module.exports = __webpack_require__.p + "c804a3361b804dc19057.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "5cf22f6bc3baa76fa20b.svg";
+module.exports = __webpack_require__.p + "767243c19641dd480729.svg";
 
 /***/ }),
 
@@ -42926,7 +42939,7 @@ module.exports = __webpack_require__.p + "5cf22f6bc3baa76fa20b.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "05250ff2135c47ca2006.svg";
+module.exports = __webpack_require__.p + "dd5c22c9e5fca44ff45d.svg";
 
 /***/ }),
 
@@ -42936,7 +42949,7 @@ module.exports = __webpack_require__.p + "05250ff2135c47ca2006.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "c9a436d6d323621f4f4f.svg";
+module.exports = __webpack_require__.p + "0184ba4764536183e876.svg";
 
 /***/ }),
 
@@ -42946,7 +42959,7 @@ module.exports = __webpack_require__.p + "c9a436d6d323621f4f4f.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "d538ef4589887b1cb15c.svg";
+module.exports = __webpack_require__.p + "7b8b6654090bf3b66e38.svg";
 
 /***/ }),
 
@@ -42966,7 +42979,7 @@ module.exports = __webpack_require__.p + "e6960da1d895f76d2033.svg";
   \*******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "ad2dcefe657227b1fcce.svg";
+module.exports = __webpack_require__.p + "b83cd2f7adef1fc4000c.svg";
 
 /***/ }),
 
@@ -42976,7 +42989,7 @@ module.exports = __webpack_require__.p + "ad2dcefe657227b1fcce.svg";
   \********************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "b85a2ae57f4702094a64.svg";
+module.exports = __webpack_require__.p + "51512d8a92f8bce807f1.svg";
 
 /***/ }),
 
@@ -42986,7 +42999,7 @@ module.exports = __webpack_require__.p + "b85a2ae57f4702094a64.svg";
   \*************************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "b738aba375d464abfd3e.svg";
+module.exports = __webpack_require__.p + "1de78215101ebb167ee9.svg";
 
 /***/ }),
 
@@ -43006,7 +43019,7 @@ module.exports = __webpack_require__.p + "47ddea3bc86368fac454.svg";
   \**************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "3468745b534843156267.svg";
+module.exports = __webpack_require__.p + "20383c1f1067e99ebdfb.svg";
 
 /***/ }),
 
@@ -43567,11 +43580,230 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     const [showStripeForm, setShowStripeForm] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
     const [paymentSuccess, setPaymentSuccess] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
     const [subscriptionValidUntil, setSubscriptionValidUntil] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
+    const [actualPlanType, setActualPlanType] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
+    // No fallbacks - only use fresh data from server
     const [showCancelModal, setShowCancelModal] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+    // Debug: Monitor actualPlanType changes
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        console.log('🔥 PaymentScreen: actualPlanType changed to:', actualPlanType);
+    }, [actualPlanType]);
     const [isCanceling, setIsCanceling] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
     const [showDomainModal, setShowDomainModal] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
     const [newDomain, setNewDomain] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)('');
     const [isUpdatingDomain, setIsUpdatingDomain] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+    const [domainValidationError, setDomainValidationError] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
+    const [notification, setNotification] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
+    // Helper function to show notifications
+    const showNotification = (type, message) => {
+        setNotification({ type, message });
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            setNotification(null);
+        }, 5000);
+    };
+    // Domain validation function
+    const validateDomain = (domain) => {
+        // Remove protocol if present
+        const cleanDomain = domain.replace(/^https?:\/\//, '').toLowerCase();
+        // Basic format validation
+        const domainRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+        if (!domainRegex.test(cleanDomain)) {
+            return {
+                isValid: false,
+                error: 'Please enter a valid domain format (e.g., yoursite.com)'
+            };
+        }
+        // Block major commercial domains
+        const blockedDomains = [
+            'amazon.com', 'amazon.in', 'amazon.co.uk', 'amazon.ca', 'amazon.de', 'amazon.fr', 'amazon.it', 'amazon.es', 'amazon.com.au', 'amazon.co.jp',
+            'flipkart.com', 'flipkart.in',
+            'google.com', 'google.co.in', 'google.co.uk', 'google.ca', 'google.com.au',
+            'facebook.com', 'instagram.com', 'twitter.com', 'linkedin.com', 'youtube.com',
+            'microsoft.com', 'apple.com', 'netflix.com', 'spotify.com', 'uber.com',
+            'airbnb.com', 'booking.com', 'expedia.com', 'tripadvisor.com',
+            'ebay.com', 'etsy.com', 'shopify.com', 'walmart.com', 'target.com',
+            'github.com', 'stackoverflow.com', 'reddit.com', 'wikipedia.org',
+            'paypal.com', 'stripe.com', 'square.com', 'venmo.com',
+            'dropbox.com', 'onedrive.com', 'icloud.com', 'gmail.com', 'outlook.com',
+            'yahoo.com', 'hotmail.com', 'aol.com', 'protonmail.com',
+            'zoom.us', 'teams.microsoft.com', 'slack.com', 'discord.com',
+            'twitch.tv', 'tiktok.com', 'snapchat.com', 'pinterest.com',
+            'medium.com', 'substack.com', 'wordpress.com', 'blogger.com',
+            'tumblr.com', 'flickr.com', 'imgur.com', 'deviantart.com'
+        ];
+        // Check if domain is blocked
+        for (const blockedDomain of blockedDomains) {
+            if (cleanDomain === blockedDomain || cleanDomain.endsWith('.' + blockedDomain)) {
+                return {
+                    isValid: false,
+                    error: 'This domain is not allowed. Please enter your own website domain.'
+                };
+            }
+        }
+        // Block common TLDs that are likely not user domains
+        const suspiciousTlds = ['.tk', '.ml', '.ga', '.cf', '.co.nf'];
+        for (const tld of suspiciousTlds) {
+            if (cleanDomain.endsWith(tld)) {
+                return {
+                    isValid: false,
+                    error: 'Please enter a professional domain name (avoid free domains)'
+                };
+            }
+        }
+        // Block localhost and IP addresses
+        if (cleanDomain.includes('localhost') || cleanDomain.includes('127.0.0.1') ||
+            cleanDomain.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+            return {
+                isValid: false,
+                error: 'Please enter a public domain name, not localhost or IP address'
+            };
+        }
+        // Block subdomains of major platforms (but allow Webflow staging URLs)
+        const blockedSubdomains = [
+            'github.io', 'netlify.app', 'vercel.app', 'herokuapp.com', 'firebaseapp.com',
+            'wordpress.com', 'blogspot.com', 'tumblr.com', 'wix.com', 'squarespace.com',
+            'weebly.com', 'shopify.com', 'bigcommerce.com'
+        ];
+        // Allow Webflow staging URLs (they have specific patterns)
+        const isWebflowStaging = cleanDomain.includes('.webflow.io') &&
+            (cleanDomain.includes('-') || cleanDomain.match(/^[a-z0-9-]+\.webflow\.io$/));
+        if (!isWebflowStaging) {
+            for (const blockedSubdomain of blockedSubdomains) {
+                if (cleanDomain.endsWith('.' + blockedSubdomain)) {
+                    return {
+                        isValid: false,
+                        error: 'Please enter your own custom domain, not a subdomain of a platform'
+                    };
+                }
+            }
+        }
+        // Require at least one dot (TLD)
+        if (!cleanDomain.includes('.')) {
+            return {
+                isValid: false,
+                error: 'Please enter a complete domain name with extension (e.g., yoursite.com)'
+            };
+        }
+        // Check minimum length
+        if (cleanDomain.length < 4) {
+            return {
+                isValid: false,
+                error: 'Domain name is too short'
+            };
+        }
+        return {
+            isValid: true,
+            error: null
+        };
+    };
+    // Domain ownership verification function
+    const verifyDomainOwnership = (domain) => __awaiter(void 0, void 0, void 0, function* () {
+        try {
+            // Get the current site info from Webflow
+            if (typeof window !== 'undefined' && window.webflow && window.webflow.getSiteInfo) {
+                const siteInfo = yield window.webflow.getSiteInfo();
+                console.log('🔥 Domain verification: Current site info:', siteInfo);
+                if (!siteInfo || !siteInfo.url) {
+                    return {
+                        isValid: false,
+                        error: 'Unable to verify domain ownership. Please ensure you are logged into your Webflow account.'
+                    };
+                }
+                // Clean the domain for comparison
+                const cleanDomain = domain.replace(/^https?:\/\//, '').toLowerCase();
+                const currentSiteUrl = siteInfo.url.replace(/^https?:\/\//, '').toLowerCase();
+                console.log('🔥 Domain verification: Comparing', cleanDomain, 'with', currentSiteUrl);
+                // Check if the domain matches the current site exactly
+                if (cleanDomain === currentSiteUrl) {
+                    return {
+                        isValid: true,
+                        error: null
+                    };
+                }
+                // Check if it's a subdomain of the current site
+                if (cleanDomain.endsWith('.' + currentSiteUrl)) {
+                    return {
+                        isValid: true,
+                        error: null
+                    };
+                }
+                // Check if it's the same base domain with different subdomain
+                const currentDomainParts = currentSiteUrl.split('.');
+                const inputDomainParts = cleanDomain.split('.');
+                if (currentDomainParts.length >= 2 && inputDomainParts.length >= 2) {
+                    const currentBaseDomain = currentDomainParts.slice(-2).join('.');
+                    const inputBaseDomain = inputDomainParts.slice(-2).join('.');
+                    if (currentBaseDomain === inputBaseDomain) {
+                        return {
+                            isValid: true,
+                            error: null
+                        };
+                    }
+                }
+                // Try to get additional site information if available
+                try {
+                    // Check if there are other sites in the user's account
+                    if (window.webflow.getSites) {
+                        const sites = yield window.webflow.getSites();
+                        console.log('🔥 Domain verification: All user sites:', sites);
+                        if (sites && Array.isArray(sites)) {
+                            for (const site of sites) {
+                                if (site.url) {
+                                    const siteUrl = site.url.replace(/^https?:\/\//, '').toLowerCase();
+                                    // Check exact match
+                                    if (cleanDomain === siteUrl) {
+                                        return {
+                                            isValid: true,
+                                            error: null
+                                        };
+                                    }
+                                    // Check subdomain match
+                                    if (cleanDomain.endsWith('.' + siteUrl)) {
+                                        return {
+                                            isValid: true,
+                                            error: null
+                                        };
+                                    }
+                                    // Check base domain match
+                                    const siteDomainParts = siteUrl.split('.');
+                                    if (siteDomainParts.length >= 2) {
+                                        const siteBaseDomain = siteDomainParts.slice(-2).join('.');
+                                        const inputBaseDomain = inputDomainParts.slice(-2).join('.');
+                                        if (siteBaseDomain === inputBaseDomain) {
+                                            return {
+                                                isValid: true,
+                                                error: null
+                                            };
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (sitesError) {
+                    console.log('🔥 Domain verification: Could not get additional sites:', sitesError);
+                }
+                return {
+                    isValid: false,
+                    error: `This domain (${domain}) is not associated with your Webflow account. Please enter a domain that belongs to one of your Webflow sites.`
+                };
+            }
+            else {
+                return {
+                    isValid: false,
+                    error: 'Unable to verify domain ownership. Please ensure you are using this extension within Webflow Designer.'
+                };
+            }
+        }
+        catch (error) {
+            console.error('🔥 Domain verification error:', error);
+            return {
+                isValid: false,
+                error: 'Unable to verify domain ownership. Please try again or contact support.'
+            };
+        }
+    });
     // Helper function to get siteId from various sources
     const getSiteId = () => __awaiter(void 0, void 0, void 0, function* () {
         // Debug: Log all sessionStorage keys
@@ -43633,11 +43865,18 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
         const urlParams = new URLSearchParams(window.location.search);
         const paymentIntent = urlParams.get('payment_intent');
         const paymentIntentClientSecret = urlParams.get('payment_intent_client_secret');
+        const planType = urlParams.get('plan');
         if (paymentIntent && paymentIntentClientSecret) {
             console.log('🔥 PaymentScreen: Detected payment redirect, checking status');
             // If we have payment intent parameters, it means user was redirected back
             // We should show success screen since the webhook will handle the final status
             setPaymentSuccess(true);
+        }
+        // Set plan type from URL parameter if available
+        if (planType && (planType === 'annual' || planType === 'monthly')) {
+            console.log('🔥 PaymentScreen: Setting plan type from URL parameter:', planType);
+            setActualPlanType(planType);
+            setIsAnnual(planType === 'annual');
         }
     }, []);
     // Initialize Stripe integration when component mounts
@@ -43714,10 +43953,25 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             clearTimeout(timer);
         };
     }, []);
+    // Clear any existing subscription data from localStorage on component mount
+    (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+        // Clear all subscription-related localStorage data for security
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('subscription_')) {
+                keysToRemove.push(key);
+            }
+        }
+        keysToRemove.forEach(key => {
+            console.log('🔥 PaymentScreen: Clearing old subscription data from localStorage:', key);
+            localStorage.removeItem(key);
+        });
+    }, []);
     // Check for existing subscription status on component mount
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         const checkExistingSubscription = () => __awaiter(void 0, void 0, void 0, function* () {
-            var _a, _b, _c, _d;
+            var _a, _b, _c, _d, _e, _f;
             try {
                 const siteId = yield getSiteId();
                 console.log('🔥 PaymentScreen: Checking existing subscription for siteId:', siteId);
@@ -43725,6 +43979,20 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     console.log('🔥 PaymentScreen: No siteId found, skipping subscription check');
                     return;
                 }
+                // Always fetch fresh data from server - no localStorage usage for security
+                console.log('🔥 PaymentScreen: Fetching fresh subscription data from server (no localStorage for security)');
+                // Clear any existing subscription data from localStorage for security
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('subscription_')) {
+                        keysToRemove.push(key);
+                    }
+                }
+                keysToRemove.forEach(key => {
+                    console.log('🔥 PaymentScreen: Removing old subscription data from localStorage:', key);
+                    localStorage.removeItem(key);
+                });
                 // Always check subscription status from server first (don't trust localStorage)
                 console.log('🔥 PaymentScreen: Checking subscription status from server');
                 const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
@@ -43774,64 +44042,69 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                 console.log('🔥 PaymentScreen: Active subscription found, showing success screen');
                                 setPaymentSuccess(true);
                                 setSubscriptionValidUntil(endDate.toLocaleDateString());
-                                // Store subscription data for persistence with correct timestamp
-                                const subscriptionData = {
-                                    status: data.subscription.status,
-                                    validUntil: endDate.getTime(),
-                                    subscriptionId: data.subscription.id,
-                                    fallback: false // Mark as not a fallback
-                                };
-                                localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-                                console.log('🔥 PaymentScreen: Stored subscription data:', subscriptionData);
+                                // Determine plan type from server data only
+                                let planType = 'monthly'; // default
+                                let isAnnual = false;
+                                // Get plan type from server response
+                                const productId = data.subscription.productId || ((_d = (_c = data.subscription.details) === null || _c === void 0 ? void 0 : _c.metadata) === null || _d === void 0 ? void 0 : _d.productId);
+                                if (productId) {
+                                    isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+                                    planType = isAnnual ? 'annual' : 'monthly';
+                                    console.log('🔥 PaymentScreen: Determined plan type from server productId:', productId, 'isAnnual:', isAnnual, 'planType:', planType);
+                                }
+                                else {
+                                    console.log('🔥 PaymentScreen: No productId found in server response, using default monthly');
+                                }
+                                // No localStorage storage for security - data is fetched fresh from server each time
+                                console.log('🔥 PaymentScreen: Subscription data processed (no localStorage for security)');
+                                // Set the actual plan type for display
+                                setActualPlanType(planType);
                             }
                             else {
                                 console.log('🔥 PaymentScreen: Subscription expired, not showing success screen');
-                                // Clear any stored data
-                                localStorage.removeItem(`subscription_${siteId}`);
+                                // No localStorage usage for security - data managed server-side
                             }
                         }
                         else {
                             console.log('🔥 PaymentScreen: No valid end date found, using fallback');
-                            // Determine fallback period based on productId
-                            const productId = data.subscription.productId || ((_d = (_c = data.subscription.details) === null || _c === void 0 ? void 0 : _c.metadata) === null || _d === void 0 ? void 0 : _d.productId);
-                            const isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+                            // Determine fallback period based on productId and plan type from payment form
+                            const productId = data.subscription.productId || ((_f = (_e = data.subscription.details) === null || _e === void 0 ? void 0 : _e.metadata) === null || _f === void 0 ? void 0 : _f.productId);
+                            // First try to get plan type from payment form
+                            let isAnnual = false;
+                            try {
+                                const paymentForm = document.getElementById('payment-form');
+                                if (paymentForm) {
+                                    const planTypeAttr = paymentForm.getAttribute('data-plan-type');
+                                    isAnnual = planTypeAttr === 'annual';
+                                    console.log('🔥 PaymentScreen: Got plan type from payment form:', planTypeAttr, 'isAnnual:', isAnnual);
+                                }
+                            }
+                            catch (e) {
+                                console.log('🔥 PaymentScreen: Could not get plan type from payment form, using productId fallback');
+                            }
+                            // Fallback to productId if payment form plan type not available
+                            if (!isAnnual && productId) {
+                                isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+                                console.log('🔥 PaymentScreen: Using productId fallback - productId:', productId, 'isAnnual:', isAnnual);
+                            }
                             const fallbackDays = isAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
                             const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
                             setPaymentSuccess(true);
                             setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
-                            const subscriptionData = {
-                                status: 'active',
-                                validUntil: fallbackDate.getTime(),
-                                subscriptionId: data.subscription.id,
-                                fallback: true // Mark as fallback
-                            };
-                            localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-                            console.log('🔥 PaymentScreen: Stored fallback subscription data:', subscriptionData);
+                            // Set the actual plan type for display
+                            setActualPlanType(isAnnual ? 'annual' : 'monthly');
+                            // No localStorage storage for security - data is fetched fresh from server each time
+                            console.log('🔥 PaymentScreen: Fallback subscription data processed (no localStorage for security)');
                         }
                     }
                     else {
                         console.log('🔥 PaymentScreen: No active subscription found');
-                        // Clear any stored data
-                        localStorage.removeItem(`subscription_${siteId}`);
                     }
                 }
                 else {
                     console.log('🔥 PaymentScreen: Failed to check subscription status:', response.status);
-                    // If server fails, check localStorage as fallback
-                    const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
-                    if (storedSubscription) {
-                        const subscriptionData = JSON.parse(storedSubscription);
-                        const now = new Date().getTime();
-                        const validUntil = subscriptionData.validUntil;
-                        if (validUntil && now < validUntil) {
-                            console.log('🔥 PaymentScreen: Using stored subscription data as fallback');
-                            setPaymentSuccess(true);
-                            setSubscriptionValidUntil(new Date(validUntil).toLocaleDateString());
-                        }
-                        else {
-                            localStorage.removeItem(`subscription_${siteId}`);
-                        }
-                    }
+                    // No localStorage fallback for security - always use server data
+                    console.log('🔥 PaymentScreen: Server request failed, no fallback to localStorage for security');
                 }
             }
             catch (error) {
@@ -43843,7 +44116,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     // Listen for payment success events
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         const handlePaymentSuccess = (event) => __awaiter(void 0, void 0, void 0, function* () {
-            var _a;
+            var _a, _b;
             console.log('🔥 PaymentScreen: Payment success event received:', event.detail);
             console.log('🔥 PaymentScreen: Setting paymentSuccess to true');
             setPaymentSuccess(true);
@@ -43857,11 +44130,57 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             // Try to get subscription details from multiple sources
             let subscriptionDetails = null;
             let subscriptionId = null;
+            let eventPlanType = null;
+            // Get plan type from event first
+            if (event.detail.planType) {
+                eventPlanType = event.detail.planType;
+                console.log('🔥 PaymentScreen: Found plan type in event:', eventPlanType);
+            }
+            else {
+                console.log('🔥 PaymentScreen: No plan type found in event detail:', event.detail);
+            }
             // Check if we have subscriptionDetails in the event
             if (event.detail.subscriptionDetails) {
                 subscriptionDetails = event.detail.subscriptionDetails;
                 subscriptionId = event.detail.subscriptionId;
                 console.log('🔥 PaymentScreen: Found subscriptionDetails in event:', subscriptionDetails);
+                // Try to get plan type from subscription details metadata
+                if (!eventPlanType && subscriptionDetails.metadata && subscriptionDetails.metadata.productId) {
+                    const productId = subscriptionDetails.metadata.productId;
+                    eventPlanType = productId === 'prod_TEHrwLZdPcOsgq' ? 'annual' : 'monthly';
+                    console.log('🔥 PaymentScreen: Determined plan type from subscription metadata:', eventPlanType, 'productId:', productId);
+                }
+                // Try to determine plan type from subscription details
+                if (subscriptionDetails.details && subscriptionDetails.details.items && subscriptionDetails.details.items.data && subscriptionDetails.details.items.data.length > 0) {
+                    const item = subscriptionDetails.details.items.data[0];
+                    const productId = (_a = item.price) === null || _a === void 0 ? void 0 : _a.product;
+                    console.log('🔥 PaymentScreen: Found product ID in subscription details:', productId);
+                    // Store the product ID for plan type determination
+                    if (productId) {
+                        // First try to get plan type from payment form
+                        let isAnnual = false;
+                        try {
+                            const paymentForm = document.getElementById('payment-form');
+                            if (paymentForm) {
+                                const planTypeAttr = paymentForm.getAttribute('data-plan-type');
+                                isAnnual = planTypeAttr === 'annual';
+                                console.log('🔥 PaymentScreen: Got plan type from payment form:', planTypeAttr, 'isAnnual:', isAnnual);
+                            }
+                        }
+                        catch (e) {
+                            console.log('🔥 PaymentScreen: Could not get plan type from payment form, using productId fallback');
+                        }
+                        // Fallback to productId if payment form plan type not available
+                        if (!isAnnual) {
+                            isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+                            console.log('🔥 PaymentScreen: Using productId fallback - productId:', productId, 'isAnnual:', isAnnual);
+                        }
+                        console.log('🔥 PaymentScreen: Determined plan type from subscription details - isAnnual:', isAnnual);
+                        // Update the subscription details with plan type info
+                        subscriptionDetails.planType = isAnnual ? 'annual' : 'monthly';
+                        subscriptionDetails.productId = productId;
+                    }
+                }
             }
             else {
                 // If no subscriptionDetails, try to fetch from server
@@ -43920,20 +44239,53 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 if (endDate) {
                     setSubscriptionValidUntil(endDate.toLocaleDateString());
                     console.log('🔥 PaymentScreen: Set subscription valid until:', endDate.toLocaleDateString());
+                    // Determine plan type from subscription details or payment form
+                    let planTypeForDisplay = 'monthly'; // default
+                    try {
+                        const paymentForm = document.getElementById('payment-form');
+                        if (paymentForm) {
+                            const planTypeAttr = paymentForm.getAttribute('data-plan-type');
+                            planTypeForDisplay = planTypeAttr || 'monthly';
+                            console.log('🔥 PaymentScreen: Got plan type from payment form for display:', planTypeForDisplay);
+                        }
+                    }
+                    catch (e) {
+                        console.log('🔥 PaymentScreen: Could not get plan type from payment form for display');
+                    }
+                    // Set the actual plan type for display
+                    setActualPlanType(planTypeForDisplay);
                     // Store subscription data for persistence
                     const subscriptionData = {
                         status: subscriptionDetails.status || 'active',
                         validUntil: endDate.getTime(),
                         subscriptionId: subscriptionId
                     };
-                    localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-                    console.log('🔥 PaymentScreen: Stored subscription data for persistence:', subscriptionData);
+                    // No localStorage storage for security - data is fetched fresh from server each time
+                    console.log('🔥 PaymentScreen: Payment success data processed (no localStorage for security)');
                 }
                 else {
                     console.log('🔥 PaymentScreen: No valid end date found, using fallback');
-                    // Determine fallback period based on productId
-                    const productId = ((_a = subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.metadata) === null || _a === void 0 ? void 0 : _a.productId) || (subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.productId);
-                    const isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
+                    // Determine fallback period based on productId or plan type
+                    const productId = ((_b = subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.metadata) === null || _b === void 0 ? void 0 : _b.productId) || (subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.productId) || (subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.productId);
+                    const planType = subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.planType;
+                    // First try to get plan type from payment form
+                    let isAnnual = false;
+                    try {
+                        const paymentForm = document.getElementById('payment-form');
+                        if (paymentForm) {
+                            const planTypeAttr = paymentForm.getAttribute('data-plan-type');
+                            isAnnual = planTypeAttr === 'annual';
+                            console.log('🔥 PaymentScreen: Got plan type from payment form:', planTypeAttr, 'isAnnual:', isAnnual);
+                        }
+                    }
+                    catch (e) {
+                        console.log('🔥 PaymentScreen: Could not get plan type from payment form, using fallback');
+                    }
+                    // Fallback to productId or planType if payment form plan type not available
+                    if (!isAnnual) {
+                        isAnnual = productId === 'prod_TEHrwLZdPcOsgq' || planType === 'annual';
+                        console.log('🔥 PaymentScreen: Using fallback - productId:', productId, 'planType:', planType, 'isAnnual:', isAnnual);
+                    }
                     const fallbackDays = isAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
                     const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
                     setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
@@ -43941,26 +44293,194 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         status: 'active',
                         validUntil: fallbackDate.getTime(),
                         subscriptionId: subscriptionId || 'unknown',
-                        fallback: true // Mark as fallback
+                        fallback: true, // Mark as fallback
+                        isAnnual: isAnnual, // Store the plan type
+                        productId: productId, // Store the product ID for future reference
+                        planType: planType // Store the plan type
                     };
-                    localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-                    console.log('🔥 PaymentScreen: Stored fallback subscription data:', subscriptionData);
+                    // No localStorage storage for security - data is fetched fresh from server each time
+                    console.log('🔥 PaymentScreen: Payment success fallback data processed (no localStorage for security)');
                 }
             }
             else {
                 console.log('🔥 PaymentScreen: No subscription details available, using fallback');
-                // Default to monthly plan fallback (30 days) if no productId available
-                const fallbackDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                // Try to get the plan type from the payment form that was just used
+                let paymentFormPlanType = null;
+                try {
+                    const paymentForm = document.getElementById('payment-form');
+                    if (paymentForm) {
+                        const planTypeAttr = paymentForm.getAttribute('data-plan-type');
+                        paymentFormPlanType = planTypeAttr;
+                        console.log('🔥 PaymentScreen: Found plan type from payment form:', paymentFormPlanType);
+                        console.log('🔥 PaymentScreen: Payment form element:', paymentForm);
+                        console.log('🔥 PaymentScreen: All data attributes on payment form:', Array.from(paymentForm.attributes).map(attr => `${attr.name}="${attr.value}"`));
+                    }
+                    else {
+                        console.log('🔥 PaymentScreen: Payment form element not found');
+                    }
+                }
+                catch (e) {
+                    console.log('🔥 PaymentScreen: Could not get plan type from payment form:', e);
+                }
+                // Use the actual plan type from the event, payment form, or fall back to current state
+                // Priority: eventPlanType > paymentFormPlanType > component state
+                const currentPlanIsAnnual = eventPlanType ? eventPlanType === 'annual' :
+                    paymentFormPlanType ? paymentFormPlanType === 'annual' :
+                        isAnnual;
+                console.log('🔥 PaymentScreen: Plan type determination - eventPlanType:', eventPlanType, 'paymentFormPlanType:', paymentFormPlanType, 'component isAnnual:', isAnnual, 'final currentPlanIsAnnual:', currentPlanIsAnnual);
+                // Additional validation: if we have a plan type from the event, use it as the source of truth
+                if (eventPlanType) {
+                    console.log('🔥 PaymentScreen: Using event plan type as source of truth:', eventPlanType);
+                }
+                else if (paymentFormPlanType) {
+                    console.log('🔥 PaymentScreen: Using payment form plan type as source of truth:', paymentFormPlanType);
+                }
+                else {
+                    console.log('🔥 PaymentScreen: WARNING - No plan type found in event or payment form, using component state:', isAnnual);
+                }
+                const fallbackDays = currentPlanIsAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
+                const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
                 setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
+                // Set the actual plan type for display
+                const finalPlanType = currentPlanIsAnnual ? 'annual' : 'monthly';
+                setActualPlanType(finalPlanType);
+                console.log('🔥 PaymentScreen: Setting actualPlanType to:', finalPlanType, 'based on currentPlanIsAnnual:', currentPlanIsAnnual);
                 const subscriptionData = {
                     status: 'active',
                     validUntil: fallbackDate.getTime(),
                     subscriptionId: subscriptionId || 'unknown',
-                    fallback: true // Mark as fallback
+                    fallback: true, // Mark as fallback
+                    isAnnual: currentPlanIsAnnual, // Store the plan type
+                    planType: currentPlanIsAnnual ? 'annual' : 'monthly', // Store the plan type
+                    source: eventPlanType ? 'event' :
+                        paymentFormPlanType ? 'payment-form' :
+                            'component-state', // Track the source
+                    eventPlanType: eventPlanType, // Store the original event plan type for debugging
+                    paymentFormPlanType: paymentFormPlanType, // Store the payment form plan type for debugging
+                    componentIsAnnual: isAnnual // Store the component state for debugging
                 };
-                localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-                console.log('🔥 PaymentScreen: Stored fallback subscription data:', subscriptionData);
+                // No localStorage storage for security - data is fetched fresh from server each time
+                console.log('🔥 PaymentScreen: Payment success final fallback data processed (no localStorage for security)');
             }
+            // Force a refresh of the subscription status to ensure UI is updated with correct data
+            console.log('🔥 PaymentScreen: Forcing subscription status refresh after payment success');
+            // Immediate refresh attempt
+            const immediateRefresh = () => __awaiter(void 0, void 0, void 0, function* () {
+                try {
+                    const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ siteId })
+                    });
+                    if (response.ok) {
+                        const data = yield response.json();
+                        console.log('🔥 PaymentScreen: Immediate refresh response:', data);
+                        if (data.success && data.subscription && data.subscription.status === 'active') {
+                            let endDate = null;
+                            if (data.subscription.details && data.subscription.details.current_period_end) {
+                                endDate = new Date(data.subscription.details.current_period_end * 1000);
+                                console.log('🔥 PaymentScreen: Immediate refresh - Using current_period_end from details:', data.subscription.details.current_period_end);
+                            }
+                            else if (data.subscription.currentPeriodEnd) {
+                                const periodEnd = data.subscription.currentPeriodEnd;
+                                if (periodEnd > 1000000000000) {
+                                    endDate = new Date(periodEnd);
+                                }
+                                else {
+                                    endDate = new Date(periodEnd * 1000);
+                                }
+                                console.log('🔥 PaymentScreen: Immediate refresh - Using currentPeriodEnd:', periodEnd);
+                            }
+                            else if (data.subscription.current_period_end) {
+                                endDate = new Date(data.subscription.current_period_end * 1000);
+                                console.log('🔥 PaymentScreen: Immediate refresh - Using current_period_end:', data.subscription.current_period_end);
+                            }
+                            if (endDate) {
+                                setSubscriptionValidUntil(endDate.toLocaleDateString());
+                                console.log('🔥 PaymentScreen: Immediate refresh - Updated subscription valid until:', endDate.toLocaleDateString());
+                                // Determine plan type from server response metadata
+                                let serverPlanType = 'monthly'; // default
+                                if (data.subscription.details && data.subscription.details.metadata && data.subscription.details.metadata.productId) {
+                                    const productId = data.subscription.details.metadata.productId;
+                                    serverPlanType = productId === 'prod_TEHrwLZdPcOsgq' ? 'annual' : 'monthly';
+                                    console.log('🔥 PaymentScreen: Immediate refresh - Determined plan type from server metadata:', serverPlanType, 'productId:', productId);
+                                }
+                                // Set the actual plan type for display
+                                setActualPlanType(serverPlanType);
+                                console.log('🔥 PaymentScreen: Immediate refresh - Set actualPlanType to:', serverPlanType);
+                                const subscriptionData = {
+                                    status: data.subscription.status,
+                                    validUntil: endDate.getTime(),
+                                    subscriptionId: data.subscription.id,
+                                    refreshed: true,
+                                    planType: serverPlanType,
+                                    isAnnual: serverPlanType === 'annual'
+                                };
+                                // No localStorage storage for security - data is fetched fresh from server each time
+                                console.log('🔥 PaymentScreen: Immediate refresh - Updated with server data (no localStorage for security)');
+                                return; // Exit early if we got valid data
+                            }
+                        }
+                    }
+                }
+                catch (error) {
+                    console.error('🔥 PaymentScreen: Immediate refresh failed:', error);
+                }
+            });
+            // Try immediate refresh first
+            yield immediateRefresh();
+            // If immediate refresh didn't work, try again after delay
+            setTimeout(() => __awaiter(void 0, void 0, void 0, function* () {
+                try {
+                    const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ siteId })
+                    });
+                    if (response.ok) {
+                        const data = yield response.json();
+                        console.log('🔥 PaymentScreen: Refresh response after payment success:', data);
+                        if (data.success && data.subscription && data.subscription.status === 'active') {
+                            // Update the subscription validity with fresh data from server
+                            let endDate = null;
+                            if (data.subscription.details && data.subscription.details.current_period_end) {
+                                endDate = new Date(data.subscription.details.current_period_end * 1000);
+                                console.log('🔥 PaymentScreen: Refresh - Using current_period_end from details:', data.subscription.details.current_period_end);
+                            }
+                            else if (data.subscription.currentPeriodEnd) {
+                                const periodEnd = data.subscription.currentPeriodEnd;
+                                if (periodEnd > 1000000000000) {
+                                    endDate = new Date(periodEnd);
+                                }
+                                else {
+                                    endDate = new Date(periodEnd * 1000);
+                                }
+                                console.log('🔥 PaymentScreen: Refresh - Using currentPeriodEnd:', periodEnd);
+                            }
+                            else if (data.subscription.current_period_end) {
+                                endDate = new Date(data.subscription.current_period_end * 1000);
+                                console.log('🔥 PaymentScreen: Refresh - Using current_period_end:', data.subscription.current_period_end);
+                            }
+                            if (endDate) {
+                                setSubscriptionValidUntil(endDate.toLocaleDateString());
+                                console.log('🔥 PaymentScreen: Refresh - Updated subscription valid until:', endDate.toLocaleDateString());
+                                // Update localStorage with fresh data from server
+                                const subscriptionData = {
+                                    status: data.subscription.status,
+                                    validUntil: endDate.getTime(),
+                                    subscriptionId: data.subscription.id,
+                                    refreshed: true // Mark as refreshed from server
+                                };
+                                // No localStorage storage for security - data is fetched fresh from server each time
+                                console.log('🔥 PaymentScreen: Refresh - Updated with server data (no localStorage for security)');
+                            }
+                        }
+                    }
+                }
+                catch (error) {
+                    console.error('🔥 PaymentScreen: Failed to refresh subscription status after payment success:', error);
+                }
+            }), 2000); // Wait 2 seconds for server to process the payment and webhook
         });
         console.log('🔥 PaymentScreen: Adding stripe-payment-success event listener');
         window.addEventListener('stripe-payment-success', handlePaymentSuccess);
@@ -43976,19 +44496,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 const siteId = yield getSiteId();
                 if (!siteId)
                     return;
-                const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
-                if (storedSubscription) {
-                    const subscriptionData = JSON.parse(storedSubscription);
-                    const now = new Date().getTime();
-                    const validUntil = subscriptionData.validUntil;
-                    if (validUntil && now >= validUntil) {
-                        // Subscription expired
-                        console.log('🔥 PaymentScreen: Subscription expired, hiding success screen');
-                        setPaymentSuccess(false);
-                        setSubscriptionValidUntil(null);
-                        localStorage.removeItem(`subscription_${siteId}`);
-                    }
-                }
+                // No localStorage usage for security - always fetch fresh data from server
+                console.log('🔥 PaymentScreen: Subscription expiration check - fetching fresh data from server');
             });
             // Check immediately
             checkValidity();
@@ -44142,7 +44651,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             const siteId = yield getSiteId();
             console.log('🔥 PaymentScreen: Cancellation - siteId found:', siteId);
             if (!siteId) {
-                alert('Unable to find site ID. Please refresh and try again.');
+                showNotification('error', 'Unable to find site ID. Please refresh and try again.');
                 return;
             }
             // Simple approach: use siteId to cancel subscription directly
@@ -44170,26 +44679,26 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 const result = yield response.json();
                 console.log('🔥 PaymentScreen: Cancel success result:', result);
                 if (cancelAtPeriodEnd) {
-                    alert(`Subscription canceled successfully. Your access will continue until ${new Date(result.subscription.current_period_end * 1000).toLocaleDateString()}.`);
+                    showNotification('success', `Subscription canceled successfully. Your access will continue until ${new Date(result.subscription.current_period_end * 1000).toLocaleDateString()}.`);
                 }
                 else {
-                    alert('Subscription canceled immediately. Your access has ended.');
+                    showNotification('info', 'Subscription canceled immediately. Your access has ended.');
                 }
                 setPaymentSuccess(false);
                 setShowStripeForm(false);
                 setShowCancelModal(false);
-                // Clear stored subscription data
-                localStorage.removeItem(`subscription_${siteId}`);
+                // No localStorage usage for security - data is managed server-side
+                console.log('🔥 PaymentScreen: Subscription canceled - data managed server-side');
             }
             else {
                 const error = yield response.json();
                 console.log('🔥 PaymentScreen: Cancel error response:', error);
-                alert(`Failed to cancel subscription: ${error.error || 'Unknown error'}`);
+                showNotification('error', `Failed to cancel subscription: ${error.error || 'Unknown error'}`);
             }
         }
         catch (error) {
             console.error('Cancel subscription error:', error);
-            alert('Failed to cancel subscription. Please try again.');
+            showNotification('error', 'Failed to cancel subscription. Please try again.');
         }
         finally {
             setIsCanceling(false);
@@ -44201,23 +44710,19 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     const handleUpdateDomain = () => __awaiter(void 0, void 0, void 0, function* () {
         var _a;
         if (!newDomain.trim()) {
-            alert('Please enter a valid domain URL');
+            showNotification('error', 'Please enter a domain URL');
             return;
         }
         setIsUpdatingDomain(true);
         try {
             const siteId = yield getSiteId();
             if (!siteId) {
-                alert('Unable to find site ID. Please refresh and try again.');
+                showNotification('error', 'Unable to find site ID. Please refresh and try again.');
                 return;
             }
-            // Get subscription ID from localStorage or server
+            // Get subscription ID from server - no localStorage for security
             let subscriptionId = null;
-            const storedSubscription = localStorage.getItem(`subscription_${siteId}`);
-            if (storedSubscription) {
-                const subscriptionData = JSON.parse(storedSubscription);
-                subscriptionId = subscriptionData.subscriptionId;
-            }
+            console.log('🔥 PaymentScreen: Fetching subscription ID from server for domain update');
             if (!subscriptionId) {
                 // Try to get from server
                 const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
@@ -44231,7 +44736,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 }
             }
             if (!subscriptionId) {
-                alert('Unable to find subscription ID. Please refresh and try again.');
+                showNotification('error', 'Unable to find subscription ID. Please refresh and try again.');
                 return;
             }
             // Update subscription metadata
@@ -44250,24 +44755,21 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 const result = yield updateResponse.json();
                 console.log('Domain updated successfully:', result);
                 // Update localStorage with new domain
-                if (storedSubscription) {
-                    const subscriptionData = JSON.parse(storedSubscription);
-                    subscriptionData.domain = newDomain.trim();
-                    localStorage.setItem(`subscription_${siteId}`, JSON.stringify(subscriptionData));
-                }
-                alert('Domain updated successfully!');
+                // No localStorage usage for security - domain is updated server-side
+                console.log('🔥 PaymentScreen: Domain updated server-side (no localStorage for security)');
+                showNotification('success', 'Domain updated successfully!');
                 setShowDomainModal(false);
                 setNewDomain('');
             }
             else {
                 const error = yield updateResponse.json();
                 console.error('Failed to update domain:', error);
-                alert(`Failed to update domain: ${error.error || 'Unknown error'}`);
+                showNotification('error', `Failed to update domain: ${error.error || 'Unknown error'}`);
             }
         }
         catch (error) {
             console.error('Domain update error:', error);
-            alert('Failed to update domain. Please try again.');
+            showNotification('error', 'Failed to update domain. Please try again.');
         }
         finally {
             setIsUpdatingDomain(false);
@@ -44276,6 +44778,11 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     const handleCloseDomainModal = () => {
         setShowDomainModal(false);
         setNewDomain('');
+        setDomainValidationError(null);
+    };
+    const handleDomainInputChange = (value) => {
+        setNewDomain(value);
+        setDomainValidationError(null);
     };
     // When Stripe form is showing, render a full-screen scrollable view
     if (showStripeForm) {
@@ -44333,7 +44840,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             
             /* Ensure only input fields have white background, not labels */
             input[type="email"], 
-            input[type="url"], 
             input[type="text"], 
             input[type="tel"] {
               height: 40px !important;
@@ -44342,6 +44848,64 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
               border: 1px solid #ffffff !important;
               box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
               box-sizing: border-box !important;
+            }
+            
+            /* Domain URL field - force transparent background */
+            input[type="url"] {
+              height: 40px !important;
+              background-color: transparent !important;
+              background: transparent !important;
+              color: #ffffff !important;
+              border: 1px solid #e6e6e6 !important;
+              box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
+              box-sizing: border-box !important;
+            }
+            
+            /* Override browser autofill and focus states for domain URL */
+            input[type="url"]:focus,
+            input[type="url"]:active,
+            input[type="url"]:hover,
+            input[type="url"]:autofill,
+            input[type="url"]:-webkit-autofill,
+            input[type="url"]:-webkit-autofill:hover,
+            input[type="url"]:-webkit-autofill:focus,
+            input[type="url"]:-webkit-autofill:active {
+              background-color: transparent !important;
+              background: transparent !important;
+              color: #ffffff !important;
+              -webkit-box-shadow: 0 0 0 30px transparent inset !important;
+              box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
+            }
+            
+            /* Ultra-aggressive override for domain URL field by ID */
+            #domain-url,
+            #domain-url:focus,
+            #domain-url:active,
+            #domain-url:hover,
+            #domain-url:autofill,
+            #domain-url:-webkit-autofill,
+            #domain-url:-webkit-autofill:hover,
+            #domain-url:-webkit-autofill:focus,
+            #domain-url:-webkit-autofill:active,
+            #domain-url:-moz-autofill,
+            #domain-url:-moz-autofill:hover,
+            #domain-url:-moz-autofill:focus,
+            #domain-url:-moz-autofill:active {
+              background-color: transparent !important;
+              background: transparent !important;
+              background-image: none !important;
+              color: #ffffff !important;
+              -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+              -moz-box-shadow: 0 0 0 1000px transparent inset !important;
+              box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
+            }
+            
+            /* Force override any inherited styles */
+            input#domain-url {
+              background: transparent !important;
+              background-color: transparent !important;
+              background-image: none !important;
+              color: #ffffff !important;
             }
             
             /* Ensure labels stay white text on transparent background */
@@ -44548,14 +45112,14 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             }
             
           `),
-                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h2", { style: { margin: '0 0 12px 0' } }, "Complete Your Payment"),
+                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h2", { style: { margin: '0 0 4px 0' } }, "Complete Your Payment"),
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { marginBottom: 12, color: '#a3a3a3' } },
-                    isAnnual ? 'Annual Plan' : 'Monthly Plan',
+                    actualPlanType === 'annual' ? 'Annual Plan' : 'Monthly Plan',
                     " - $",
-                    isAnnual ? '19' : '24',
+                    actualPlanType === 'annual' ? '19' : '24',
                     "/month",
-                    isAnnual ? ': Purchased Annually' : ''),
-                react__WEBPACK_IMPORTED_MODULE_0___default().createElement("form", { id: "payment-form", "data-plan-type": isAnnual ? 'annual' : 'monthly' },
+                    actualPlanType === 'annual' ? ': Purchased Annually' : ''),
+                actualPlanType ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("form", { id: "payment-form", "data-plan-type": actualPlanType === 'annual' ? 'annual' : 'monthly' },
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
                             fontSize: '16px',
                             fontWeight: '600',
@@ -44587,12 +45151,26 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                     fontSize: '16px',
                                     border: '1px solid #e6e6e6',
                                     borderRadius: '4px',
-                                    backgroundColor: 'white',
-                                    color: '#333333',
+                                    backgroundColor: 'transparent',
+                                    color: '#ffffff',
                                     boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
                                     transition: 'box-shadow 150ms ease, border-color 150ms ease',
                                     boxSizing: 'border-box'
-                                }, onFocus: (e) => e.target.style.borderColor = '#0570de', onBlur: (e) => e.target.style.borderColor = '#e6e6e6' }))),
+                                }, onFocus: (e) => {
+                                    const target = e.target;
+                                    target.style.borderColor = '#0570de';
+                                    target.style.backgroundColor = 'transparent';
+                                    target.style.background = 'transparent';
+                                }, onBlur: (e) => {
+                                    const target = e.target;
+                                    target.style.borderColor = '#e6e6e6';
+                                    target.style.backgroundColor = 'transparent';
+                                    target.style.background = 'transparent';
+                                }, onInput: (e) => {
+                                    const target = e.target;
+                                    target.style.backgroundColor = 'transparent';
+                                    target.style.background = 'transparent';
+                                } }))),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
                             fontSize: '16px',
                             fontWeight: '600',
@@ -44616,10 +45194,17 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             opacity: isProcessing ? 0.7 : 1,
                             cursor: isProcessing ? 'not-allowed' : 'pointer',
                             transition: 'opacity 0.2s ease',
-                            marginTop: '40px'
+                            marginTop: '60px'
                         } }, isProcessing ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement((react__WEBPACK_IMPORTED_MODULE_0___default().Fragment), null,
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", { style: { marginRight: '8px' } }, "\u23F3"),
-                        "Processing...")) : ('Subscribe'))))));
+                        "Processing...")) : ('Subscribe')))) : (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        height: '200px',
+                        color: '#a3a3a3',
+                        fontSize: '16px'
+                    } }, "Loading payment form...")))));
     }
     // Debug logging
     console.log('🔥 PaymentScreen: Current state - paymentSuccess:', paymentSuccess, 'showStripeForm:', showStripeForm);
@@ -44629,6 +45214,9 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-header" },
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "app-name" }),
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "header-buttons" },
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "back-btn", onClick: onBack, disabled: isProcessing },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "", style: { transform: 'rotate(180deg)' } }),
+                        " Back"),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "next-btn", onClick: handleSuccessNext },
                         "Continue ",
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "" })))),
@@ -44659,22 +45247,11 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         flexDirection: 'column',
                         justifyContent: 'center'
                     } },
-                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
-                            width: '64px',
-                            height: '64px',
-                            borderRadius: '50%',
-                            backgroundColor: '#10b981',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 20px',
-                            fontSize: '24px'
-                        } }, "\u2713"),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h2", { style: {
                             fontSize: '24px',
                             fontWeight: '600',
                             margin: '0 0 12px 0',
-                            color: '#10b981'
+                            color: 'rgba(43, 110, 47, 1)'
                         } }, "Payment Successful!"),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("p", { style: {
                             fontSize: '14px',
@@ -44683,19 +45260,16 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             lineHeight: '1.4'
                         } }, "Your subscription is now active. You can now proceed to publish your accessibility widget."),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
-                            backgroundColor: '#1a1a1a',
-                            borderRadius: '8px',
                             padding: '12px 16px',
-                            margin: '20px 0',
-                            border: '1px solid #333'
+                            margin: '20px 0'
                         } },
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { fontSize: '12px', color: '#a3a3a3', marginBottom: '6px' } }, "Subscription Details"),
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { fontSize: '14px', fontWeight: '500', marginBottom: '8px' } },
-                            isAnnual ? 'Annual Plan' : 'Monthly Plan',
+                            (actualPlanType || 'monthly') === 'annual' ? 'Annual Plan' : 'Monthly Plan',
                             " - $",
-                            isAnnual ? '19' : '24',
+                            (actualPlanType || 'monthly') === 'annual' ? '19' : '24',
                             "/month",
-                            isAnnual ? ': Purchased Annually' : ''),
+                            (actualPlanType || 'monthly') === 'annual' ? ': Purchased Annually' : ''),
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { fontSize: '12px', color: '#a3a3a3' } },
                             "Valid until: ",
                             subscriptionValidUntil || 'Loading...')),
@@ -44720,8 +45294,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                 borderRadius: '6px',
                                 whiteSpace: 'nowrap',
                                 minWidth: '140px',
-                                backgroundColor: '#dc2626',
-                                border: '1px solid #dc2626'
+                                backgroundColor: 'rgba(38, 46, 132, 1)',
+                                border: '1px solid rgba(38, 46, 132, 1)'
                             } },
                             "Cancel Subscription ",
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "" }))))),
@@ -44738,7 +45312,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     zIndex: 1000
                 } },
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
-                        backgroundColor: '#1a1a1a',
+                        backgroundColor: 'rgba(46, 43, 69, 1)',
                         borderRadius: '12px',
                         padding: '32px',
                         maxWidth: '400px',
@@ -44747,17 +45321,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
                         textAlign: 'center'
                     } },
-                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
-                            width: '64px',
-                            height: '64px',
-                            borderRadius: '50%',
-                            backgroundColor: '#dc2626',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 20px',
-                            fontSize: '24px'
-                        } }, "\u26A0\uFE0F"),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
                             fontSize: '24px',
                             fontWeight: '600',
@@ -44815,17 +45378,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
                         textAlign: 'center'
                     } },
-                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
-                            width: '64px',
-                            height: '64px',
-                            borderRadius: '50%',
-                            backgroundColor: '#10b981',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 20px',
-                            fontSize: '24px'
-                        } }, "\uD83C\uDF10"),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
                             fontSize: '24px',
                             fontWeight: '600',
@@ -44835,12 +45387,13 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("p", { style: {
                             fontSize: '16px',
                             color: '#a3a3a3',
-                            margin: '0 0 24px 0',
+                            margin: '0 0 16px 0',
                             lineHeight: '1.5'
                         } }, "Enter the new domain URL where you want to use the accessibility widget."),
-                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { marginBottom: '24px' } },
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("input", { type: "url", value: newDomain, onChange: (e) => setNewDomain(e.target.value), placeholder: "https://your-new-domain.com", style: {
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { marginBottom: '24px', display: 'flex', justifyContent: 'center' } },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("input", { type: "url", value: newDomain, onChange: (e) => handleDomainInputChange(e.target.value), placeholder: "https://your-new-domain.com", style: {
                                 width: '100%',
+                                maxWidth: '400px',
                                 padding: '12px 16px',
                                 fontSize: '16px',
                                 border: '1px solid #333',
@@ -44907,8 +45460,14 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                 "/",
                                 isAnnual ? 'month: Purchased Annually' : 'month')),
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: `payment-toggle ${isAnnual ? 'annually' : 'monthly'}` },
-                            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: `toggle-option ${!isAnnual ? 'active' : ''}`, onClick: () => setIsAnnual(false) }, "Monthly"),
-                            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: `toggle-option ${isAnnual ? 'active' : ''}`, onClick: () => setIsAnnual(true) }, "Annually")),
+                            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: `toggle-option ${!isAnnual ? 'active' : ''}`, onClick: () => {
+                                    setIsAnnual(false);
+                                    setActualPlanType('monthly');
+                                } }, "Monthly"),
+                            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: `toggle-option ${isAnnual ? 'active' : ''}`, onClick: () => {
+                                    setIsAnnual(true);
+                                    setActualPlanType('annual');
+                                } }, "Annually")),
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "savings-info", style: { opacity: isAnnual ? 1 : 0, visibility: isAnnual ? 'visible' : 'hidden' } }, "You Save 20%")),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "pricing-right" },
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "secondary-price" },
@@ -44918,7 +45477,48 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             isAnnual ? ': Purchased Annually' : ''),
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "purchase-btn", onClick: handlePurchaseNow, disabled: isProcessing },
                             "Purchase Now ",
-                            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { style: { width: "11px" }, src: whitearrow, alt: "" }))))))));
+                            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { style: { width: "11px" }, src: whitearrow, alt: "" })))))),
+        notification && (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
+                position: 'fixed',
+                top: '20px',
+                right: '20px',
+                zIndex: 10000,
+                backgroundColor: notification.type === 'success' ? '#10b981' :
+                    notification.type === 'error' ? '#ef4444' : 'rgba(46, 43, 69, 1)',
+                color: 'white',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                maxWidth: '400px',
+                fontSize: '14px',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                animation: 'slideInRight 0.3s ease-out',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+            } },
+            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: {
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '16px'
+                } }, notification.type === 'success' ? '' :
+                notification.type === 'error' ? '' : ''),
+            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: 1 } }, notification.message),
+            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { onClick: () => setNotification(null), style: {
+                    background: 'none',
+                    border: 'none',
+                    color: 'white',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    borderRadius: '4px',
+                    fontSize: '18px',
+                    lineHeight: 1,
+                    opacity: 0.8
+                }, onMouseEnter: (e) => e.currentTarget.style.opacity = '1', onMouseLeave: (e) => e.currentTarget.style.opacity = '0.8' }, "\u00D7")))));
 };
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (PaymentScreen);
 
@@ -45291,7 +45891,7 @@ const WelcomeScreen = ({ onAuthorize, onNeedHelp, authenticated, handleWelcomeSc
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h1", { className: "welcome-title" },
                     "Welcome to",
                     " ",
-                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", { className: "welcome-title-highlight" }, "ContrastKit")),
+                    react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", { className: "welcome-title-highlight" }, "AccessBit")),
                 isCheckingAuth ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("p", { className: "welcome-instructions" }, "Checking your authentication status...")) : isAuthorizing ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("p", { className: "welcome-instructions" }, "Please complete the authorization process in the popup window...")) : hasUserData ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("p", { className: "welcome-instructions" }, "Click on Next and customize your widget and publish when you are ready.")) : (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("p", { className: "welcome-instructions" }, "The authorization process appears to be incomplete. To continue with the next step, please ensure that all necessary authorization steps have been successfully carried out.")),
                 isCheckingAuth ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "welcome-authorize-btn", disabled: true }, "Loading...")) : isAuthorizing ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "welcome-authorize-btn", disabled: true }, "Authorizing...")) : hasUserData ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "welcome-authorize-btn scan-project", onClick: handleWelcomeScreen }, "Next")) : (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "welcome-authorize-btn", onClick: handleAuthorizeClick }, "Authorize"))))));
 };
@@ -45556,6 +46156,34 @@ function useAuth() {
                 }
             }
         }, 1000);
+        // Listen for postMessage from popup
+        const handleMessage = (event) => {
+            if (event.data && event.data.type === 'oauth-success') {
+                console.log('OAuth success message received from popup:', event.data);
+                clearInterval(checkPopupClosed);
+                clearInterval(checkUrlChange);
+                // Process the auth success with the data from the popup
+                const authData = event.data.data;
+                processAuthSuccessFromData(authData);
+            }
+        };
+        // Listen for storage events (when popup stores data)
+        const handleStorageChange = (event) => {
+            if (event.key === 'accessbit-userinfo' && event.newValue) {
+                console.log('Auth data stored by popup:', event.newValue);
+                clearInterval(checkPopupClosed);
+                clearInterval(checkUrlChange);
+                try {
+                    const authData = JSON.parse(event.newValue);
+                    processAuthSuccessFromData(authData);
+                }
+                catch (error) {
+                    console.error('Failed to parse auth data from storage event:', error);
+                }
+            }
+        };
+        window.addEventListener('message', handleMessage);
+        window.addEventListener('storage', handleStorageChange);
         // Also monitor for URL changes in the main window (in case popup redirects back)
         const checkUrlChange = setInterval(() => {
             const url = new URL(window.location.href);
@@ -45644,6 +46272,51 @@ function useAuth() {
             }
             catch (error) {
                 console.warn('Error processing auth success:', error);
+            }
+        };
+        // Helper function to process auth success from data object
+        const processAuthSuccessFromData = (authData) => {
+            try {
+                console.log('Processing auth success from data:', authData);
+                // IMPORTANT: Clear all old session data first to prevent cross-site contamination
+                console.log('Clearing old session data before storing new data...');
+                sessionStorage.removeItem("accessbit-userinfo");
+                sessionStorage.removeItem("contrastkit-userinfo");
+                sessionStorage.removeItem("explicitly_logged_out");
+                sessionStorage.removeItem("siteInfo");
+                // Store the session data from the OAuth popup
+                const userData = {
+                    sessionToken: authData.sessionToken,
+                    firstName: authData.firstName,
+                    email: authData.email || '',
+                    siteId: authData.siteId,
+                    exp: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+                    siteInfo: {
+                        siteId: authData.siteId,
+                        siteName: authData.siteName,
+                        shortName: authData.shortName,
+                        email: authData.email || ''
+                    }
+                };
+                console.log('Storing new session data for site:', authData.siteId);
+                console.log('New user data:', userData);
+                // Store in sessionStorage for persistence
+                sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
+                sessionStorage.removeItem("explicitly_logged_out");
+                // Clear React Query cache and update with new data
+                queryClient.clear();
+                queryClient.setQueryData(["auth"], {
+                    user: {
+                        firstName: authData.firstName,
+                        email: authData.email || '',
+                        siteId: authData.siteId
+                    },
+                    sessionToken: authData.sessionToken
+                });
+                console.log('OAuth success processed successfully');
+            }
+            catch (error) {
+                console.warn('Error processing auth success from data:', error);
             }
         };
         // Check immediately for auth success
@@ -45760,7 +46433,7 @@ function useAuth() {
             if (!sessionToken || !userEmail) {
                 console.log(`[PUBLISH] ${requestId} No auth state, checking sessionStorage...`);
                 // Fallback: get from sessionStorage
-                const storedUser = sessionStorage.getItem("accessbit-userinfo");
+                const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
                 console.log(`[PUBLISH] ${requestId} Stored user from sessionStorage:`, storedUser);
                 if (storedUser) {
                     const userData = JSON.parse(storedUser);

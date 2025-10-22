@@ -257,6 +257,11 @@ export default {
       return handleOAuthCallback(request, env);
     }
     
+    // OAuth Success Page - for popup communication
+    if (url.pathname === '/api/auth/success') {
+      return handleOAuthSuccess(request, env);
+    }
+    
     // Token Authentication
     if (url.pathname === '/api/auth/token' && request.method === 'POST') {
       return handleTokenAuth(request, env);
@@ -394,6 +399,11 @@ if (url.pathname === '/api/accessibility/create-payment-intent' && request.metho
     // Check subscription status
     if (url.pathname === '/api/accessibility/check-subscription-status' && request.method === 'GET') {
       return handleCheckSubscriptionStatus(request, env);
+    }
+    
+    // Get subscription plan details
+    if (url.pathname === '/api/accessibility/get-subscription-plan' && request.method === 'GET') {
+      return handleGetSubscriptionPlan(request, env);
     }
     
     // Debug: Log all unmatched routes
@@ -924,20 +934,20 @@ async function handleOAuthCallback(request, env) {
       }
     }
     
-    const redirectUrl = new URL(`https://${currentSite.shortName}.design.webflow.com`);
-    redirectUrl.searchParams.set('app', env.WEBFLOW_CLIENT_ID);
-    redirectUrl.searchParams.set('auth_success', 'true');
-    redirectUrl.searchParams.set('sessionToken', sessionToken.token);
-    redirectUrl.searchParams.set('firstName', userData.firstName || 'User');
-    redirectUrl.searchParams.set('email', realEmail);
-    redirectUrl.searchParams.set('siteId', currentSite.id);
-    redirectUrl.searchParams.set('siteName', currentSite.name || currentSite.shortName);
-    redirectUrl.searchParams.set('shortName', currentSite.shortName);
+    // For popup OAuth, redirect to a success page that can communicate with parent window
+    const successUrl = new URL('https://accessibility-widget.web-8fb.workers.dev/api/auth/success');
+    successUrl.searchParams.set('sessionToken', sessionToken.token);
+    successUrl.searchParams.set('firstName', userData.firstName || 'User');
+    successUrl.searchParams.set('email', realEmail);
+    successUrl.searchParams.set('siteId', currentSite.id);
+    successUrl.searchParams.set('siteName', currentSite.name || currentSite.shortName);
+    successUrl.searchParams.set('shortName', currentSite.shortName);
+    successUrl.searchParams.set('auth_success', 'true');
     
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': redirectUrl.toString()
+        'Location': successUrl.toString()
       }
     });
     
@@ -954,7 +964,118 @@ async function handleOAuthCallback(request, env) {
   }
 }
 
+// Handle OAuth Success Page
+async function handleOAuthSuccess(request, env) {
+  const url = new URL(request.url);
+  const sessionToken = url.searchParams.get('sessionToken');
+  const firstName = url.searchParams.get('firstName');
+  const email = url.searchParams.get('email');
+  const siteId = url.searchParams.get('siteId');
+  const siteName = url.searchParams.get('siteName');
+  const shortName = url.searchParams.get('shortName');
+  
+  // Create a success page that communicates with the parent window
+  const successPage = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authorization Successful</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        h1 {
+            margin: 0 0 1rem 0;
+            font-size: 2rem;
+        }
+        p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        .loading {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>Authorization Successful!</h1>
+        <p>You can now close this window and return to the app.</p>
+        <div class="loading">Closing window...</div>
+    </div>
+    
+    <script>
+        // Store auth data in sessionStorage for the parent window to access
+        const authData = {
+            sessionToken: '${sessionToken}',
+            firstName: '${firstName}',
+            email: '${email}',
+            siteId: '${siteId}',
+            siteName: '${siteName}',
+            shortName: '${shortName}',
+            timestamp: Date.now()
+        };
+        
+        // Store in sessionStorage
+        sessionStorage.setItem('accessbit-userinfo', JSON.stringify(authData));
+        
+        // Notify parent window
+        if (window.opener) {
+            try {
+                // Send message to parent window
+                window.opener.postMessage({
+                    type: 'oauth-success',
+                    data: authData
+                }, '*');
+                
+                // Also try to trigger a storage event
+                window.opener.dispatchEvent(new StorageEvent('storage', {
+                    key: 'accessbit-userinfo',
+                    newValue: JSON.stringify(authData),
+                    url: window.location.href
+                }));
+            } catch (error) {
+                console.error('Failed to communicate with parent window:', error);
+            }
+        }
+        
+        // Close the popup after a short delay
+        setTimeout(() => {
+            window.close();
+        }, 2000);
+    </script>
+</body>
+</html>`;
 
+  return new Response(successPage, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    }
+  });
+}
 
 // Handle publish accessibility settings
 async function handlePublishSettings(request, env) {
@@ -1564,7 +1685,7 @@ async function handleRegisterScript(request, env) {
       });
     }
     
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@f8ac98f/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@255a604/accessibility-widget.js';
     console.log(accessToken);
     // Check if script is already registered - CORRECTED: Use exact match
     const existingScriptsResponse = await fetch(`https://api.webflow.com/v2/sites/${siteIdFromUrl}/registered_scripts`, {
@@ -1738,7 +1859,7 @@ async function handleApplyScript(request, env) {
     
         // Filter out duplicates - remove any existing accessibility widget scripts
     // Filter out duplicates - remove ALL accessibility widget scripts and any with same ID
-    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@f8ac98f/accessibility-widget.js';
+    const scriptUrl = 'https://cdn.jsdelivr.net/gh/snm62/accessibility-test@255a604/accessibility-widget.js';
 
     const existingAccessibilityScript = existingScripts.find(script => 
       script.scriptUrl === scriptUrl
@@ -3563,6 +3684,65 @@ async function handleCheckSubscriptionStatus(request, env) {
     console.error('Check subscription status error:', error);
     const errorResponse = secureJsonResponse({ 
       error: 'Failed to check subscription status',
+      details: error.message 
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+
+// Get subscription plan details
+async function handleGetSubscriptionPlan(request, env) {
+  const origin = request.headers.get('origin');
+  const url = new URL(request.url);
+  const subscriptionId = url.searchParams.get('id');
+    
+  if (!subscriptionId) {
+    const errorResponse = secureJsonResponse({ error: 'Missing subscription ID' }, 400);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+    
+  try {
+    const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`
+      }
+    });
+    
+    if (!subscriptionResponse.ok) {
+      const errorText = await subscriptionResponse.text();
+      throw new Error(`Failed to retrieve subscription: ${errorText}`);
+    }
+    
+    const subscription = await subscriptionResponse.json();
+    
+    // Extract plan type from subscription
+    let planType = 'monthly'; // default
+    if (subscription.items && subscription.items.data && subscription.items.data.length > 0) {
+      const priceId = subscription.items.data[0].price.id;
+      // Check if it's annual plan based on price ID
+      if (priceId === 'price_1SL2ZQRh1lS9W4XK8QJqJzKx' || priceId.includes('annual')) {
+        planType = 'annual';
+      } else if (priceId === 'price_1SL2ZQRh1lS9W4XK8QJqJzKy' || priceId.includes('monthly')) {
+        planType = 'monthly';
+      }
+    }
+    
+    // Calculate valid until date
+    const validUntil = new Date(subscription.current_period_end * 1000).toISOString();
+    
+    return addSecurityAndCorsHeaders(secureJsonResponse({
+      planType: planType,
+      validUntil: validUntil,
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      current_period_end: subscription.current_period_end,
+      current_period_start: subscription.current_period_start
+    }), origin);
+    
+  } catch (error) {
+    console.error('Get subscription plan error:', error);
+    const errorResponse = secureJsonResponse({ 
+      error: 'Failed to get subscription plan',
       details: error.message 
     }, 500);
     return addSecurityAndCorsHeaders(errorResponse, origin);
