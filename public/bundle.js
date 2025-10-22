@@ -44297,12 +44297,12 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { className: "back-btn", onClick: () => setShowStripeForm(false), disabled: isProcessing },
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("img", { src: whitearrow, alt: "", style: { transform: 'rotate(180deg)' } }),
                         " Back to Pricing"))),
-            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { padding: '16px 24px', overflowY: 'auto', flex: 1, minHeight: 0 } },
+            react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { padding: '5px 20px', overflowY: 'auto', flex: 1, minHeight: 0 } },
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("style", null, `
             /* Stripe Elements styling */
             .StripeElement {
               height: 40px !important;
-              padding: 10px 14px !important;
+              /* padding: 10px 14px !important; */
               border: 1px solid #e6e6e6 !important;
               border-radius: 4px !important;
               background-color: white !important;
@@ -44338,9 +44338,9 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             input[type="text"], 
             input[type="tel"] {
               height: 40px !important;
-              background-color: white !important;
-              color: #333333 !important;
-              border: 1px solid #e6e6e6 !important;
+              background-color: #ffffff00 !important;
+              color: #fff !important;
+              border: 1px solid #ffffff !important;
               box-shadow: 0px 1px 3px rgba(50, 50, 93, 0.07) !important;
               box-sizing: border-box !important;
             }
@@ -44572,10 +44572,10 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         } },
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: '1 1 0', minWidth: 0, maxWidth: 'calc(50% - 8px)' } },
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { id: "link-authentication-element", style: { marginBottom: 0 } })),
-                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: '1 1 0', minWidth: 0, maxWidth: 'calc(50% - 8px)' } },
+                        react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { style: { flex: '1 1 0', minWidth: 0, marginLeft: '-69px', maxWidth: 'calc(67% - 8px)' } },
                             react__WEBPACK_IMPORTED_MODULE_0___default().createElement("label", { htmlFor: "domain-url", style: {
                                     display: 'block',
-                                    marginBottom: '8px',
+                                    marginTop: '25px',
                                     fontSize: '14px',
                                     fontWeight: '500',
                                     color: '#ffffff',
@@ -44593,7 +44593,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                     boxShadow: '0px 1px 3px rgba(50, 50, 93, 0.07)',
                                     transition: 'box-shadow 150ms ease, border-color 150ms ease',
                                     boxSizing: 'border-box'
-                                } }))),
+                                }, onFocus: (e) => e.target.style.borderColor = '#0570de', onBlur: (e) => e.target.style.borderColor = '#e6e6e6' }))),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
                             fontSize: '16px',
                             fontWeight: '600',
@@ -44652,8 +44652,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 } },
                 react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-card", style: {
                         textAlign: 'center',
-                        padding: '32px 24px',
-                        maxWidth: '500px',
+                        padding: '20px 20px',
+                        maxWidth: '700px',
                         margin: '0 auto',
                         flex: '1',
                         display: 'flex',
