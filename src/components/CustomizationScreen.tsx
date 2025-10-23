@@ -64,9 +64,9 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
 
   // Load existing customization data when component mounts
   useEffect(() => {
-    console.log("CustomizationScreen mounted, existingCustomizationData:", existingCustomizationData);
+  
     if (existingCustomizationData) {
-      console.log("Loading existing customization data:", existingCustomizationData);
+
       setInterfaceLeadColor(existingCustomizationData.interfaceLeadColor || "#FFFFFF");
       setAccessibilityStatementLink(existingCustomizationData.accessibilityStatementLink || "");
       setInterfaceFooterContent(existingCustomizationData.interfaceFooterContent || "");
@@ -255,7 +255,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   }, [openDropdown]);
 
   const handleNextPayment = async () => {
-    console.log('🚨🚨🚨 FORCE RELOAD TEST - This should show if changes are applied');
+
     try {
       const customizationData = {
         // Map your state variables to the customization object
@@ -284,19 +284,17 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
         interfaceFooterContent: interfaceFooterContent
       };
       
-      // Navigate to next page - PaymentScreen will be shown first
-      console.log('🔥🔥🔥 PAYMENT NAVIGATION: Passing data to PaymentScreen:', customizationData);
-      console.log('🔥🔥🔥 PAYMENT NAVIGATION: Calling onNext with data');
+      
       onNext(customizationData);
     } catch (error) {
-      console.error('Error preparing customization data:', error);
+
       alert('An error occurred while preparing data. Please try again.');
     }
   };
 
   // Helper function for site ID
   const getCurrentSiteId = async () => {
-    console.log('🔍 CustomizationScreen: Getting site ID...');
+
     const urlParams = new URLSearchParams(window.location.search);
     const urlSiteId = urlParams.get('siteId');
     
@@ -307,9 +305,9 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
       try {
         const userData = JSON.parse(contrastkitUserInfo);
         sessionSiteId = userData.siteId;
-        console.log('🔍 CustomizationScreen: Found siteId in userinfo:', sessionSiteId);
+        
       } catch (error) {
-        console.log('🔍 CustomizationScreen: Error parsing userinfo:', error);
+        
       }
     }
     
@@ -317,37 +315,34 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     const oldSessionSiteId = sessionStorage.getItem('accessibility_site_id');
     const localSiteId = localStorage.getItem('accessibility_site_id');
     
-    console.log('🔍 CustomizationScreen: URL siteId:', urlSiteId);
-    console.log('🔍 CustomizationScreen: Session siteId:', sessionSiteId);
-    console.log('🔍 CustomizationScreen: Session siteId (old):', oldSessionSiteId);
-    console.log('🔍 CustomizationScreen: Local siteId:', localSiteId);
+
     
     // If we have a URL siteId, use it (this comes from domain lookup)
     if (urlSiteId) {
-      console.log('🔍 CustomizationScreen: Using URL siteId (from domain lookup):', urlSiteId);
+     
       return urlSiteId;
     }
     
     // If no URL siteId, try to get it from domain lookup
     if (sessionSiteId) {
       try {
-        console.log('🔍 CustomizationScreen: Attempting domain lookup for siteId consistency...');
+       
         const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/domain-lookup?domain=${window.location.hostname}`);
         if (response.ok) {
           const domainData = await response.json();
           if (domainData.siteId) {
-            console.log('🔍 CustomizationScreen: Domain lookup found siteId:', domainData.siteId);
+
             return domainData.siteId;
           }
         }
       } catch (error) {
-        console.log('🔍 CustomizationScreen: Domain lookup failed:', error);
+
       }
     }
     
     // Fallback to sessionStorage
     const siteId = sessionSiteId || oldSessionSiteId || localSiteId;
-    console.log('🔍 CustomizationScreen: Final siteId (fallback):', siteId);
+
     return siteId;
   };
 
@@ -355,24 +350,22 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   // Load customization data function
   const loadCustomizationData = async (siteId: string) => {
     try {
-      console.log('🌐 CustomizationScreen: Making API request to:', `https://accessibility-widget.web-8fb.workers.dev/api/accessibility/config?siteId=${siteId}`);
+      
       const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/config?siteId=${siteId}`);
       
-      console.log('📡 CustomizationScreen: API response status:', response.status);
-      console.log('📡 CustomizationScreen: API response ok:', response.ok);
+
       
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 CustomizationScreen: Full API response data:', data);
-        console.log('📊 CustomizationScreen: Customization data:', data.customization);
+      
         return data.customization;
       } else {
         const errorText = await response.text();
-        console.error('❌ CustomizationScreen: Failed to load customization data:', response.status, errorText);
+      
         return null;
       }
     } catch (error) {
-      console.error('❌ CustomizationScreen: Error loading customization data:', error);
+     
       return null;
     }
   };

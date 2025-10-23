@@ -42,10 +42,10 @@ class ExistingPaymentIntegration {
             if (userData) {
                 const parsed = JSON.parse(userData);
                 this.siteId = parsed.siteId || this.siteId;
-                console.log('User data loaded:', { siteId: this.siteId });
+             
             }
         } catch (error) {
-            console.warn('Could not load user data:', error);
+            
         }
     }
 
@@ -57,13 +57,13 @@ class ExistingPaymentIntegration {
                            sessionStorage.getItem('accessibility-userinfo');
             if (userData) {
                 const parsed = JSON.parse(userData);
-                console.log('🔍 Found user data in session storage:', parsed);
+       
                 return parsed.siteId;
             }
         } catch (error) {
-            console.warn('Could not get site ID from session storage:', error);
+          
         }
-        console.log('🔍 No site ID found in session storage');
+   
         
         // Try to get siteId from URL or other sources
         try {
@@ -71,22 +71,21 @@ class ExistingPaymentIntegration {
             if (window.webflow && window.webflow.getSiteInfo) {
                 const siteInfo = window.webflow.getSiteInfo();
                 if (siteInfo && siteInfo.siteId) {
-                    console.log('🔍 Found siteId from Webflow API:', siteInfo.siteId);
+              
                     return siteInfo.siteId;
                 }
             }
         } catch (error) {
-            console.log('🔍 Could not get siteId from Webflow API:', error);
+           
         }
         
-        // Last resort - use a default
-        console.log('🔍 Using default site ID');
+
         return 'default-site-id';
     }
 
     async initializeStripeElements() {
         try {
-            console.log('Initializing Stripe Elements (Payment Element only)...');
+          
             
             await this.loadStripeScripts();
             await this.loadUserData();
@@ -96,7 +95,7 @@ class ExistingPaymentIntegration {
             placeholder.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Payment form will load when you fill in your details above</div>';
             document.getElementById('payment-element').appendChild(placeholder);
             
-            console.log('Stripe Elements initialized successfully (placeholder mode)');
+           
             
             // Set up basic event listeners
             this.setupEventListeners();
@@ -112,23 +111,22 @@ class ExistingPaymentIntegration {
                     this.confirmPayment();
                 });
             }
-            
-            console.log('Stripe Elements mounted successfully');
+     
             
         } catch (error) {
-            console.error('Error initializing Stripe elements:', error);
+        
             this.showError(`Failed to initialize payment form: ${error?.message || 'Unknown error'}`);
         }
     }
 
     setupEventListeners() {
-        console.log('Setting up event listeners...');
+    
         
         // Capture email from Link Authentication Element
         if (this.linkAuthenticationElement) {
             this.linkAuthenticationElement.on('change', (event) => {
                 this.email = event.value.email;
-                console.log('Email captured from Link Authentication Element:', this.email);
+        
             });
             
             // Also try to get email immediately if already filled
@@ -136,10 +134,10 @@ class ExistingPaymentIntegration {
                 const currentValue = this.linkAuthenticationElement.getValue();
                 if (currentValue && currentValue.email) {
                     this.email = currentValue.email;
-                    console.log('Email captured immediately from Link Authentication Element:', this.email);
+                   
                 }
             } catch (e) {
-                console.log('Could not get immediate value from Link Authentication Element:', e);
+              
             }
         }
         
@@ -149,7 +147,7 @@ class ExistingPaymentIntegration {
             emailInput.addEventListener('input', (e) => {
                 if (e.target.value && !this.email) {
                     this.email = e.target.value;
-                    console.log('Email captured from input field:', this.email);
+                 
                 }
             });
         }
@@ -159,13 +157,13 @@ class ExistingPaymentIntegration {
         if (domainInput) {
             domainInput.addEventListener('input', (e) => {
                 this.domainUrl = e.target.value;
-                console.log('Domain captured:', this.domainUrl);
+           
             });
         }
     }
     
     setupDomainFieldMonitoring() {
-        console.log('Setting up domain field monitoring...');
+       
         
         // Monitor domain field for changes
         const monitorDomainField = () => {
@@ -174,10 +172,10 @@ class ExistingPaymentIntegration {
                 // Handle input events
                 domainInput.addEventListener('input', (e) => {
                     const value = e.target.value;
-                    console.log('🔍 Domain field input event:', value);
+                 
                     if (value && !value.includes('example.com') && !value.includes('your-domain.com')) {
                         this.domainUrl = value.trim();
-                        console.log('🔍 Domain URL updated in real-time:', this.domainUrl);
+                      
                     }
                 });
                 
@@ -185,10 +183,10 @@ class ExistingPaymentIntegration {
                 domainInput.addEventListener('paste', (e) => {
                     setTimeout(() => {
                         const value = domainInput.value;
-                        console.log('🔍 Domain field paste event:', value);
+                   
                         if (value && !value.includes('example.com') && !value.includes('your-domain.com')) {
                             this.domainUrl = value.trim();
-                            console.log('🔍 Domain URL updated from paste:', this.domainUrl);
+                           
                         }
                     }, 100);
                 });
@@ -196,16 +194,15 @@ class ExistingPaymentIntegration {
                 // Handle change events
                 domainInput.addEventListener('change', (e) => {
                     const value = e.target.value;
-                    console.log('🔍 Domain field change event:', value);
+                   
                     if (value && !value.includes('example.com') && !value.includes('your-domain.com')) {
                         this.domainUrl = value.trim();
-                        console.log('🔍 Domain URL updated from change:', this.domainUrl);
+                      
                     }
                 });
                 
-                console.log('🔍 Domain field monitoring set up successfully');
+              
             } else {
-                console.log('🔍 Domain field not found, retrying...');
                 setTimeout(monitorDomainField, 1000);
             }
         };
@@ -215,7 +212,7 @@ class ExistingPaymentIntegration {
     }
 
     capturePlanType() {
-        console.log('🔍 CAPTURING PLAN TYPE...');
+    
         
         try {
             // Try multiple selectors to find the payment form
@@ -224,59 +221,49 @@ class ExistingPaymentIntegration {
                                document.querySelector('form[data-plan-type]') ||
                                document.querySelector('form');
             
-            console.log('🔍 Payment form found:', !!paymentForm);
-            console.log('🔍 Payment form element:', paymentForm);
-            
             if (paymentForm) {
                 const planType = paymentForm.getAttribute('data-plan-type');
                 this.planType = planType;
-                console.log('🔍 Plan type captured from payment form:', this.planType);
-                console.log('🔍 All payment form attributes:', Array.from(paymentForm.attributes).map(attr => `${attr.name}="${attr.value}"`));
-                
+              
                 // If no data-plan-type attribute, try to find it in other ways
                 if (!planType) {
-                    console.log('🔍 No data-plan-type attribute found, trying alternative methods...');
-                    
+                   
                     // Look for plan type in form inputs or other elements
                     const planInputs = document.querySelectorAll('input[name*="plan"], input[value*="monthly"], input[value*="annual"]');
-                    console.log('🔍 Plan inputs found:', planInputs.length);
-                    
+                  
                     // Look for plan type in the form's parent or nearby elements
                     const planContainer = paymentForm.closest('[data-plan-type]') || 
                                         paymentForm.parentElement?.querySelector('[data-plan-type]');
                     if (planContainer) {
                         const containerPlanType = planContainer.getAttribute('data-plan-type');
                         this.planType = containerPlanType;
-                        console.log('🔍 Plan type found in container:', containerPlanType);
+                      
                     }
                 }
             } else {
-                console.log('🔍 No payment form found for plan type capture');
-                console.log('🔍 Available forms:', document.querySelectorAll('form'));
+               
             }
         } catch (e) {
-            console.log('🔍 Error capturing plan type:', e);
+         
         }
     }
 
     captureDomainUrl() {
-        console.log('🔍 CAPTURING DOMAIN URL...');
+        
         
         // Method 1: Try to find the domain URL input field
         const domainInput = document.getElementById('domain-url');
         if (domainInput) {
             // Get the value, including default value
             const inputValue = domainInput.value || domainInput.defaultValue || '';
-            console.log('🔍 Domain input field value:', inputValue);
-            console.log('🔍 Domain input field type:', typeof inputValue);
-            console.log('🔍 Domain input field length:', inputValue ? inputValue.length : 'undefined');
+            
             
             if (inputValue.trim() !== '' && !inputValue.includes('example.com') && !inputValue.includes('your-domain.com')) {
                 this.domainUrl = inputValue.trim();
-            console.log('🔍 Domain captured from input field:', this.domainUrl);
+        
             return;
             } else {
-                console.log('🔍 Domain input value rejected:', inputValue);
+               
             }
         }
         
@@ -284,7 +271,7 @@ class ExistingPaymentIntegration {
         const altDomainInput = document.querySelector('input[type="url"]') || document.querySelector('input[placeholder*="example.com"]');
         if (altDomainInput && altDomainInput.value && altDomainInput.value.trim() !== '') {
             this.domainUrl = altDomainInput.value.trim();
-            console.log('🔍 Domain captured from alternative input:', this.domainUrl);
+           
             return;
         }
         
@@ -293,7 +280,7 @@ class ExistingPaymentIntegration {
         for (let input of allInputs) {
             if (input.value && input.value.trim() !== '' && (input.value.includes('http') || input.value.includes('.com') || input.value.includes('.io'))) {
                 this.domainUrl = input.value.trim();
-                console.log('🔍 Domain captured from input field:', this.domainUrl);
+                
                 return;
             }
         }
@@ -304,7 +291,7 @@ class ExistingPaymentIntegration {
             domainInput.blur();
             if (domainInput.value && domainInput.value.trim() !== '') {
                 this.domainUrl = domainInput.value.trim();
-                console.log('🔍 Domain captured after focus/blur:', this.domainUrl);
+              
                 return;
             }
         }
@@ -312,17 +299,10 @@ class ExistingPaymentIntegration {
         // Method 5: Check if there's a value in the input that we missed
         if (domainInput && domainInput.getAttribute('value')) {
             this.domainUrl = domainInput.getAttribute('value');
-            console.log('🔍 Domain captured from attribute:', this.domainUrl);
+        
             return;
         }
         
-        console.log('🔍 No domain URL found, will use fallback');
-        console.log('🔍 Available inputs:', Array.from(document.querySelectorAll('input')).map(input => ({
-            id: input.id,
-            type: input.type,
-            value: input.value,
-            placeholder: input.placeholder
-        })));
     }
 
     async processPayment() {
@@ -335,19 +315,15 @@ class ExistingPaymentIntegration {
             submitButton.textContent = 'Processing...';
         }
         
-        console.log('Processing payment...');
-        
-        // Capture plan type BEFORE creating subscription
-        console.log('🔍 About to capture plan type...');
+
         this.capturePlanType();
-        console.log('🔍 Captured plan type result:', this.planType);
-        
+
         // If plan type not captured, try again after a short delay
         if (!this.planType) {
-            console.log('🔍 Plan type not captured, trying again after delay...');
+
             await new Promise(resolve => setTimeout(resolve, 500));
             this.capturePlanType();
-            console.log('🔍 Second attempt - captured plan type result:', this.planType);
+          
         }
         
         // Capture domain URL BEFORE creating subscription
@@ -365,59 +341,56 @@ class ExistingPaymentIntegration {
                 const linkValue = this.linkAuthenticationElement.getValue();
                 if (linkValue && linkValue.email) {
                     this.email = linkValue.email;
-                    console.log('🔍 Email captured before payment processing:', this.email);
+                   
                 } else {
-                    console.log('🔍 Link Authentication Element value:', linkValue);
-                    console.log('🔍 Link Authentication Element has email:', linkValue?.email);
+                   
                 }
             } catch (e) {
-                console.log('🔍 Could not get email before payment processing:', e);
+                
             }
         }
         
         // Force capture email from any available source
         if (!this.email) {
-            console.log('🔍 No email in this.email, trying to capture from other sources...');
+          
             
             // Try to get email from session storage
             try {
                 const userData = sessionStorage.getItem('contrastkit');
-                console.log('🔍 Session storage contrastkit:', userData);
+                
                 if (userData) {
                     const parsed = JSON.parse(userData);
-                    console.log('🔍 Parsed session data:', parsed);
+                   
                     if (parsed.email) {
                         this.email = parsed.email;
-                        console.log('🔍 Email captured from session storage:', this.email);
+                        
                     } else {
-                        console.log('🔍 No email in session storage, trying other keys...');
+                        
                         
                         // Try other possible session storage keys
                         const otherKeys = ['accessbit-userinfo', 'accessibility-userinfo', 'userinfo'];
                         for (const key of otherKeys) {
                             const otherData = sessionStorage.getItem(key);
                             if (otherData) {
-                                console.log(`🔍 Found data in ${key}:`, otherData);
+                               
                                 try {
                                     const otherParsed = JSON.parse(otherData);
                                     if (otherParsed.email) {
                                         this.email = otherParsed.email;
-                                        console.log(`🔍 Email captured from ${key}:`, this.email);
+                                        
                                         break;
                                     }
                                 } catch (e) {
-                                    console.log(`🔍 Could not parse ${key}:`, e);
+                            
                                 }
                             }
                         }
                     }
                 } else {
-                    console.log('🔍 No contrastkit data in session storage');
-                    console.log('🔍 All session storage keys:', Object.keys(sessionStorage));
-                    console.log('🔍 All session storage values:', Object.keys(sessionStorage).map(key => ({ key, value: sessionStorage.getItem(key) })));
+                   
                 }
             } catch (e) {
-                console.log('🔍 Could not get email from session storage:', e);
+               
             }
         }
         
@@ -430,12 +403,11 @@ class ExistingPaymentIntegration {
             
             // Capture domain URL at submission time (in case input event didn't fire)
             const domainInput = document.getElementById('domain-url');
-            console.log('Domain input element found:', !!domainInput);
-            console.log('Domain input element:', domainInput);
+           
             
             // Try alternative selectors if the main one fails
             const altDomainInput = document.querySelector('input[type="url"]') || document.querySelector('input[placeholder*="example.com"]');
-            console.log('Alternative domain input found:', !!altDomainInput);
+        
             
             // Get the current value from the input field - try multiple methods
             let currentDomainUrl = '';
@@ -443,16 +415,13 @@ class ExistingPaymentIntegration {
             // Method 1: Direct value access
             if (domainInput) {
                 currentDomainUrl = domainInput.value || '';
-                console.log('Method 1 - Direct value:', currentDomainUrl);
-                console.log('Method 1 - Input element:', domainInput);
-                console.log('Method 1 - Input type:', domainInput.type);
-                console.log('Method 1 - Input placeholder:', domainInput.placeholder);
+              
             }
             
             // Method 2: Alternative input
             if (!currentDomainUrl && altDomainInput) {
                 currentDomainUrl = altDomainInput.value || '';
-                console.log('Method 2 - Alternative input:', currentDomainUrl);
+               
             }
             
             // Method 3: Force focus and blur to trigger events
@@ -460,18 +429,18 @@ class ExistingPaymentIntegration {
                 domainInput.focus();
                 domainInput.blur();
                 currentDomainUrl = domainInput.value || '';
-                console.log('Method 3 - Focus/blur:', currentDomainUrl);
+                
             }
             
             // Method 4: Check all inputs for domain-like values
             if (!currentDomainUrl) {
                 const allInputs = document.querySelectorAll('input');
-                console.log('Method 4 - Checking all inputs:', allInputs.length);
+              
                 for (let input of allInputs) {
-                    console.log('Method 4 - Input value:', input.value, 'Type:', input.type, 'ID:', input.id);
+                   
                     if (input.value && (input.value.includes('http') || input.value.includes('.com') || input.value.includes('.io'))) {
                         currentDomainUrl = input.value;
-                        console.log('Method 4 - Found domain in input:', input.value);
+                       
                         break;
                     }
                 }
@@ -483,7 +452,7 @@ class ExistingPaymentIntegration {
                 for (let input of allInputs) {
                     if (input.value && input.value.includes('websnap')) {
                         currentDomainUrl = input.value;
-                        console.log('Method 5 - Found websnap domain:', input.value);
+                    
                         break;
                     }
                 }
@@ -495,7 +464,7 @@ class ExistingPaymentIntegration {
                 for (let input of allInputs) {
                     if (input.value && input.value.includes('webflow.io')) {
                         currentDomainUrl = input.value;
-                        console.log('Method 6 - Found webflow.io domain:', input.value);
+                        
                         break;
                     }
                 }
@@ -507,7 +476,7 @@ class ExistingPaymentIntegration {
                 for (let input of allInputs) {
                     if (input.value && input.value.startsWith('https://')) {
                         currentDomainUrl = input.value;
-                        console.log('Method 7 - Found https domain:', input.value);
+                        
                         break;
                     }
                 }
@@ -519,7 +488,7 @@ class ExistingPaymentIntegration {
                 for (let input of allInputs) {
                     if (input.value && (input.value.includes('.com') || input.value.includes('.io') || input.value.includes('.net'))) {
                         currentDomainUrl = input.value;
-                        console.log('Method 8 - Found domain pattern:', input.value);
+                      
                         break;
                     }
                 }
@@ -527,24 +496,18 @@ class ExistingPaymentIntegration {
             
             // Final attempt: Check if we can find the domain URL in any way
             if (!currentDomainUrl) {
-                console.log('🔍 FINAL ATTEMPT: Searching for domain URL...');
+               
                 
                 // Try to find any input with a value that looks like a URL
                 const allInputs = document.querySelectorAll('input');
-                console.log('🔍 Total inputs found:', allInputs.length);
+               
                 
                 for (let i = 0; i < allInputs.length; i++) {
                     const input = allInputs[i];
-                    console.log(`🔍 Input ${i}:`, {
-                        id: input.id,
-                        type: input.type,
-                        value: input.value,
-                        placeholder: input.placeholder
-                    });
-                    
+                  
                     if (input.value && input.value.trim() !== '') {
                         currentDomainUrl = input.value;
-                        console.log('🔍 FOUND DOMAIN:', input.value);
+                        
                         break;
                     }
                 }
@@ -552,17 +515,9 @@ class ExistingPaymentIntegration {
             
             const finalDomainUrl = currentDomainUrl || this.domainUrl || '';
             
-            console.log('All input fields on page:', document.querySelectorAll('input').length);
-            console.log('All URL input fields:', document.querySelectorAll('input[type="url"]').length);
+           
             
-            console.log('Domain URL at submission:', finalDomainUrl);
-            console.log('Input field value:', currentDomainUrl);
-            console.log('Input field value length:', currentDomainUrl ? currentDomainUrl.length : 'undefined');
-            console.log('Stored domainUrl:', this.domainUrl);
-            console.log('window.location.hostname:', window.location.hostname);
-            
-            // Create subscription with Stripe product
-            console.log('Creating subscription with:', { siteId: this.siteId, productId });
+          
             // Use the captured domain URL or fallback
             let domainToUse = this.domainUrl || finalDomainUrl;
             
@@ -571,7 +526,7 @@ class ExistingPaymentIntegration {
                 const domainInput = document.getElementById('domain-url');
                 if (domainInput && domainInput.value && !domainInput.value.includes('example.com') && !domainInput.value.includes('your-domain.com')) {
                     domainToUse = domainInput.value.trim();
-                    console.log('🔍 Using domain from input field directly:', domainToUse);
+                    
                 }
             }
             
@@ -582,25 +537,21 @@ class ExistingPaymentIntegration {
                     if (currentUrl && !currentUrl.includes('localhost') && !currentUrl.includes('127.0.0.1')) {
                         const url = new URL(currentUrl);
                         domainToUse = `${url.protocol}//${url.hostname}`;
-                        console.log('🔍 Using domain from window location:', domainToUse);
+                     
                     }
                 } catch (e) {
-                    console.log('🔍 Could not parse window location:', e);
+                    
                 }
             }
             
             // Final fallback
             if (!domainToUse || domainToUse.includes('example.com') || domainToUse.includes('your-domain.com')) {
                 domainToUse = 'https://example.com';
-                console.log('🔍 Using fallback domain:', domainToUse);
+                
             }
-            
-            console.log('🔍 Final domain URL being used:', domainToUse);
-            
+          
             // Enhanced email capture - try multiple methods
             let emailToUse = this.email || '';
-            console.log('🔍 Initial emailToUse:', emailToUse);
-            console.log('🔍 this.email:', this.email);
             
             // Method 1: Check Link Authentication Element
             if (!emailToUse && this.linkAuthenticationElement) {
@@ -608,12 +559,12 @@ class ExistingPaymentIntegration {
                     const linkValue = this.linkAuthenticationElement.getValue();
                     if (linkValue && linkValue.email) {
                         emailToUse = linkValue.email;
-                        console.log('Email captured from Link Authentication Element:', emailToUse);
+                      
                     } else {
-                        console.log('Link Authentication Element value:', linkValue);
+                       
                     }
                 } catch (e) {
-                    console.log('Could not get email from Link Authentication Element:', e);
+                  
                 }
             }
             
@@ -624,10 +575,10 @@ class ExistingPaymentIntegration {
                     const currentValue = this.linkAuthenticationElement.getValue();
                     if (currentValue && currentValue.email) {
                         emailToUse = currentValue.email;
-                        console.log('Email captured from Link Authentication Element (direct):', emailToUse);
+                      
                     }
                 } catch (e) {
-                    console.log('Could not get email from Link Authentication Element (direct):', e);
+               
                 }
             }
             
@@ -638,11 +589,11 @@ class ExistingPaymentIntegration {
                     this.linkAuthenticationElement.on('change', (event) => {
                         if (event.value && event.value.email) {
                             emailToUse = event.value.email;
-                            console.log('Email captured from Link Authentication Element change event:', emailToUse);
+                           
                         }
                     });
                 } catch (e) {
-                    console.log('Could not set up Link Authentication Element listener:', e);
+                   
                 }
             }
             
@@ -651,7 +602,7 @@ class ExistingPaymentIntegration {
                 const emailInput = document.querySelector('input[type="email"]');
                 if (emailInput && emailInput.value) {
                     emailToUse = emailInput.value;
-                    console.log('Email captured from email input field:', emailToUse);
+                  
                 }
             }
             
@@ -661,7 +612,7 @@ class ExistingPaymentIntegration {
                 for (let input of allInputs) {
                     if (input.value && input.value.includes('@')) {
                         emailToUse = input.value;
-                        console.log('Email captured from input field:', emailToUse);
+                     
                         break;
                     }
                 }
@@ -675,25 +626,21 @@ class ExistingPaymentIntegration {
                         const parsedData = JSON.parse(storedData);
                         if (parsedData.email) {
                             emailToUse = parsedData.email;
-                            console.log('Email captured from stored user data:', emailToUse);
+                           
                         }
                     }
                 } catch (e) {
-                    console.log('Could not get email from stored data:', e);
+               
                 }
             }
             
             // Final fallback: use this.email if still empty
             if (!emailToUse || emailToUse.trim() === '') {
                 emailToUse = this.email || '';
-                console.log('Using this.email as final fallback:', emailToUse);
+               
             }
             
-            console.log('Final email being used:', emailToUse);
-            console.log('Email type:', typeof emailToUse);
-            console.log('Email length:', emailToUse ? emailToUse.length : 'undefined');
-            console.log('Email is empty:', !emailToUse || emailToUse.trim() === '');
-            
+         
             const subscriptionData = {
                 siteId: this.siteId,
                 productId: productId,
@@ -701,51 +648,30 @@ class ExistingPaymentIntegration {
                 email: emailToUse,
                 domainUrl: domainToUse
             };
-            console.log('Subscription data being sent:', JSON.stringify(subscriptionData, null, 2));
-            console.log('Final email being sent:', emailToUse);
-            console.log('Final email type:', typeof emailToUse);
-            console.log('Final email length:', emailToUse ? emailToUse.length : 'undefined');
-            console.log('Final domain URL being sent:', domainToUse);
-            console.log('Domain URL type:', typeof domainToUse);
-            console.log('Domain URL length:', domainToUse ? domainToUse.length : 'undefined');
-            console.log('Domain URL is example.com:', domainToUse && domainToUse.includes('example.com'));
-            console.log('Domain URL is empty:', !domainToUse || domainToUse.trim() === '');
-            
+           
             // Log domain URL status but don't block payment
             if (!finalDomainUrl || finalDomainUrl.trim() === '') {
-                console.warn('Domain URL is empty - will use fallback');
+         
             } else {
-                console.log('Domain URL captured successfully:', finalDomainUrl);
+
             }
             
-            // Step 1: Set up payment method
-            console.log('Setting up payment method...');
-            console.log('🔍 Setup payment data:', {
-                email: emailToUse,
-                domainUrl: domainToUse,
-                siteId: this.siteId
-            });
-            console.log('🔍 Email value:', emailToUse);
-            console.log('🔍 Domain value:', domainToUse);
-            console.log('🔍 SiteId value:', this.siteId);
+          
             
             // Ensure we have a valid siteId
             if (!this.siteId || this.siteId === 'default-site-id') {
-                console.error('❌ No valid siteId found!');
-                console.error('❌ this.siteId:', this.siteId);
-                console.error('❌ Session storage keys:', Object.keys(sessionStorage));
-                console.error('❌ Session storage contrastkit:', sessionStorage.getItem('contrastkit'));
+              
                 
                 // Try to get siteId from URL or other sources as last resort
                 try {
                     const urlParams = new URLSearchParams(window.location.search);
                     const siteIdFromUrl = urlParams.get('siteId');
                     if (siteIdFromUrl) {
-                        console.log('🔍 Found siteId in URL:', siteIdFromUrl);
+                        
                         this.siteId = siteIdFromUrl;
                     }
                 } catch (e) {
-                    console.log('🔍 Could not get siteId from URL:', e);
+       
                 }
                 
                 if (!this.siteId || this.siteId === 'default-site-id') {
@@ -755,8 +681,7 @@ class ExistingPaymentIntegration {
             
             // Ensure we have a valid email
             if (!this.email || this.email.trim() === '') {
-                console.error('❌ No valid email found!');
-                console.error('❌ this.email:', this.email);
+               
                 
                 // Last resort: try to get email from the authentication data we know exists
                 try {
@@ -765,21 +690,21 @@ class ExistingPaymentIntegration {
                         const parsed = JSON.parse(authData);
                         if (parsed.email) {
                             this.email = parsed.email;
-                            console.log('🔍 Email found in auth data:', this.email);
+                           
                         } else {
                             // Use a default email for testing
                             this.email = 'dev5@seattlenewmedia.com';
-                            console.log('🔍 Using default email for testing:', this.email);
+                            
                         }
                     } else {
                         // Use a default email for testing
                         this.email = 'dev5@seattlenewmedia.com';
-                        console.log('🔍 Using default email for testing:', this.email);
+                       
                     }
             } catch (e) {
                     // Use a default email for testing
                     this.email = 'dev5@seattlenewmedia.com';
-                    console.log('🔍 Using default email for testing:', this.email);
+                    
                 }
                 
                 if (!this.email || this.email.trim() === '') {
@@ -796,20 +721,10 @@ class ExistingPaymentIntegration {
                 domainUrl: domainToUse,
                 siteId: this.siteId
             };
-            console.log('🔍 Setup payment request data:', requestData);
-            console.log('🔍 Final email being used:', finalEmail);
-            console.log('🔍 Email value (original):', emailToUse);
-            console.log('🔍 this.email:', this.email);
-            console.log('🔍 Domain value:', domainToUse);
-            console.log('🔍 SiteId value:', this.siteId);
-            console.log('🔍 SiteId type:', typeof this.siteId);
-            console.log('🔍 SiteId length:', this.siteId ? this.siteId.length : 'undefined');
-            
+          
             // Log the exact JSON being sent
             const jsonBody = JSON.stringify(requestData);
-            console.log('🔍 JSON body being sent:', jsonBody);
-            console.log('🔍 JSON body length:', jsonBody.length);
-            console.log('🔍 JSON body type:', typeof jsonBody);
+           
             
             const setupResponse = await fetch(`${this.kvApiUrl}/api/accessibility/setup-payment`, {
                 method: 'POST',
@@ -823,24 +738,22 @@ class ExistingPaymentIntegration {
                     setupError = await setupResponse.json();
                 } catch (e) {
                     const errorText = await setupResponse.text();
-                    console.error('🔍 Server response (not JSON):', errorText);
+                   
                     throw new Error(`Payment setup failed: ${setupResponse.status} ${setupResponse.statusText} - ${errorText}`);
                 }
-                console.error('🔍 Server error response:', setupError);
+              
                 throw new Error(`Payment setup failed: ${setupError.error || setupResponse.statusText}`);
             }
             
             const setupData = await setupResponse.json();
-            console.log('Payment setup successful:', setupData);
+           
             
             // Store setup data
             this.setupIntentId = setupData.setupIntentId;
             this.customerId = setupData.customerId;
             this.clientSecret = setupData.clientSecret;
             
-            console.log('Payment setup completed, clientSecret present');
-            console.log('Payment method requires confirmation');
-            
+          
             // Clear placeholders and create actual Stripe Elements
             const paymentContainer = document.getElementById('payment-element');
             const linkContainer = document.getElementById('link-authentication-element');
@@ -897,7 +810,7 @@ class ExistingPaymentIntegration {
             if (!clientSecret) {
                 throw new Error('Missing client secret. Please try again.');
             }
-            console.log('🔍 Using clientSecret for Stripe Elements:', clientSecret.substring(0, 20) + '...');
+      
             this.elements = this.stripe.elements({ clientSecret, appearance });
             
             // Create and mount the Link Authentication Element for email collection
@@ -911,10 +824,10 @@ class ExistingPaymentIntegration {
             // Add event listeners to capture data
             this.setupEventListeners();
             
-            console.log('Stripe Elements created successfully. User can now fill in details.');
+            
             
         } catch (error) {
-            console.error('Payment processing error:', error);
+           
             this.showError(`Payment processing error: ${error.message}`);
         } finally {
             if (submitButton) {
@@ -927,21 +840,21 @@ class ExistingPaymentIntegration {
     async confirmPayment() {
         // Prevent double confirmation
         if (this.isConfirming) {
-            console.log('Payment confirmation already in progress, skipping...');
+         
             return;
         }
         
         // Check cooldown period
         const now = Date.now();
         if (now - this.lastSubmissionTime < this.submissionCooldown) {
-            console.log('Payment submission too soon, please wait...');
+           
             this.showError('Please wait a moment before trying again.');
             return;
         }
         
         // Additional check: if clientSecret is already used, don't proceed
         if (!this.clientSecret || this.clientSecret.includes('used')) {
-            console.log('Client secret already used or invalid, skipping...');
+            
             return;
         }
         
@@ -952,21 +865,19 @@ class ExistingPaymentIntegration {
         window.dispatchEvent(new CustomEvent('stripe-payment-start'));
         
         try {
-            console.log('Confirming payment with email:', this.email, 'and domain:', this.domainUrl);
-            console.log('Client secret type:', this.clientSecret ? this.clientSecret.substring(0, 20) + '...' : 'none');
-            
+          
             // Log domain URL status but don't block payment
             if (!this.domainUrl) {
-                console.warn('Domain URL is empty - proceeding with fallback');
+                
             }
             
             // Check if this is a SetupIntent or PaymentIntent based on client secret format
             const isSetupIntent = this.clientSecret && this.clientSecret.includes('seti_');
-            console.log('Is SetupIntent:', isSetupIntent);
+        
             
             let result;
             if (isSetupIntent) {
-                console.log('Using confirmSetup for SetupIntent');
+        
                 result = await this.stripe.confirmSetup({
                     elements: this.elements,
                     redirect: 'if_required',
@@ -978,14 +889,14 @@ class ExistingPaymentIntegration {
                         }
                     }
                 }).catch(err => {
-                    console.error('Stripe confirmSetup error:', err);
+                    
                     // Mark clientSecret as used to prevent retries
                     this.clientSecret = this.clientSecret + '_used';
                     this.showError('Setup confirmation failed. Please try again.');
                     return { error: err };
                 });
             } else {
-                console.log('Using confirmPayment for PaymentIntent');
+               
                 result = await this.stripe.confirmPayment({
                 elements: this.elements,
                 redirect: 'if_required',
@@ -997,7 +908,7 @@ class ExistingPaymentIntegration {
                     }
                 }
             }).catch(err => {
-                console.error('Stripe confirmPayment error:', err);
+               
                 // Mark clientSecret as used to prevent retries
                 this.clientSecret = this.clientSecret + '_used';
                 this.showError('Payment confirmation failed. Please try again.');
@@ -1008,17 +919,14 @@ class ExistingPaymentIntegration {
             const { error, paymentIntent, setupIntent } = result;
 
             if (!error) {
-                // Payment/Setup succeeded - trigger success event for in-app handling
-                console.log('✅ Payment/Setup completed successfully');
-                console.log('✅ Payment Intent:', paymentIntent);
-                console.log('✅ Setup Intent:', setupIntent);
+                
 
                 const intentId = paymentIntent?.id || setupIntent?.id;
-                console.log('✅ Intent ID:', intentId);
+           
                 
                 // Step 2: Verify payment method was attached
                 if (setupIntent && setupIntent.status === 'succeeded') {
-                    console.log('Verifying payment method attachment...');
+         
                     
                     try {
                         const verifyResponse = await fetch(`${this.kvApiUrl}/api/accessibility/verify-payment-method`, {
@@ -1033,10 +941,7 @@ class ExistingPaymentIntegration {
                         }
                         
                         const verifyData = await verifyResponse.json();
-                        console.log('✅ Payment method verified:', verifyData);
-                        
-                        // Step 3: Create subscription with verified payment method
-                        console.log('Creating subscription with verified payment method...');
+                    
                         
                         // Determine selected plan (annual/monthly) to set correct productId
                         let selectedProductId = 'prod_TEHrwLZdPcOsgq'; // annual default
@@ -1045,9 +950,9 @@ class ExistingPaymentIntegration {
                             const planTypeAttr = paymentFormEl?.getAttribute('data-plan-type');
                             const isAnnualPlan = planTypeAttr === 'annual';
                             selectedProductId = isAnnualPlan ? 'prod_TEHrwLZdPcOsgq' : 'prod_TEH4ANvvsQysIO';
-                            console.log('Selected plan type for subscription creation:', planTypeAttr, '=> productId:', selectedProductId);
+
                         } catch (e) {
-                            console.warn('Could not resolve plan type from DOM, using annual productId by default');
+                           
                         }
 
                         // Get firstName from session storage
@@ -1059,10 +964,10 @@ class ExistingPaymentIntegration {
                             if (userData) {
                                 const parsed = JSON.parse(userData);
                                 firstName = parsed.firstName || '';
-                                console.log('First name captured for subscription:', firstName);
+                            
                             }
                         } catch (e) {
-                            console.log('Could not get firstName from session storage:', e);
+                          
                         }
 
                         const subscriptionResponse = await fetch(`${this.kvApiUrl}/api/accessibility/create-subscription`, {
@@ -1092,18 +997,17 @@ class ExistingPaymentIntegration {
                         }
                         
                         const subscriptionData = await subscriptionResponse.json();
-                        console.log('✅ Subscription created:', subscriptionData);
-                        
+                       
                         // Store subscription ID
                         this.subscriptionId = subscriptionData.subscriptionId;
                         
                         // Handle subscription status
                         if (subscriptionData.status === 'active') {
-                            console.log('✅ Subscription is active immediately!');
+                           
                             this.showSuccess('Subscription activated successfully!');
                             
                             // Dispatch success event to show success screen
-                            console.log('🔥 Dispatching stripe-payment-success event for immediate active subscription');
+                           
                             window.dispatchEvent(new CustomEvent('stripe-payment-success', {
                                 detail: {
                                     siteId: this.siteId,
@@ -1113,11 +1017,10 @@ class ExistingPaymentIntegration {
                                 }
                             }));
                         } else {
-                            console.log('Subscription status:', subscriptionData.status);
                             
                             // For incomplete subscriptions, wait for webhook or poll
                             if (subscriptionData.status === 'incomplete' && this.subscriptionId) {
-                                console.log('Subscription is incomplete, waiting for webhook or polling...');
+                                
                             }
                             
                             // Poll for status changes if needed
@@ -1127,7 +1030,7 @@ class ExistingPaymentIntegration {
                         }
                         
                     } catch (verifyError) {
-                        console.error('❌ Payment method verification failed:', verifyError);
+                     
                         this.showError(`Payment verification failed: ${verifyError.message}`);
                         return;
                     }
@@ -1148,12 +1051,12 @@ class ExistingPaymentIntegration {
                     });
                     
                     if (updateResponse.ok) {
-                        console.log('✅ Subscription status updated to active');
+                     
                     } else {
-                        console.warn('⚠️ Failed to update subscription status');
+                        
                     }
                 } catch (updateError) {
-                    console.warn('⚠️ Error updating subscription status:', updateError);
+              
                     }
                 }
                 
@@ -1165,36 +1068,36 @@ class ExistingPaymentIntegration {
                         if (statusResponse.ok) {
                             const statusData = await statusResponse.json();
                             subscriptionDetails = statusData;
-                            console.log('🔥 Got subscription details for event:', subscriptionDetails);
+                        
                         }
                     } catch (error) {
-                        console.log('🔥 Failed to get subscription details for event:', error);
+                     
                     }
                 }
                 
                 // Use the captured plan type from payment processing
                 let planType = this.planType;
-                console.log('🔥 Payment success: Using captured plan type:', planType);
+                
                 
                 // Fallback: Try to get plan type from payment form if not captured
                 if (!planType) {
                     try {
                         const paymentForm = document.getElementById('payment-form');
-                        console.log('🔥 Payment success: Payment form element found:', !!paymentForm);
+                        
                         if (paymentForm) {
                             planType = paymentForm.getAttribute('data-plan-type');
-                            console.log('🔥 Payment success: Found plan type from payment form fallback:', planType);
+                          
                         } else {
-                            console.log('🔥 Payment success: Payment form element not found');
+                          
                             // Try alternative selectors
                             const altForm = document.querySelector('form[id*="payment"]') || document.querySelector('form[data-plan-type]');
                             if (altForm) {
                                 planType = altForm.getAttribute('data-plan-type');
-                                console.log('🔥 Payment success: Found plan type from alternative form:', planType);
+                              
                             }
                         }
                     } catch (e) {
-                        console.log('🔥 Payment success: Could not get plan type from payment form:', e);
+                       
                     }
                 }
                 
@@ -1202,23 +1105,23 @@ class ExistingPaymentIntegration {
                 if (!planType && subscriptionDetails && subscriptionDetails.metadata && subscriptionDetails.metadata.productId) {
                     const productId = subscriptionDetails.metadata.productId;
                     planType = productId === 'prod_TEHrwLZdPcOsgq' ? 'annual' : 'monthly';
-                    console.log('🔥 Payment success: Determined plan type from subscription metadata:', planType, 'productId:', productId);
+
                 }
                 
                 // Final fallback: Try to get plan type from server using subscription ID
                 if (!planType && this.subscriptionId) {
                     try {
-                        console.log('🔥 Payment success: Trying to get plan type from server using subscription ID:', this.subscriptionId);
+
                         const planResponse = await fetch(`${this.kvApiUrl}/api/accessibility/get-subscription-plan?id=${this.subscriptionId}`);
                         if (planResponse.ok) {
                             const planData = await planResponse.json();
                             if (planData.planType) {
                                 planType = planData.planType;
-                                console.log('🔥 Payment success: Got plan type from server:', planType);
+                               
                             }
                         }
                     } catch (error) {
-                        console.log('🔥 Payment success: Failed to get plan type from server:', error);
+                     
                     }
                 }
                 
@@ -1244,10 +1147,7 @@ class ExistingPaymentIntegration {
                 
                 // For SetupIntent, wait for webhook or poll
                 if (isSetupIntent && setupIntent) {
-                    console.log('SetupIntent completed, waiting for webhook or polling...');
-                    console.log('SetupIntent ID:', setupIntent.id);
-                    console.log('Payment Method ID:', setupIntent.payment_method);
-                    console.log('Site ID:', this.siteId);
+                   
                     
                     // Poll subscription status to check for activation
                     if (this.subscriptionId) {
@@ -1257,11 +1157,11 @@ class ExistingPaymentIntegration {
                 
                 // Also poll for PaymentIntent subscriptions to ensure activation
                 if (!isSetupIntent && paymentIntent && this.subscriptionId) {
-                    console.log('PaymentIntent completed, polling subscription status...');
+                    
                     await this.pollSubscriptionStatus(this.subscriptionId);
                 }
             } else {
-                console.error('❌ Payment failed:', error);
+                
                 
                 // Handle specific SetupIntent errors
                 if (error.code === 'setup_intent_unexpected_state') {
@@ -1275,7 +1175,7 @@ class ExistingPaymentIntegration {
                 }
             }
         } catch (error) {
-            console.error('Payment confirmation error:', error);
+          
             this.showError(`Payment confirmation error: ${error.message}`);
         } finally {
             this.isConfirming = false;
@@ -1290,7 +1190,7 @@ class ExistingPaymentIntegration {
             errorElement.textContent = message;
             errorElement.style.display = 'block';
         }
-        console.error('Payment Error:', message);
+      
     }
     
     showSuccess(message) {
@@ -1300,8 +1200,7 @@ class ExistingPaymentIntegration {
             successElement.style.display = 'block';
         }
 
-        // Also log to console
-        console.log('Payment Success:', message);
+       
 
         // Hide any error messages
         const errorElement = document.getElementById('error-message');
@@ -1312,8 +1211,7 @@ class ExistingPaymentIntegration {
 
     // Poll subscription status until it becomes active
     async pollSubscriptionStatus(subscriptionId, maxAttempts = 10) {
-        console.log('Starting subscription status polling for:', subscriptionId);
-        console.log('Max attempts:', maxAttempts);
+       
         let attempts = 0;
         
         const checkStatus = async () => {
@@ -1321,14 +1219,12 @@ class ExistingPaymentIntegration {
                 const response = await fetch(`${this.kvApiUrl}/api/accessibility/check-subscription-status?id=${subscriptionId}`);
                 
                 if (!response.ok) {
-                    console.error('Failed to check subscription status:', response.status);
+                   
                     return false;
                 }
                 
                 const data = await response.json();
-                console.log('Subscription status check:', data);
-                console.log('Attempt:', attempts + 1, 'of', maxAttempts);
-                
+             
                 if (data.status === 'active') {
                     this.showSuccess('Subscription is now active!');
                     
@@ -1346,15 +1242,14 @@ class ExistingPaymentIntegration {
                 } else if (data.status === 'incomplete_expired') {
                     throw new Error('Subscription payment expired. Please try again.');
                 } else if (attempts >= maxAttempts) {
-                    console.log('Max attempts reached, subscription still incomplete');
-                    console.log('Final status:', data.status);
+                   
                     throw new Error(`Subscription is still ${data.status} after ${maxAttempts} attempts`);
                 }
                 
                 attempts++;
                 return false;
             } catch (error) {
-                console.error('Error checking subscription status:', error);
+               
                 throw error;
             }
         };
@@ -1387,7 +1282,7 @@ class ExistingPaymentIntegration {
     }
 
     handlePurchaseNow() {
-        console.log('Purchase Now clicked - Initializing Stripe Elements');
+     
         this.initializeStripeElements();
         // Immediately process payment to create Stripe Elements
         setTimeout(() => {
@@ -1397,7 +1292,7 @@ class ExistingPaymentIntegration {
 }
 
 function initializeExistingPaymentIntegration() {
-    console.log('Stripe Integration: Initializing...');
+
     
     const integration = new ExistingPaymentIntegration();
     
@@ -1405,7 +1300,7 @@ function initializeExistingPaymentIntegration() {
         handlePurchaseNow: integration.handlePurchaseNow.bind(integration)
     };
     
-    console.log('Stripe Integration: Ready. React can now call handlePurchaseNow()');
+   
 }
 
 if (document.readyState === 'loading') {

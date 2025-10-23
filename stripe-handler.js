@@ -21,8 +21,6 @@ class StripePaymentHandler {
     
     async initializeStripeElements() {
         try {
-            console.log('Initializing Stripe Elements...');
-            
             // Create payment intent
             const response = await fetch(`${this.kvApiUrl}/api/accessibility/create-payment-intent`, {
                 method: 'POST',
@@ -35,7 +33,6 @@ class StripePaymentHandler {
             });
             
             const { clientSecret } = await response.json();
-            console.log('Payment intent created:', clientSecret);
             
             // Stripe Appearance API - matching your app's design
             const appearance = {
@@ -78,10 +75,7 @@ class StripePaymentHandler {
             // Mount Payment Element in existing container
             this.paymentElement.mount('#stripe-payment-element');
             
-            console.log('Stripe Elements mounted successfully');
-            
         } catch (error) {
-            console.error('Error initializing Stripe elements:', error);
             this.showError('Failed to initialize payment form');
         }
     }
@@ -109,7 +103,6 @@ class StripePaymentHandler {
             }
             
         } catch (error) {
-            console.error('Payment processing error:', error);
             this.showError('Payment failed. Please try again.');
         } finally {
             if (submitButton) {
@@ -137,7 +130,6 @@ class StripePaymentHandler {
                 this.showError('Payment succeeded but failed to update status. Please contact support.');
             }
         } catch (error) {
-            console.error('Error updating payment status:', error);
             this.showError('Payment succeeded but failed to update status. Please contact support.');
         }
     }
@@ -153,7 +145,6 @@ class StripePaymentHandler {
 
 // Global function to initialize Stripe Elements
 function initializeStripePayment() {
-    console.log('initializeStripePayment called');
     const stripeHandler = new StripePaymentHandler();
     stripeHandler.initializeStripeElements();
     

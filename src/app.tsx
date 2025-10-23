@@ -9,15 +9,13 @@ import { getSessionTokenFromLocalStorage } from "./util/session";
 // Webflow API is available globally in the Webflow Designer environment
 type AppState = 'welcome' | 'customization' | 'payment' | 'publish';
 const App: React.FC = () => {
-  console.log(":rocket: APP: App component rendering...");
-  console.log(":rocket: APP: Component render timestamp:", new Date().toISOString());
+ 
   const [currentScreen, setCurrentScreen] = useState<AppState>('welcome');
   const [customizationData, setCustomizationData] = useState<any>(null);
   const [isLoadingExistingData, setIsLoadingExistingData] = useState(false);
-  console.log(":rocket: APP: About to call useAuth hook...");
+ 
   const { openAuthScreen, getPublishedSettings, attemptAutoRefresh, isAuthLoading, attemptSilentAuth, checkPublishedDataExists } = useAuth();
-  console.log(":rocket: APP: useAuth hook completed, attemptAutoRefresh:", typeof attemptAutoRefresh);
-  console.log(":rocket: APP: Component state - currentScreen:", currentScreen);
+ 
   const [isAppInitializing, setIsAppInitializing] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -42,7 +40,7 @@ const App: React.FC = () => {
           const hasBeenNotified = localStorage.getItem(installationKey);
           
           if (!hasBeenNotified && siteId && email) {
-            console.log('🎉 App installation detected, sending webhook to Make.com');
+         
             
             // Send webhook to your worker
             await fetch('https://accessibility-widget.web-8fb.workers.dev/api/webflow/app-installed', {
@@ -62,11 +60,11 @@ const App: React.FC = () => {
             
             // Mark as notified to avoid duplicate emails
             localStorage.setItem(installationKey, 'true');
-            console.log('✅ Installation webhook sent successfully');
+       
           }
         }
       } catch (error) {
-        console.warn('App installation detection failed:', error);
+      
       }
     };
     
@@ -87,20 +85,19 @@ const App: React.FC = () => {
     if (!isAuthenticated) return;
     setIsLoadingExistingData(true);
     try {
-      console.log("App: Loading existing customization data...");
+   
       // Add a small delay to ensure authentication is fully complete
       await new Promise(resolve => setTimeout(resolve, 500));
       const existingSettings = await getPublishedSettings();
-      console.log("App: Existing settings loaded:", existingSettings);
+
       if (existingSettings && existingSettings.customization) {
         setCustomizationData(existingSettings.customization);
-        console.log("App: Customization data set:", existingSettings.customization);
-        console.log(":white_tick: App: Successfully loaded existing customization data");
+
       } else {
-        console.log("App: No existing customization data found - using defaults");
+
       }
     } catch (error) {
-      console.error("App: Failed to load existing customization data:", error);
+
       // Don't show error to user, just continue with empty data
     } finally {
       setIsLoadingExistingData(false);
@@ -109,25 +106,23 @@ const App: React.FC = () => {
   useEffect(() => {
     // Prevent multiple initializations
     if (hasInitialized) {
-      console.log(":rocket: APP: Already initialized, skipping...");
+
       return;
     }
     const initializeApp = async () => {
       const startTime = performance.now();
-      console.log(":rocket: APP: Starting initialization...");
+
       setHasInitialized(true);
       setIsAppInitializing(false);
       setIsCheckingAuth(true);
       
-      // Always attempt silent authentication first to get fresh tokens
-      console.log(":rocket: APP: Always attempting silent authentication for fresh site-specific data...");
-      
+
       try {
         // Try fresh background authentication (silent) with timeout
         const authPromise = attemptAutoRefresh();
         const timeoutPromise = new Promise<boolean>((resolve) => {
           setTimeout(() => {
-            console.log(":rocket: APP: Silent auth timeout reached");
+           
             resolve(false);
           }, 5000); // 5 second timeout
         });
@@ -135,45 +130,45 @@ const App: React.FC = () => {
         const refreshSuccess = await Promise.race([authPromise, timeoutPromise]);
         
         if (refreshSuccess) {
-          console.log(":rocket: APP: Silent authentication successful - token generated");
+         
           setIsAuthenticated(true);
           
           // Check what's stored in sessionStorage (prefer new key)
           const storedData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
-          console.log(":rocket: APP: Stored data in sessionStorage:", storedData);
+
           if (storedData) {
             const parsedData = JSON.parse(storedData);
-            console.log(":rocket: APP: Parsed stored data:", parsedData);
+        
           }
           
           // Now check if published data exists for this user
           setTimeout(async () => {
             try {
-              console.log(":rocket: APP: Checking if published data exists...");
+             
               const hasPublishedData = await checkPublishedDataExists();
               
               if (hasPublishedData) {
-                console.log(":rocket: APP: Published data exists, loading existing customization data...");
+
                 const existingData = await loadExistingCustomizationData();
-                console.log(":rocket: APP: Existing customization data loaded:", existingData);
+
               } else {
-                console.log(":rocket: APP: No published data exists, using defaults");
+
               }
             } catch (error) {
-              console.error(":rocket: APP: Failed to check/load published data:", error);
+
             }
           }, 500); // Small delay to ensure auth state is updated
           
           // Stay on welcome screen for authenticated users instead of auto-redirecting
           setCurrentScreen('welcome');
         } else {
-          console.log(":rocket: APP: Silent authentication failed, user needs to authorize first");
+
           setIsAuthenticated(false);
           // Show welcome screen with authorize button as fallback
           setCurrentScreen('welcome');
         }
       } catch (error) {
-        console.error(":rocket: APP: Error during silent authentication:", error);
+
         setIsAuthenticated(false);
         setCurrentScreen('welcome');
       } finally {
@@ -183,53 +178,49 @@ const App: React.FC = () => {
     initializeApp();
   }, [hasInitialized]);
   const handleAuthorize = async () => {
-    console.log("Authorize button clicked");
+   
     try {
-      // Use OAuth flow instead of direct token exchange
-      console.log("Opening OAuth authorization...");
+
       await openAuthScreen();
-      console.log("OAuth authorization initiated");
+     
     } catch (error) {
-      console.error("Authentication failed:", error);
+     
       alert(`Authentication failed: ${error.message}`);
     }
   };
   // (kept) data loader above handles auth + loading state
   const handleNeedHelp = () => {
-    console.log("Need help button clicked");
+
     // Add your help logic here
   };
   const handleWelcomeScreen = () => {
-    console.log("Scan Project button clicked");
+
     setCurrentScreen('customization');
   };
   const handleBackToWelcome = () => {
     setCurrentScreen('welcome');
   };
   const handleBackToCustomization = () => {
-    console.log("App: Going back to customization, current customizationData:", customizationData);
+    
     setCurrentScreen('customization');
   };
   const handleNextToPayment = (data: any) => {
-    console.log("🚀🚀🚀 PAYMENT NAVIGATION: handleNextToPayment called with data:", data);
-    console.log("🚀🚀🚀 PAYMENT NAVIGATION: Setting current screen to 'payment'");
+    
     setCustomizationData(data);
     setCurrentScreen('payment');
-    console.log("🚀🚀🚀 PAYMENT NAVIGATION: Screen should now be 'payment'");
+    
   };
 
   const handleNextToPublish = () => {
-    console.log("App: Moving from payment to publish");
+    
     setCurrentScreen('publish');
   };
 
   const handleBackToPayment = () => {
-    console.log("App: Going back to payment from publish");
+  
     setCurrentScreen('payment');
   };
-  console.log(":rocket: APP: Current screen state:", currentScreen);
-  console.log(":rocket: APP: Available screens: welcome, customization, payment, publish");
-  
+ 
   return (
     <div>
       {currentScreen === 'welcome' ? (

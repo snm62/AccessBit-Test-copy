@@ -23,20 +23,20 @@
   <script>
     // Explicitly allow payment functionality
     if (window.parent !== window) {
-      console.log('Running in iframe - allowing payment functionality');
+      
       // Try to set permissions policy if possible
       try {
         if (navigator.permissions && navigator.permissions.query) {
           // Note: 'payment' is not a standard permission name in most browsers
           // This is expected to fail in most cases
           navigator.permissions.query({ name: 'payment' }).then(result => {
-            console.log('Payment permission status:', result.state);
+            
           }).catch(err => {
-            console.log('Payment permission query failed (expected):', err.message);
+            
           });
         }
       } catch (e) {
-        console.log('Permissions API not available:', e);
+      
       }
     }
   </script>

@@ -70,26 +70,22 @@ const PublishScreen: React.FC<PublishScreenProps> = ({ onBack, customizationData
     setShowPublishModal(true);
   };
 const handleConfirmPublish = async () => {
-  console.log("=== PUBLISH START ===");
-  console.log("Current states - Success:", publishSuccess, "Error:", publishError);
-  
+
   setIsPublishing(true);
   setPublishError(null);
   setPublishSuccess(false);
   
   try {
-    console.log("Starting publish process...");
-    console.log("Customization data received:", customizationData);
+
     
     // Step 1: Publish settings to KV store
-    console.log("Step 1: Publishing settings to KV store...");
+
     const publishResult = await publishSettings(customizationData, accessibilityProfiles);
-    console.log("Publish result:", publishResult);
 
     // Step 2: Handle script registration
-    console.log("Step 2: Handling script registration...");
+
     const registerResult = await registerAccessibilityScript();
-    console.log("Script registration result:", registerResult);
+   
     
     // Determine success message based on result
     let successMessage = '';
@@ -103,7 +99,7 @@ const handleConfirmPublish = async () => {
           version: '1.0.0'
         };
         const applyResult = await applyAccessibilityScript(applyData);
-        console.log("Script application result:", applyResult);
+
         
         if (applyResult.success) {
           successMessage = 'Settings published! Script has been registered and applied to your site.';
@@ -119,27 +115,27 @@ const handleConfirmPublish = async () => {
       return;
     }
     
-    console.log("Setting success message:", successMessage);
+    
     
     // Set success message immediately
     setPublishSuccess(successMessage);
-    console.log("Success message set:", successMessage);
+
     
     setShowPublishModal(false);
     
     // Clear success message after 8 seconds
     setTimeout(() => {
-      console.log("Clearing success message");
+    
       setPublishSuccess(false);
     }, 8000);
     
   } catch (error) {
-    console.error("Publish failed:", error);
+   
     const errorMessage = error instanceof Error ? error.message : "Failed to publish settings";
     setPublishError(errorMessage);
   } finally {
     setIsPublishing(false);
-    console.log("=== PUBLISH END ===");
+    
   }
 };
 

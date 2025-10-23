@@ -42652,15 +42652,10 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 
 const App = () => {
-    console.log(":rocket: APP: App component rendering...");
-    console.log(":rocket: APP: Component render timestamp:", new Date().toISOString());
     const [currentScreen, setCurrentScreen] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)('welcome');
     const [customizationData, setCustomizationData] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
     const [isLoadingExistingData, setIsLoadingExistingData] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
-    console.log(":rocket: APP: About to call useAuth hook...");
     const { openAuthScreen, getPublishedSettings, attemptAutoRefresh, isAuthLoading, attemptSilentAuth, checkPublishedDataExists } = (0,_hooks_userAuth__WEBPACK_IMPORTED_MODULE_5__.useAuth)();
-    console.log(":rocket: APP: useAuth hook completed, attemptAutoRefresh:", typeof attemptAutoRefresh);
-    console.log(":rocket: APP: Component state - currentScreen:", currentScreen);
     const [isAppInitializing, setIsAppInitializing] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(true);
     const [isCheckingAuth, setIsCheckingAuth] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(true);
     const [isAuthenticated, setIsAuthenticated] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
@@ -42682,7 +42677,6 @@ const App = () => {
                     const installationKey = `app_installed_${siteId}`;
                     const hasBeenNotified = localStorage.getItem(installationKey);
                     if (!hasBeenNotified && siteId && email) {
-                        console.log('🎉 App installation detected, sending webhook to Make.com');
                         // Send webhook to your worker
                         yield fetch('https://accessibility-widget.web-8fb.workers.dev/api/webflow/app-installed', {
                             method: 'POST',
@@ -42700,12 +42694,10 @@ const App = () => {
                         });
                         // Mark as notified to avoid duplicate emails
                         localStorage.setItem(installationKey, 'true');
-                        console.log('✅ Installation webhook sent successfully');
                     }
                 }
             }
             catch (error) {
-                console.warn('App installation detection failed:', error);
             }
         });
         // Run installation detection after a short delay
@@ -42725,22 +42717,16 @@ const App = () => {
             return;
         setIsLoadingExistingData(true);
         try {
-            console.log("App: Loading existing customization data...");
             // Add a small delay to ensure authentication is fully complete
             yield new Promise(resolve => setTimeout(resolve, 500));
             const existingSettings = yield getPublishedSettings();
-            console.log("App: Existing settings loaded:", existingSettings);
             if (existingSettings && existingSettings.customization) {
                 setCustomizationData(existingSettings.customization);
-                console.log("App: Customization data set:", existingSettings.customization);
-                console.log(":white_tick: App: Successfully loaded existing customization data");
             }
             else {
-                console.log("App: No existing customization data found - using defaults");
             }
         }
         catch (error) {
-            console.error("App: Failed to load existing customization data:", error);
             // Don't show error to user, just continue with empty data
         }
         finally {
@@ -42750,67 +42736,52 @@ const App = () => {
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         // Prevent multiple initializations
         if (hasInitialized) {
-            console.log(":rocket: APP: Already initialized, skipping...");
             return;
         }
         const initializeApp = () => __awaiter(void 0, void 0, void 0, function* () {
             const startTime = performance.now();
-            console.log(":rocket: APP: Starting initialization...");
             setHasInitialized(true);
             setIsAppInitializing(false);
             setIsCheckingAuth(true);
-            // Always attempt silent authentication first to get fresh tokens
-            console.log(":rocket: APP: Always attempting silent authentication for fresh site-specific data...");
             try {
                 // Try fresh background authentication (silent) with timeout
                 const authPromise = attemptAutoRefresh();
                 const timeoutPromise = new Promise((resolve) => {
                     setTimeout(() => {
-                        console.log(":rocket: APP: Silent auth timeout reached");
                         resolve(false);
                     }, 5000); // 5 second timeout
                 });
                 const refreshSuccess = yield Promise.race([authPromise, timeoutPromise]);
                 if (refreshSuccess) {
-                    console.log(":rocket: APP: Silent authentication successful - token generated");
                     setIsAuthenticated(true);
                     // Check what's stored in sessionStorage (prefer new key)
                     const storedData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
-                    console.log(":rocket: APP: Stored data in sessionStorage:", storedData);
                     if (storedData) {
                         const parsedData = JSON.parse(storedData);
-                        console.log(":rocket: APP: Parsed stored data:", parsedData);
                     }
                     // Now check if published data exists for this user
                     setTimeout(() => __awaiter(void 0, void 0, void 0, function* () {
                         try {
-                            console.log(":rocket: APP: Checking if published data exists...");
                             const hasPublishedData = yield checkPublishedDataExists();
                             if (hasPublishedData) {
-                                console.log(":rocket: APP: Published data exists, loading existing customization data...");
                                 const existingData = yield loadExistingCustomizationData();
-                                console.log(":rocket: APP: Existing customization data loaded:", existingData);
                             }
                             else {
-                                console.log(":rocket: APP: No published data exists, using defaults");
                             }
                         }
                         catch (error) {
-                            console.error(":rocket: APP: Failed to check/load published data:", error);
                         }
                     }), 500); // Small delay to ensure auth state is updated
                     // Stay on welcome screen for authenticated users instead of auto-redirecting
                     setCurrentScreen('welcome');
                 }
                 else {
-                    console.log(":rocket: APP: Silent authentication failed, user needs to authorize first");
                     setIsAuthenticated(false);
                     // Show welcome screen with authorize button as fallback
                     setCurrentScreen('welcome');
                 }
             }
             catch (error) {
-                console.error(":rocket: APP: Error during silent authentication:", error);
                 setIsAuthenticated(false);
                 setCurrentScreen('welcome');
             }
@@ -42821,51 +42792,36 @@ const App = () => {
         initializeApp();
     }, [hasInitialized]);
     const handleAuthorize = () => __awaiter(void 0, void 0, void 0, function* () {
-        console.log("Authorize button clicked");
         try {
-            // Use OAuth flow instead of direct token exchange
-            console.log("Opening OAuth authorization...");
             yield openAuthScreen();
-            console.log("OAuth authorization initiated");
         }
         catch (error) {
-            console.error("Authentication failed:", error);
             alert(`Authentication failed: ${error.message}`);
         }
     });
     // (kept) data loader above handles auth + loading state
     const handleNeedHelp = () => {
-        console.log("Need help button clicked");
         // Add your help logic here
     };
     const handleWelcomeScreen = () => {
-        console.log("Scan Project button clicked");
         setCurrentScreen('customization');
     };
     const handleBackToWelcome = () => {
         setCurrentScreen('welcome');
     };
     const handleBackToCustomization = () => {
-        console.log("App: Going back to customization, current customizationData:", customizationData);
         setCurrentScreen('customization');
     };
     const handleNextToPayment = (data) => {
-        console.log("🚀🚀🚀 PAYMENT NAVIGATION: handleNextToPayment called with data:", data);
-        console.log("🚀🚀🚀 PAYMENT NAVIGATION: Setting current screen to 'payment'");
         setCustomizationData(data);
         setCurrentScreen('payment');
-        console.log("🚀🚀🚀 PAYMENT NAVIGATION: Screen should now be 'payment'");
     };
     const handleNextToPublish = () => {
-        console.log("App: Moving from payment to publish");
         setCurrentScreen('publish');
     };
     const handleBackToPayment = () => {
-        console.log("App: Going back to payment from publish");
         setCurrentScreen('payment');
     };
-    console.log(":rocket: APP: Current screen state:", currentScreen);
-    console.log(":rocket: APP: Available screens: welcome, customization, payment, publish");
     return (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", null, currentScreen === 'welcome' ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_components_WelcomeScreen__WEBPACK_IMPORTED_MODULE_1__["default"], { onAuthorize: handleAuthorize, onNeedHelp: handleNeedHelp, authenticated: isAuthenticated, handleWelcomeScreen: handleWelcomeScreen })) : currentScreen === 'customization' ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_components_CustomizationScreen__WEBPACK_IMPORTED_MODULE_2__["default"], { onBack: handleBackToWelcome, onNext: handleNextToPayment, existingCustomizationData: customizationData, isLoadingExistingData: isLoadingExistingData })) : currentScreen === 'payment' ? (react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_components_PaymentScreen__WEBPACK_IMPORTED_MODULE_3__["default"], { onBack: handleBackToCustomization, onNext: handleNextToPublish, customizationData: customizationData || {} })) : (react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_components_PublishScreen__WEBPACK_IMPORTED_MODULE_4__["default"], { onBack: handleBackToPayment, customizationData: customizationData || {} }))));
 };
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (App);
@@ -43090,9 +43046,7 @@ const CustomizationScreen = ({ onBack, onNext, existingCustomizationData, isLoad
     const btnPickerRef = (0,react__WEBPACK_IMPORTED_MODULE_0__.useRef)(null);
     // Load existing customization data when component mounts
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
-        console.log("CustomizationScreen mounted, existingCustomizationData:", existingCustomizationData);
         if (existingCustomizationData) {
-            console.log("Loading existing customization data:", existingCustomizationData);
             setInterfaceLeadColor(existingCustomizationData.interfaceLeadColor || "#FFFFFF");
             setAccessibilityStatementLink(existingCustomizationData.accessibilityStatementLink || "");
             setInterfaceFooterContent(existingCustomizationData.interfaceFooterContent || "");
@@ -43254,7 +43208,6 @@ const CustomizationScreen = ({ onBack, onNext, existingCustomizationData, isLoad
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [openDropdown]);
     const handleNextPayment = () => __awaiter(void 0, void 0, void 0, function* () {
-        console.log('🚨🚨🚨 FORCE RELOAD TEST - This should show if changes are applied');
         try {
             const customizationData = {
                 // Map your state variables to the customization object
@@ -43282,19 +43235,14 @@ const CustomizationScreen = ({ onBack, onNext, existingCustomizationData, isLoad
                 accessibilityStatementLink: accessibilityStatementLink,
                 interfaceFooterContent: interfaceFooterContent
             };
-            // Navigate to next page - PaymentScreen will be shown first
-            console.log('🔥🔥🔥 PAYMENT NAVIGATION: Passing data to PaymentScreen:', customizationData);
-            console.log('🔥🔥🔥 PAYMENT NAVIGATION: Calling onNext with data');
             onNext(customizationData);
         }
         catch (error) {
-            console.error('Error preparing customization data:', error);
             alert('An error occurred while preparing data. Please try again.');
         }
     });
     // Helper function for site ID
     const getCurrentSiteId = () => __awaiter(void 0, void 0, void 0, function* () {
-        console.log('🔍 CustomizationScreen: Getting site ID...');
         const urlParams = new URLSearchParams(window.location.search);
         const urlSiteId = urlParams.get('siteId');
         // Check the correct sessionStorage key used by the auth system (new key with legacy fallback)
@@ -43304,67 +43252,49 @@ const CustomizationScreen = ({ onBack, onNext, existingCustomizationData, isLoad
             try {
                 const userData = JSON.parse(contrastkitUserInfo);
                 sessionSiteId = userData.siteId;
-                console.log('🔍 CustomizationScreen: Found siteId in userinfo:', sessionSiteId);
             }
             catch (error) {
-                console.log('🔍 CustomizationScreen: Error parsing userinfo:', error);
             }
         }
         // Also check the old keys for backward compatibility
         const oldSessionSiteId = sessionStorage.getItem('accessibility_site_id');
         const localSiteId = localStorage.getItem('accessibility_site_id');
-        console.log('🔍 CustomizationScreen: URL siteId:', urlSiteId);
-        console.log('🔍 CustomizationScreen: Session siteId:', sessionSiteId);
-        console.log('🔍 CustomizationScreen: Session siteId (old):', oldSessionSiteId);
-        console.log('🔍 CustomizationScreen: Local siteId:', localSiteId);
         // If we have a URL siteId, use it (this comes from domain lookup)
         if (urlSiteId) {
-            console.log('🔍 CustomizationScreen: Using URL siteId (from domain lookup):', urlSiteId);
             return urlSiteId;
         }
         // If no URL siteId, try to get it from domain lookup
         if (sessionSiteId) {
             try {
-                console.log('🔍 CustomizationScreen: Attempting domain lookup for siteId consistency...');
                 const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/domain-lookup?domain=${window.location.hostname}`);
                 if (response.ok) {
                     const domainData = yield response.json();
                     if (domainData.siteId) {
-                        console.log('🔍 CustomizationScreen: Domain lookup found siteId:', domainData.siteId);
                         return domainData.siteId;
                     }
                 }
             }
             catch (error) {
-                console.log('🔍 CustomizationScreen: Domain lookup failed:', error);
             }
         }
         // Fallback to sessionStorage
         const siteId = sessionSiteId || oldSessionSiteId || localSiteId;
-        console.log('🔍 CustomizationScreen: Final siteId (fallback):', siteId);
         return siteId;
     });
     // Load customization data function
     const loadCustomizationData = (siteId) => __awaiter(void 0, void 0, void 0, function* () {
         try {
-            console.log('🌐 CustomizationScreen: Making API request to:', `https://accessibility-widget.web-8fb.workers.dev/api/accessibility/config?siteId=${siteId}`);
             const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/config?siteId=${siteId}`);
-            console.log('📡 CustomizationScreen: API response status:', response.status);
-            console.log('📡 CustomizationScreen: API response ok:', response.ok);
             if (response.ok) {
                 const data = yield response.json();
-                console.log('📊 CustomizationScreen: Full API response data:', data);
-                console.log('📊 CustomizationScreen: Customization data:', data.customization);
                 return data.customization;
             }
             else {
                 const errorText = yield response.text();
-                console.error('❌ CustomizationScreen: Failed to load customization data:', response.status, errorText);
                 return null;
             }
         }
         catch (error) {
-            console.error('❌ CustomizationScreen: Error loading customization data:', error);
             return null;
         }
     });
@@ -43573,8 +43503,6 @@ const whitearrow = "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="
   <path d="M0.756 8.59012V6.62812H10.314L5.598 2.30812L6.948 0.940125L13.356 6.97012V8.23012L6.948 14.2601L5.58 12.8741L10.278 8.59012H0.756Z" fill="white"/>
 </svg>`);
 const PaymentScreen = ({ onBack, onNext, customizationData }) => {
-    console.log('🔥 PaymentScreen: Component rendered');
-    console.log('🔥 PaymentScreen: Props received:', { onBack, onNext, customizationData });
     const [isAnnual, setIsAnnual] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(true);
     const [isProcessing, setIsProcessing] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
     const [showStripeForm, setShowStripeForm] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
@@ -43585,7 +43513,7 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     const [showCancelModal, setShowCancelModal] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
     // Debug: Monitor actualPlanType changes
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
-        console.log('🔥 PaymentScreen: actualPlanType changed to:', actualPlanType);
+        ;
     }, [actualPlanType]);
     const [isCanceling, setIsCanceling] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
     const [showDomainModal, setShowDomainModal] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
@@ -43702,7 +43630,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             // Get the current site info from Webflow
             if (typeof window !== 'undefined' && window.webflow && window.webflow.getSiteInfo) {
                 const siteInfo = yield window.webflow.getSiteInfo();
-                console.log('🔥 Domain verification: Current site info:', siteInfo);
                 if (!siteInfo || !siteInfo.url) {
                     return {
                         isValid: false,
@@ -43712,7 +43639,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 // Clean the domain for comparison
                 const cleanDomain = domain.replace(/^https?:\/\//, '').toLowerCase();
                 const currentSiteUrl = siteInfo.url.replace(/^https?:\/\//, '').toLowerCase();
-                console.log('🔥 Domain verification: Comparing', cleanDomain, 'with', currentSiteUrl);
                 // Check if the domain matches the current site exactly
                 if (cleanDomain === currentSiteUrl) {
                     return {
@@ -43745,7 +43671,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     // Check if there are other sites in the user's account
                     if (window.webflow.getSites) {
                         const sites = yield window.webflow.getSites();
-                        console.log('🔥 Domain verification: All user sites:', sites);
                         if (sites && Array.isArray(sites)) {
                             for (const site of sites) {
                                 if (site.url) {
@@ -43782,7 +43707,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     }
                 }
                 catch (sitesError) {
-                    console.log('🔥 Domain verification: Could not get additional sites:', sitesError);
                 }
                 return {
                     isValid: false,
@@ -43797,7 +43721,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             }
         }
         catch (error) {
-            console.error('🔥 Domain verification error:', error);
             return {
                 isValid: false,
                 error: 'Unable to verify domain ownership. Please try again or contact support.'
@@ -43806,35 +43729,27 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     });
     // Helper function to get siteId from various sources
     const getSiteId = () => __awaiter(void 0, void 0, void 0, function* () {
-        // Debug: Log all sessionStorage keys
-        console.log('🔥 PaymentScreen: All sessionStorage keys:', Object.keys(sessionStorage));
-        console.log('🔥 PaymentScreen: All sessionStorage values:', Object.keys(sessionStorage).map(key => ({ key, value: sessionStorage.getItem(key) })));
         // Try multiple possible session storage keys for siteId
         let siteId = null;
         // First try the main auth key
         const userData = sessionStorage.getItem('accessbit-userinfo');
-        console.log('🔥 PaymentScreen: accessbit-userinfo data:', userData);
         if (userData) {
             try {
                 const parsed = JSON.parse(userData);
                 siteId = parsed.siteId;
-                console.log('🔥 PaymentScreen: Found siteId in accessbit-userinfo:', siteId);
             }
             catch (error) {
-                console.log('🔥 PaymentScreen: Error parsing accessbit-userinfo:', error);
             }
         }
         // Fallback to currentSiteId
         if (!siteId) {
             siteId = sessionStorage.getItem('currentSiteId');
-            console.log('🔥 PaymentScreen: Found siteId in currentSiteId:', siteId);
         }
         // Legacy fallbacks
         if (!siteId) {
             siteId = sessionStorage.getItem('contrastkit') ||
                 sessionStorage.getItem('webflow_site_id') ||
                 sessionStorage.getItem('siteId');
-            console.log('🔥 PaymentScreen: Found siteId in legacy keys:', siteId);
         }
         // Try to get from Webflow API as last resort
         if (!siteId) {
@@ -43843,22 +43758,13 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     const siteInfo = yield window.webflow.getSiteInfo();
                     if (siteInfo && siteInfo.siteId) {
                         siteId = siteInfo.siteId;
-                        console.log('🔥 PaymentScreen: Found siteId from Webflow API:', siteId);
                     }
                 }
             }
             catch (error) {
-                console.log('🔥 PaymentScreen: Error getting siteId from Webflow API:', error);
             }
         }
-        console.log('🔥 PaymentScreen: Final siteId result:', siteId);
         return siteId;
-    });
-    // Debug current state
-    console.log('🔥 PaymentScreen: Current state:', {
-        paymentSuccess,
-        subscriptionValidUntil,
-        showStripeForm
     });
     // Check for payment success from URL parameters (for redirect methods)
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
@@ -43867,40 +43773,30 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
         const paymentIntentClientSecret = urlParams.get('payment_intent_client_secret');
         const planType = urlParams.get('plan');
         if (paymentIntent && paymentIntentClientSecret) {
-            console.log('🔥 PaymentScreen: Detected payment redirect, checking status');
-            // If we have payment intent parameters, it means user was redirected back
-            // We should show success screen since the webhook will handle the final status
             setPaymentSuccess(true);
         }
         // Set plan type from URL parameter if available
         if (planType && (planType === 'annual' || planType === 'monthly')) {
-            console.log('🔥 PaymentScreen: Setting plan type from URL parameter:', planType);
             setActualPlanType(planType);
             setIsAnnual(planType === 'annual');
         }
     }, []);
     // Initialize Stripe integration when component mounts
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
-        console.log('🔥 PaymentScreen: useEffect running, checking for Stripe integration');
-        console.log('🔥 PaymentScreen: window object:', typeof window);
-        console.log('🔥 PaymentScreen: window.initializeExistingPaymentIntegration:', typeof window.initializeExistingPaymentIntegration);
         // Populate domain field with actual site URL
         const populateDomainField = () => __awaiter(void 0, void 0, void 0, function* () {
             try {
                 if (typeof window !== 'undefined' && window.webflow && window.webflow.getSiteInfo) {
                     const siteInfo = yield window.webflow.getSiteInfo();
-                    console.log('🔥 PaymentScreen: Site info:', siteInfo);
                     if (siteInfo.url) {
                         const domainInput = document.getElementById('domain-url');
                         if (domainInput) {
                             domainInput.value = siteInfo.url;
-                            console.log('🔥 PaymentScreen: Domain field populated with:', siteInfo.url);
                         }
                     }
                 }
             }
             catch (error) {
-                console.log('🔥 PaymentScreen: Could not get site info:', error);
             }
         });
         // Populate domain field after a short delay to ensure DOM is ready
@@ -43913,24 +43809,19 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 domainInput.addEventListener('paste', (e) => {
                     setTimeout(() => {
                         const value = domainInput.value;
-                        console.log('🔥 Domain field paste detected:', value);
                         if (value && !value.includes('example.com')) {
-                            console.log('🔥 Valid domain pasted:', value);
                         }
                     }, 100);
                 });
                 // Handle input events
                 domainInput.addEventListener('input', (e) => {
                     const value = e.target.value;
-                    console.log('🔥 Domain field input detected:', value);
                     if (value && !value.includes('example.com')) {
-                        console.log('🔥 Valid domain typed:', value);
                     }
                 });
                 // Handle change events
                 domainInput.addEventListener('change', (e) => {
                     const value = e.target.value;
-                    console.log('🔥 Domain field change detected:', value);
                 });
             }
         };
@@ -43938,18 +43829,13 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
         setTimeout(setupDomainFieldListeners, 1000);
         // Wait a bit for scripts to load
         const timer = setTimeout(() => {
-            console.log('🔥 PaymentScreen: Timeout reached, checking Stripe integration');
             if (typeof window !== 'undefined' && window.initializeExistingPaymentIntegration) {
-                console.log('🔥 PaymentScreen: Stripe integration function found, calling it');
                 window.initializeExistingPaymentIntegration();
             }
             else {
-                console.log('🔥 PaymentScreen: Stripe integration function not found after timeout');
-                console.log('🔥 PaymentScreen: Available window properties:', Object.keys(window).filter(key => key.includes('stripe') || key.includes('payment')));
             }
         }, 1000);
         return () => {
-            console.log('🔥 PaymentScreen: useEffect cleanup');
             clearTimeout(timer);
         };
     }, []);
@@ -43964,23 +43850,18 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             }
         }
         keysToRemove.forEach(key => {
-            console.log('🔥 PaymentScreen: Clearing old subscription data from localStorage:', key);
             localStorage.removeItem(key);
         });
     }, []);
     // Check for existing subscription status on component mount
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         const checkExistingSubscription = () => __awaiter(void 0, void 0, void 0, function* () {
-            var _a, _b, _c, _d, _e, _f, _g, _h;
+            var _a, _b;
             try {
                 const siteId = yield getSiteId();
-                console.log('🔥 PaymentScreen: Checking existing subscription for siteId:', siteId);
                 if (!siteId) {
-                    console.log('🔥 PaymentScreen: No siteId found, skipping subscription check');
                     return;
                 }
-                // Always fetch fresh data from server - no localStorage usage for security
-                console.log('🔥 PaymentScreen: Fetching fresh subscription data from server (no localStorage for security)');
                 // Clear any existing subscription data from localStorage for security
                 const keysToRemove = [];
                 for (let i = 0; i < localStorage.length; i++) {
@@ -43990,11 +43871,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     }
                 }
                 keysToRemove.forEach(key => {
-                    console.log('🔥 PaymentScreen: Removing old subscription data from localStorage:', key);
                     localStorage.removeItem(key);
                 });
-                // Always check subscription status from server first (don't trust localStorage)
-                console.log('🔥 PaymentScreen: Checking subscription status from server');
                 const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -44002,26 +43880,17 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 });
                 if (response.ok) {
                     const data = yield response.json();
-                    console.log('🔥 PaymentScreen: Server response:', data);
                     if (data.success && data.subscription && data.subscription.status === 'active') {
                         // Get current period end from subscription details - handle both formats
                         let endDate = null;
-                        // Debug: Log the details object structure
-                        console.log('🔥 PaymentScreen: Details object keys:', Object.keys(data.subscription.details || {}));
-                        console.log('🔥 PaymentScreen: Details current_period_end:', (_a = data.subscription.details) === null || _a === void 0 ? void 0 : _a.current_period_end);
-                        console.log('🔥 PaymentScreen: Details billing_cycle_anchor:', (_b = data.subscription.details) === null || _b === void 0 ? void 0 : _b.billing_cycle_anchor);
-                        console.log('🔥 PaymentScreen: Details created:', (_c = data.subscription.details) === null || _c === void 0 ? void 0 : _c.created);
-                        console.log('🔥 PaymentScreen: Details start_date:', (_d = data.subscription.details) === null || _d === void 0 ? void 0 : _d.start_date);
                         // Try different sources for current_period_end
                         if (data.subscription.details && data.subscription.details.current_period_end) {
                             // Stripe returns seconds, convert to milliseconds
                             endDate = new Date(data.subscription.details.current_period_end * 1000);
-                            console.log('🔥 PaymentScreen: Using current_period_end from details (seconds):', data.subscription.details.current_period_end);
                         }
                         else if (data.subscription.current_period_end) {
                             // Stripe returns seconds, convert to milliseconds
                             endDate = new Date(data.subscription.current_period_end * 1000);
-                            console.log('🔥 PaymentScreen: Using current_period_end from subscription (seconds):', data.subscription.current_period_end);
                         }
                         else if (data.subscription.currentPeriodEnd) {
                             // Check if it's already in milliseconds or seconds
@@ -44030,70 +43899,52 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                 // If it's a large number (milliseconds), use as is
                                 if (periodEnd > 1000000000000) {
                                     endDate = new Date(periodEnd);
-                                    console.log('🔥 PaymentScreen: Using currentPeriodEnd (milliseconds):', periodEnd);
                                 }
                                 else {
                                     // If it's a smaller number (seconds), convert to milliseconds
                                     endDate = new Date(periodEnd * 1000);
-                                    console.log('🔥 PaymentScreen: Using currentPeriodEnd (seconds):', periodEnd);
                                 }
                             }
                             else {
                                 endDate = new Date(periodEnd);
-                                console.log('🔥 PaymentScreen: Using currentPeriodEnd (date string):', periodEnd);
                             }
                         }
-                        console.log('🔥 PaymentScreen: Calculated endDate:', endDate);
-                        console.log('🔥 PaymentScreen: ProductId from data:', data.subscription.productId || ((_f = (_e = data.subscription.details) === null || _e === void 0 ? void 0 : _e.metadata) === null || _f === void 0 ? void 0 : _f.productId));
                         if (endDate && !isNaN(endDate.getTime())) {
                             const now = new Date().getTime();
-                            console.log('🔥 PaymentScreen: Checking validity - now:', now, 'endDate:', endDate.getTime());
                             if (now < endDate.getTime()) {
                                 // Subscription is active and valid
-                                console.log('🔥 PaymentScreen: Active subscription found, showing success screen');
                                 setPaymentSuccess(true);
                                 setSubscriptionValidUntil(endDate.toLocaleDateString());
                                 // Determine plan type from server data only
                                 let planType = 'monthly'; // default
                                 let isAnnual = false;
                                 // Get plan type from server response
-                                const productId = data.subscription.productId || ((_h = (_g = data.subscription.details) === null || _g === void 0 ? void 0 : _g.metadata) === null || _h === void 0 ? void 0 : _h.productId);
+                                const productId = data.subscription.productId || ((_b = (_a = data.subscription.details) === null || _a === void 0 ? void 0 : _a.metadata) === null || _b === void 0 ? void 0 : _b.productId);
                                 if (productId) {
                                     isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
                                     planType = isAnnual ? 'annual' : 'monthly';
-                                    console.log('🔥 PaymentScreen: Determined plan type from server productId:', productId, 'isAnnual:', isAnnual, 'planType:', planType);
                                 }
                                 else {
-                                    console.log('🔥 PaymentScreen: No productId found in server response, using default monthly');
                                 }
-                                // No localStorage storage for security - data is fetched fresh from server each time
-                                console.log('🔥 PaymentScreen: Subscription data processed (no localStorage for security)');
                                 // Set the actual plan type for display
                                 setActualPlanType(planType);
                             }
                             else {
-                                console.log('🔥 PaymentScreen: Subscription expired, not showing success screen');
                                 // No localStorage usage for security - data managed server-side
                             }
                         }
                         else {
-                            console.log('🔥 PaymentScreen: No valid end date found in server data, waiting for refresh');
                             setPaymentSuccess(true);
                             // Don't set subscriptionValidUntil here - wait for server refresh
                         }
                     }
                     else {
-                        console.log('🔥 PaymentScreen: No active subscription found');
                     }
                 }
                 else {
-                    console.log('🔥 PaymentScreen: Failed to check subscription status:', response.status);
-                    // No localStorage fallback for security - always use server data
-                    console.log('🔥 PaymentScreen: Server request failed, no fallback to localStorage for security');
                 }
             }
             catch (error) {
-                console.error('Failed to check existing subscription:', error);
             }
         });
         checkExistingSubscription();
@@ -44102,14 +43953,11 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
     (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
         const handlePaymentSuccess = (event) => __awaiter(void 0, void 0, void 0, function* () {
             var _a, _b;
-            console.log('🔥 PaymentScreen: Payment success event received:', event.detail);
-            console.log('🔥 PaymentScreen: Setting paymentSuccess to true');
             setPaymentSuccess(true);
             setShowStripeForm(false);
             // Get siteId first
             const siteId = yield getSiteId();
             if (!siteId) {
-                console.log('🔥 PaymentScreen: No siteId found for storing subscription data');
                 return;
             }
             // Try to get subscription details from multiple sources
@@ -44119,27 +43967,22 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             // Get plan type from event first
             if (event.detail.planType) {
                 eventPlanType = event.detail.planType;
-                console.log('🔥 PaymentScreen: Found plan type in event:', eventPlanType);
             }
             else {
-                console.log('🔥 PaymentScreen: No plan type found in event detail:', event.detail);
             }
             // Check if we have subscriptionDetails in the event
             if (event.detail.subscriptionDetails) {
                 subscriptionDetails = event.detail.subscriptionDetails;
                 subscriptionId = event.detail.subscriptionId;
-                console.log('🔥 PaymentScreen: Found subscriptionDetails in event:', subscriptionDetails);
                 // Try to get plan type from subscription details metadata
                 if (!eventPlanType && subscriptionDetails.metadata && subscriptionDetails.metadata.productId) {
                     const productId = subscriptionDetails.metadata.productId;
                     eventPlanType = productId === 'prod_TEHrwLZdPcOsgq' ? 'annual' : 'monthly';
-                    console.log('🔥 PaymentScreen: Determined plan type from subscription metadata:', eventPlanType, 'productId:', productId);
                 }
                 // Try to determine plan type from subscription details
                 if (subscriptionDetails.details && subscriptionDetails.details.items && subscriptionDetails.details.items.data && subscriptionDetails.details.items.data.length > 0) {
                     const item = subscriptionDetails.details.items.data[0];
                     const productId = (_a = item.price) === null || _a === void 0 ? void 0 : _a.product;
-                    console.log('🔥 PaymentScreen: Found product ID in subscription details:', productId);
                     // Store the product ID for plan type determination
                     if (productId) {
                         // First try to get plan type from payment form
@@ -44149,18 +43992,14 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             if (paymentForm) {
                                 const planTypeAttr = paymentForm.getAttribute('data-plan-type');
                                 isAnnual = planTypeAttr === 'annual';
-                                console.log('🔥 PaymentScreen: Got plan type from payment form:', planTypeAttr, 'isAnnual:', isAnnual);
                             }
                         }
                         catch (e) {
-                            console.log('🔥 PaymentScreen: Could not get plan type from payment form, using productId fallback');
                         }
                         // Fallback to productId if payment form plan type not available
                         if (!isAnnual) {
                             isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
-                            console.log('🔥 PaymentScreen: Using productId fallback - productId:', productId, 'isAnnual:', isAnnual);
                         }
-                        console.log('🔥 PaymentScreen: Determined plan type from subscription details - isAnnual:', isAnnual);
                         // Update the subscription details with plan type info
                         subscriptionDetails.planType = isAnnual ? 'annual' : 'monthly';
                         subscriptionDetails.productId = productId;
@@ -44168,8 +44007,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 }
             }
             else {
-                // If no subscriptionDetails, try to fetch from server
-                console.log('🔥 PaymentScreen: No subscriptionDetails in event, fetching from server');
                 try {
                     const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
                         method: 'POST',
@@ -44178,7 +44015,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     });
                     if (response.ok) {
                         const data = yield response.json();
-                        console.log('🔥 PaymentScreen: Server response for subscription details:', data);
                         if (data.success && data.subscription) {
                             subscriptionDetails = data.subscription;
                             subscriptionId = data.subscription.id;
@@ -44186,23 +44022,19 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     }
                 }
                 catch (error) {
-                    console.error('🔥 PaymentScreen: Failed to fetch subscription details:', error);
                 }
             }
             // Set subscription validity if we have details
             if (subscriptionDetails) {
-                console.log('🔥 PaymentScreen: subscriptionDetails structure:', subscriptionDetails);
                 let endDate = null;
                 // Try to get current_period_end from different sources
                 if (subscriptionDetails.details && subscriptionDetails.details.current_period_end) {
                     // Stripe returns seconds, convert to milliseconds
                     endDate = new Date(subscriptionDetails.details.current_period_end * 1000);
-                    console.log('🔥 PaymentScreen: Using current_period_end from details (seconds):', subscriptionDetails.details.current_period_end);
                 }
                 else if (subscriptionDetails.current_period_end) {
                     // Stripe returns seconds, convert to milliseconds
                     endDate = new Date(subscriptionDetails.current_period_end * 1000);
-                    console.log('🔥 PaymentScreen: Using current_period_end from subscription (seconds):', subscriptionDetails.current_period_end);
                 }
                 else if (subscriptionDetails.currentPeriodEnd) {
                     // Check if it's already in milliseconds or seconds
@@ -44210,26 +44042,21 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     if (typeof periodEnd === 'number') {
                         if (periodEnd > 1000000000000) {
                             endDate = new Date(periodEnd);
-                            console.log('🔥 PaymentScreen: Using currentPeriodEnd (milliseconds):', periodEnd);
                         }
                         else {
                             endDate = new Date(periodEnd * 1000);
-                            console.log('🔥 PaymentScreen: Using currentPeriodEnd (seconds):', periodEnd);
                         }
                     }
                     else {
                         endDate = new Date(periodEnd);
-                        console.log('🔥 PaymentScreen: Using currentPeriodEnd (date string):', periodEnd);
                     }
                 }
                 else if (subscriptionDetails.current_period_end) {
                     // Stripe returns seconds, convert to milliseconds
                     endDate = new Date(subscriptionDetails.current_period_end * 1000);
-                    console.log('🔥 PaymentScreen: Using current_period_end from subscription (seconds):', subscriptionDetails.current_period_end);
                 }
                 if (endDate) {
                     setSubscriptionValidUntil(endDate.toLocaleDateString());
-                    console.log('🔥 PaymentScreen: Set subscription valid until:', endDate.toLocaleDateString());
                     // Determine plan type from subscription details or payment form
                     let planTypeForDisplay = 'monthly'; // default
                     try {
@@ -44237,11 +44064,9 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         if (paymentForm) {
                             const planTypeAttr = paymentForm.getAttribute('data-plan-type');
                             planTypeForDisplay = planTypeAttr || 'monthly';
-                            console.log('🔥 PaymentScreen: Got plan type from payment form for display:', planTypeForDisplay);
                         }
                     }
                     catch (e) {
-                        console.log('🔥 PaymentScreen: Could not get plan type from payment form for display');
                     }
                     // Set the actual plan type for display
                     setActualPlanType(planTypeForDisplay);
@@ -44251,11 +44076,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         validUntil: endDate.getTime(),
                         subscriptionId: subscriptionId
                     };
-                    // No localStorage storage for security - data is fetched fresh from server each time
-                    console.log('🔥 PaymentScreen: Payment success data processed (no localStorage for security)');
                 }
                 else {
-                    console.log('🔥 PaymentScreen: No valid end date found, using fallback');
                     // Determine fallback period based on productId or plan type
                     const productId = ((_b = subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.metadata) === null || _b === void 0 ? void 0 : _b.productId) || (subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.productId) || (subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.productId);
                     const planType = subscriptionDetails === null || subscriptionDetails === void 0 ? void 0 : subscriptionDetails.planType;
@@ -44266,16 +44088,13 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         if (paymentForm) {
                             const planTypeAttr = paymentForm.getAttribute('data-plan-type');
                             isAnnual = planTypeAttr === 'annual';
-                            console.log('🔥 PaymentScreen: Got plan type from payment form:', planTypeAttr, 'isAnnual:', isAnnual);
                         }
                     }
                     catch (e) {
-                        console.log('🔥 PaymentScreen: Could not get plan type from payment form, using fallback');
                     }
                     // Fallback to productId or planType if payment form plan type not available
                     if (!isAnnual) {
                         isAnnual = productId === 'prod_TEHrwLZdPcOsgq' || planType === 'annual';
-                        console.log('🔥 PaymentScreen: Using fallback - productId:', productId, 'planType:', planType, 'isAnnual:', isAnnual);
                     }
                     // Don't set subscriptionValidUntil here - wait for server data
                     const subscriptionData = {
@@ -44285,20 +44104,13 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         productId: productId, // Store the product ID for future reference
                         planType: planType // Store the plan type
                     };
-                    // No localStorage storage for security - data is fetched fresh from server each time
-                    console.log('🔥 PaymentScreen: Payment success fallback data processed (no localStorage for security)');
                 }
             }
             else {
-                console.log('🔥 PaymentScreen: No subscription details available, waiting for server refresh');
                 setPaymentSuccess(true);
-                // Don't set subscriptionValidUntil here - wait for server refresh
             }
-            // Force a refresh of the subscription status to ensure UI is updated with correct data
-            console.log('🔥 PaymentScreen: Forcing subscription status refresh after payment success');
             // Immediate refresh attempt
             const immediateRefresh = () => __awaiter(void 0, void 0, void 0, function* () {
-                var _a, _b;
                 try {
                     const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
                         method: 'POST',
@@ -44307,20 +44119,13 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     });
                     if (response.ok) {
                         const data = yield response.json();
-                        console.log('🔥 PaymentScreen: Immediate refresh response:', data);
                         if (data.success && data.subscription && data.subscription.status === 'active') {
-                            console.log('🔥 PaymentScreen: Immediate refresh - subscription structure:', data.subscription);
-                            console.log('🔥 PaymentScreen: Immediate refresh - details object:', data.subscription.details);
-                            console.log('🔥 PaymentScreen: Immediate refresh - details keys:', Object.keys(data.subscription.details || {}));
-                            console.log('🔥 PaymentScreen: Immediate refresh - current_period_end in details:', (_a = data.subscription.details) === null || _a === void 0 ? void 0 : _a.current_period_end);
                             let endDate = null;
                             if (data.subscription.details && data.subscription.details.current_period_end) {
                                 endDate = new Date(data.subscription.details.current_period_end * 1000);
-                                console.log('🔥 PaymentScreen: Immediate refresh - Using current_period_end from details:', data.subscription.details.current_period_end);
                             }
                             else if (data.subscription.current_period_end) {
                                 endDate = new Date(data.subscription.current_period_end * 1000);
-                                console.log('🔥 PaymentScreen: Immediate refresh - Using current_period_end from subscription:', data.subscription.current_period_end);
                             }
                             else if (data.subscription.currentPeriodEnd) {
                                 const periodEnd = data.subscription.currentPeriodEnd;
@@ -44330,29 +44135,22 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                 else {
                                     endDate = new Date(periodEnd * 1000);
                                 }
-                                console.log('🔥 PaymentScreen: Immediate refresh - Using currentPeriodEnd:', periodEnd);
                             }
                             else if (data.subscription.current_period_end) {
                                 endDate = new Date(data.subscription.current_period_end * 1000);
-                                console.log('🔥 PaymentScreen: Immediate refresh - Using current_period_end:', data.subscription.current_period_end);
                             }
                             if (endDate) {
                                 setSubscriptionValidUntil(endDate.toLocaleDateString());
-                                console.log('🔥 PaymentScreen: Immediate refresh - Updated subscription valid until:', endDate.toLocaleDateString());
                                 // Determine plan type from server response metadata
                                 let serverPlanType = 'monthly'; // default
-                                console.log('🔥 PaymentScreen: Immediate refresh - Checking metadata:', (_b = data.subscription.details) === null || _b === void 0 ? void 0 : _b.metadata);
                                 if (data.subscription.details && data.subscription.details.metadata && data.subscription.details.metadata.productId) {
                                     const productId = data.subscription.details.metadata.productId;
                                     serverPlanType = productId === 'prod_TEHrwLZdPcOsgq' ? 'annual' : 'monthly';
-                                    console.log('🔥 PaymentScreen: Immediate refresh - Determined plan type from server metadata:', serverPlanType, 'productId:', productId);
                                 }
                                 else {
-                                    console.log('🔥 PaymentScreen: Immediate refresh - No productId found in metadata, using default monthly');
                                 }
                                 // Set the actual plan type for display
                                 setActualPlanType(serverPlanType);
-                                console.log('🔥 PaymentScreen: Immediate refresh - Set actualPlanType to:', serverPlanType);
                                 const subscriptionData = {
                                     status: data.subscription.status,
                                     validUntil: endDate.getTime(),
@@ -44361,15 +44159,12 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                     planType: serverPlanType,
                                     isAnnual: serverPlanType === 'annual'
                                 };
-                                // No localStorage storage for security - data is fetched fresh from server each time
-                                console.log('🔥 PaymentScreen: Immediate refresh - Updated with server data (no localStorage for security)');
                                 return; // Exit early if we got valid data
                             }
                         }
                     }
                 }
                 catch (error) {
-                    console.error('🔥 PaymentScreen: Immediate refresh failed:', error);
                 }
             });
             // Try immediate refresh first
@@ -44384,13 +44179,11 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     });
                     if (response.ok) {
                         const data = yield response.json();
-                        console.log('🔥 PaymentScreen: Refresh response after payment success:', data);
                         if (data.success && data.subscription && data.subscription.status === 'active') {
                             // Update the subscription validity with fresh data from server
                             let endDate = null;
                             if (data.subscription.details && data.subscription.details.current_period_end) {
                                 endDate = new Date(data.subscription.details.current_period_end * 1000);
-                                console.log('🔥 PaymentScreen: Refresh - Using current_period_end from details:', data.subscription.details.current_period_end);
                             }
                             else if (data.subscription.currentPeriodEnd) {
                                 const periodEnd = data.subscription.currentPeriodEnd;
@@ -44400,15 +44193,12 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                 else {
                                     endDate = new Date(periodEnd * 1000);
                                 }
-                                console.log('🔥 PaymentScreen: Refresh - Using currentPeriodEnd:', periodEnd);
                             }
                             else if (data.subscription.current_period_end) {
                                 endDate = new Date(data.subscription.current_period_end * 1000);
-                                console.log('🔥 PaymentScreen: Refresh - Using current_period_end:', data.subscription.current_period_end);
                             }
                             if (endDate) {
                                 setSubscriptionValidUntil(endDate.toLocaleDateString());
-                                console.log('🔥 PaymentScreen: Refresh - Updated subscription valid until:', endDate.toLocaleDateString());
                                 // Update localStorage with fresh data from server
                                 const subscriptionData = {
                                     status: data.subscription.status,
@@ -44416,21 +44206,16 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                                     subscriptionId: data.subscription.id,
                                     refreshed: true // Mark as refreshed from server
                                 };
-                                // No localStorage storage for security - data is fetched fresh from server each time
-                                console.log('🔥 PaymentScreen: Refresh - Updated with server data (no localStorage for security)');
                             }
                         }
                     }
                 }
                 catch (error) {
-                    console.error('🔥 PaymentScreen: Failed to refresh subscription status after payment success:', error);
                 }
             }), 2000); // Wait 2 seconds for server to process the payment and webhook
         });
-        console.log('🔥 PaymentScreen: Adding stripe-payment-success event listener');
         window.addEventListener('stripe-payment-success', handlePaymentSuccess);
         return () => {
-            console.log('🔥 PaymentScreen: Removing stripe-payment-success event listener');
             window.removeEventListener('stripe-payment-success', handlePaymentSuccess);
         };
     }, []);
@@ -44441,8 +44226,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 const siteId = yield getSiteId();
                 if (!siteId)
                     return;
-                // No localStorage usage for security - always fetch fresh data from server
-                console.log('🔥 PaymentScreen: Subscription expiration check - fetching fresh data from server');
             });
             // Check immediately
             checkValidity();
@@ -44452,8 +44235,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
         }
     }, [paymentSuccess]);
     const handlePurchaseNow = () => {
-        console.log('🔥 Purchase Now clicked - showing Stripe form');
-        console.log('🔥 PaymentScreen: showStripeForm state:', showStripeForm);
         setShowStripeForm(true);
     };
     // After the Stripe form is shown, wait for DOM to paint, then initialize
@@ -44469,7 +44250,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
         requestAnimationFrame(() => {
             const target = document.querySelector('#payment-element');
             if (target && window.stripeIntegration) {
-                console.log('PaymentScreen: Mounting Stripe on #payment-element');
                 window.stripeIntegration.handlePurchaseNow();
                 // Re-setup event listeners now that the form is rendered
                 setTimeout(() => {
@@ -44479,12 +44259,10 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 }, 100);
             }
             else {
-                console.log('PaymentScreen: payment-element not ready or integration missing');
                 // try again shortly if needed
                 setTimeout(() => {
                     const t2 = document.querySelector('#payment-element');
                     if (t2 && window.stripeIntegration) {
-                        console.log('PaymentScreen: Retrying Stripe mount');
                         window.stripeIntegration.handlePurchaseNow();
                         // Re-setup event listeners after retry
                         setTimeout(() => {
@@ -44510,7 +44288,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 }
             }
             catch (e) {
-                console.warn('Stripe cleanup warning:', e);
             }
         }
     }, [showStripeForm]);
@@ -44520,7 +44297,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             var _a;
             // Replace with your in-app toast/notification; for now, minimal banner
             const msg = ((_a = e === null || e === void 0 ? void 0 : e.detail) === null || _a === void 0 ? void 0 : _a.message) || 'Payment successful';
-            console.log(':white_tick: Stripe success:', msg);
             // Close Stripe view and show success screen
             setShowStripeForm(false);
             setPaymentSuccess(true);
@@ -44528,16 +44304,12 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
         function onError(e) {
             var _a;
             const msg = ((_a = e === null || e === void 0 ? void 0 : e.detail) === null || _a === void 0 ? void 0 : _a.message) || 'Payment failed';
-            console.error(':x: Stripe error:', msg);
-            // You can surface a toast here; keeping console for brevity
         }
         // Add event listeners for payment processing states
         function onPaymentStart() {
-            console.log('🔥 PaymentScreen: Payment processing started');
             setIsProcessing(true);
         }
         function onPaymentEnd() {
-            console.log('🔥 PaymentScreen: Payment processing ended');
             setIsProcessing(false);
         }
         window.addEventListener('stripe-payment-success', onSuccess);
@@ -44567,26 +44339,21 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             onNext();
         }
         catch (error) {
-            console.error('Payment failed:', error);
         }
         finally {
             setIsProcessing(false);
         }
     });
     const handleBack = () => {
-        console.log('Payment: Going back to customization');
         onBack();
     };
     const handleSuccessNext = () => {
-        console.log('Payment: Moving to next step after success');
         onNext();
     };
     const handleEditDomain = () => {
-        console.log('Payment: Opening domain change modal');
         setShowDomainModal(true);
     };
     const handleCancelSubscription = () => {
-        console.log('Payment: Opening cancel subscription modal');
         setShowCancelModal(true);
     };
     const handleConfirmCancel = () => __awaiter(void 0, void 0, void 0, function* () {
@@ -44594,13 +44361,10 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
         try {
             // Get siteId from session storage
             const siteId = yield getSiteId();
-            console.log('🔥 PaymentScreen: Cancellation - siteId found:', siteId);
             if (!siteId) {
                 showNotification('error', 'Unable to find site ID. Please refresh and try again.');
                 return;
             }
-            // Simple approach: use siteId to cancel subscription directly
-            console.log('🔥 PaymentScreen: Canceling subscription for siteId:', siteId);
             // Calculate if cancellation date is close to billing period end
             const now = new Date();
             // For simplicity, assume 30 days from now as fallback
@@ -44608,21 +44372,17 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
             const daysUntilPeriodEnd = Math.ceil((currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             // If less than 7 days until period end, cancel at period end, otherwise cancel immediately
             const cancelAtPeriodEnd = daysUntilPeriodEnd <= 7;
-            console.log(`🔥 PaymentScreen: Cancellation logic - Days until period end: ${daysUntilPeriodEnd}, Cancel at period end: ${cancelAtPeriodEnd}`);
             const cancelPayload = {
                 siteId,
                 cancelAtPeriodEnd: cancelAtPeriodEnd
             };
-            console.log('🔥 PaymentScreen: Cancel payload:', cancelPayload);
             const response = yield fetch('https://accessibility-widget.web-8fb.workers.dev/api/accessibility/cancel-subscription', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(cancelPayload)
             });
-            console.log('🔥 PaymentScreen: Cancel response status:', response.status, response.ok);
             if (response.ok) {
                 const result = yield response.json();
-                console.log('🔥 PaymentScreen: Cancel success result:', result);
                 if (cancelAtPeriodEnd) {
                     showNotification('success', `Subscription canceled successfully. Your access will continue until ${new Date(result.subscription.current_period_end * 1000).toLocaleDateString()}.`);
                 }
@@ -44632,17 +44392,13 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 setPaymentSuccess(false);
                 setShowStripeForm(false);
                 setShowCancelModal(false);
-                // No localStorage usage for security - data is managed server-side
-                console.log('🔥 PaymentScreen: Subscription canceled - data managed server-side');
             }
             else {
                 const error = yield response.json();
-                console.log('🔥 PaymentScreen: Cancel error response:', error);
                 showNotification('error', `Failed to cancel subscription: ${error.error || 'Unknown error'}`);
             }
         }
         catch (error) {
-            console.error('Cancel subscription error:', error);
             showNotification('error', 'Failed to cancel subscription. Please try again.');
         }
         finally {
@@ -44665,26 +44421,72 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                 showNotification('error', 'Unable to find site ID. Please refresh and try again.');
                 return;
             }
-            // Get subscription ID from server - no localStorage for security
-            let subscriptionId = null;
-            console.log('🔥 PaymentScreen: Fetching subscription ID from server for domain update');
-            if (!subscriptionId) {
-                // Try to get from server
-                const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ siteId })
-                });
-                if (response.ok) {
-                    const data = yield response.json();
-                    subscriptionId = (_a = data.subscription) === null || _a === void 0 ? void 0 : _a.id;
+            // Get current domain from Webflow site info
+            let currentDomain = null;
+            try {
+                if (window.webflow && window.webflow.getSiteInfo) {
+                    const siteInfo = yield window.webflow.getSiteInfo();
+                    currentDomain = siteInfo.url;
                 }
+            }
+            catch (error) {
+            }
+            // Get subscription ID from server
+            let subscriptionId = null;
+            const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/subscription-status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siteId })
+            });
+            if (response.ok) {
+                const data = yield response.json();
+                subscriptionId = (_a = data.subscription) === null || _a === void 0 ? void 0 : _a.id;
             }
             if (!subscriptionId) {
                 showNotification('error', 'Unable to find subscription ID. Please refresh and try again.');
                 return;
             }
-            // Update subscription metadata
+            if (currentDomain) {
+                try {
+                    const removeResponse = yield fetch('https://accessibility-widget.web-8fb.workers.dev/api/accessibility/remove-widget', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            siteId,
+                            domain: currentDomain,
+                            subscriptionId
+                        })
+                    });
+                    if (removeResponse.ok) {
+                    }
+                    else {
+                    }
+                }
+                catch (error) {
+                }
+            }
+            try {
+                const installResponse = yield fetch('https://accessibility-widget.web-8fb.workers.dev/api/accessibility/install-widget', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        siteId,
+                        domain: newDomain.trim(),
+                        subscriptionId
+                    })
+                });
+                if (installResponse.ok) {
+                }
+                else {
+                    const installError = yield installResponse.json();
+                    showNotification('error', `Failed to install widget on new domain: ${installError.error || 'Unknown error'}`);
+                    return;
+                }
+            }
+            catch (error) {
+                showNotification('error', 'Failed to install widget on new domain. Please try again.');
+                return;
+            }
             const updateResponse = yield fetch('https://accessibility-widget.web-8fb.workers.dev/api/accessibility/update-subscription-metadata', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -44692,28 +44494,24 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                     siteId,
                     subscriptionId,
                     metadata: {
-                        domain: newDomain.trim()
+                        domain: newDomain.trim(),
+                        previousDomain: currentDomain,
+                        domainChangedAt: new Date().toISOString()
                     }
                 })
             });
             if (updateResponse.ok) {
                 const result = yield updateResponse.json();
-                console.log('Domain updated successfully:', result);
-                // Update localStorage with new domain
-                // No localStorage usage for security - domain is updated server-side
-                console.log('🔥 PaymentScreen: Domain updated server-side (no localStorage for security)');
-                showNotification('success', 'Domain updated successfully!');
+                showNotification('success', `Widget successfully moved from ${currentDomain || 'original domain'} to ${newDomain.trim()}!`);
                 setShowDomainModal(false);
                 setNewDomain('');
             }
             else {
                 const error = yield updateResponse.json();
-                console.error('Failed to update domain:', error);
-                showNotification('error', `Failed to update domain: ${error.error || 'Unknown error'}`);
+                showNotification('error', `Widget moved but failed to update subscription: ${error.error || 'Unknown error'}`);
             }
         }
         catch (error) {
-            console.error('Domain update error:', error);
             showNotification('error', 'Failed to update domain. Please try again.');
         }
         finally {
@@ -45151,8 +44949,6 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         fontSize: '16px'
                     } }, "Loading payment form...")))));
     }
-    // Debug logging
-    console.log('🔥 PaymentScreen: Current state - paymentSuccess:', paymentSuccess, 'showStripeForm:', showStripeForm);
     // Success screen - shows after successful payment
     if (paymentSuccess) {
         return (react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", { className: "payment-screen" },
@@ -45545,22 +45341,14 @@ const PublishScreen = ({ onBack, customizationData }) => {
     };
     const handleConfirmPublish = () => __awaiter(void 0, void 0, void 0, function* () {
         var _a;
-        console.log("=== PUBLISH START ===");
-        console.log("Current states - Success:", publishSuccess, "Error:", publishError);
         setIsPublishing(true);
         setPublishError(null);
         setPublishSuccess(false);
         try {
-            console.log("Starting publish process...");
-            console.log("Customization data received:", customizationData);
             // Step 1: Publish settings to KV store
-            console.log("Step 1: Publishing settings to KV store...");
             const publishResult = yield publishSettings(customizationData, accessibilityProfiles);
-            console.log("Publish result:", publishResult);
             // Step 2: Handle script registration
-            console.log("Step 2: Handling script registration...");
             const registerResult = yield registerAccessibilityScript();
-            console.log("Script registration result:", registerResult);
             // Determine success message based on result
             let successMessage = '';
             if (registerResult.success) {
@@ -45572,7 +45360,6 @@ const PublishScreen = ({ onBack, customizationData }) => {
                         version: '1.0.0'
                     };
                     const applyResult = yield applyAccessibilityScript(applyData);
-                    console.log("Script application result:", applyResult);
                     if (applyResult.success) {
                         successMessage = 'Settings published! Script has been registered and applied to your site.';
                     }
@@ -45589,25 +45376,20 @@ const PublishScreen = ({ onBack, customizationData }) => {
                 setPublishError('Settings published, but failed to register script. Please try again.');
                 return;
             }
-            console.log("Setting success message:", successMessage);
             // Set success message immediately
             setPublishSuccess(successMessage);
-            console.log("Success message set:", successMessage);
             setShowPublishModal(false);
             // Clear success message after 8 seconds
             setTimeout(() => {
-                console.log("Clearing success message");
                 setPublishSuccess(false);
             }, 8000);
         }
         catch (error) {
-            console.error("Publish failed:", error);
             const errorMessage = error instanceof Error ? error.message : "Failed to publish settings";
             setPublishError(errorMessage);
         }
         finally {
             setIsPublishing(false);
-            console.log("=== PUBLISH END ===");
         }
     });
     const handleCancelPublish = () => {
@@ -45897,7 +45679,6 @@ const base_url = "https://accessibility-widget.web-8fb.workers.dev";
  * - logout: Clear authentication state
  */
 function useAuth() {
-    console.log("🔐 AUTH: useAuth hook called");
     const queryClient = (0,_tanstack_react_query__WEBPACK_IMPORTED_MODULE_1__.useQueryClient)();
     const isExchangingToken = { current: false };
     // Query for managing auth state and token validation
@@ -46091,12 +45872,10 @@ function useAuth() {
         const checkPopupClosed = setInterval(() => {
             if (authWindow.closed) {
                 clearInterval(checkPopupClosed);
-                console.log('OAuth popup closed, checking for auth success...');
                 // Check for auth success when popup closes
                 const url = new URL(window.location.href);
                 const authSuccess = url.searchParams.get('auth_success');
                 if (authSuccess === 'true') {
-                    console.log('Auth success detected when popup closed');
                     processAuthSuccess(url);
                 }
             }
@@ -46104,7 +45883,6 @@ function useAuth() {
         // Listen for postMessage from popup
         const handleMessage = (event) => {
             if (event.data && event.data.type === 'oauth-success') {
-                console.log('OAuth success message received from popup:', event.data);
                 clearInterval(checkPopupClosed);
                 clearInterval(checkUrlChange);
                 // Process the auth success with the data from the popup
@@ -46115,7 +45893,6 @@ function useAuth() {
         // Listen for storage events (when popup stores data)
         const handleStorageChange = (event) => {
             if (event.key === 'accessbit-userinfo' && event.newValue) {
-                console.log('Auth data stored by popup:', event.newValue);
                 clearInterval(checkPopupClosed);
                 clearInterval(checkUrlChange);
                 try {
@@ -46123,7 +45900,6 @@ function useAuth() {
                     processAuthSuccessFromData(authData);
                 }
                 catch (error) {
-                    console.error('Failed to parse auth data from storage event:', error);
                 }
             }
         };
@@ -46136,7 +45912,6 @@ function useAuth() {
             if (authSuccess === 'true') {
                 clearInterval(checkUrlChange);
                 clearInterval(checkPopupClosed);
-                console.log('Auth success detected via URL change');
                 // Process auth success using helper function
                 processAuthSuccess(url);
             }
@@ -46147,7 +45922,6 @@ function useAuth() {
                 const url = new URL(window.location.href);
                 const authSuccess = url.searchParams.get('auth_success');
                 if (authSuccess === 'true') {
-                    console.log('Auth success detected immediately in URL parameters');
                     // Clear intervals since we found auth success
                     clearInterval(checkUrlChange);
                     clearInterval(checkPopupClosed);
@@ -46156,14 +45930,12 @@ function useAuth() {
                 }
             }
             catch (error) {
-                console.warn('Error checking immediate auth:', error);
             }
         };
         // Helper function to process auth success
         const processAuthSuccess = (url) => {
             try {
                 // IMPORTANT: Clear all old session data first to prevent cross-site contamination
-                console.log('Clearing old session data before storing new data...');
                 sessionStorage.removeItem("accessbit-userinfo");
                 sessionStorage.removeItem("contrastkit-userinfo");
                 sessionStorage.removeItem("explicitly_logged_out");
@@ -46189,8 +45961,6 @@ function useAuth() {
                         email: email || ''
                     }
                 };
-                console.log('Storing new session data for site:', siteId);
-                console.log('New user data:', userData);
                 // Store in sessionStorage for persistence
                 sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
                 sessionStorage.removeItem("explicitly_logged_out");
@@ -46216,15 +45986,12 @@ function useAuth() {
                 window.history.replaceState({}, '', cleanUrl.toString());
             }
             catch (error) {
-                console.warn('Error processing auth success:', error);
             }
         };
         // Helper function to process auth success from data object
         const processAuthSuccessFromData = (authData) => {
             try {
-                console.log('Processing auth success from data:', authData);
                 // IMPORTANT: Clear all old session data first to prevent cross-site contamination
-                console.log('Clearing old session data before storing new data...');
                 sessionStorage.removeItem("accessbit-userinfo");
                 sessionStorage.removeItem("contrastkit-userinfo");
                 sessionStorage.removeItem("explicitly_logged_out");
@@ -46243,8 +46010,6 @@ function useAuth() {
                         email: authData.email || ''
                     }
                 };
-                console.log('Storing new session data for site:', authData.siteId);
-                console.log('New user data:', userData);
                 // Store in sessionStorage for persistence
                 sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
                 sessionStorage.removeItem("explicitly_logged_out");
@@ -46258,10 +46023,8 @@ function useAuth() {
                     },
                     sessionToken: authData.sessionToken
                 });
-                console.log('OAuth success processed successfully');
             }
             catch (error) {
-                console.warn('Error processing auth success from data:', error);
             }
         };
         // Check immediately for auth success
@@ -46270,7 +46033,6 @@ function useAuth() {
         setTimeout(() => {
             clearInterval(checkUrlChange);
             clearInterval(checkPopupClosed);
-            console.log('OAuth monitoring timeout reached');
         }, 5 * 60 * 1000); // 5 minutes
     });
     // Function to check if user is authenticated for current site
@@ -46304,7 +46066,6 @@ function useAuth() {
         const maxAttempts = 3;
         while (!sessionToken && attempts < maxAttempts) {
             attempts++;
-            console.log(`[AUTH_REQUEST] Attempt ${attempts} to get session token...`);
             // Try to get session token from authState first, then from sessionStorage as fallback
             sessionToken = authState === null || authState === void 0 ? void 0 : authState.sessionToken;
             if (!sessionToken) {
@@ -46316,83 +46077,40 @@ function useAuth() {
                 }
             }
             if (!sessionToken && attempts < maxAttempts) {
-                console.log(`[AUTH_REQUEST] No session token found, waiting 200ms before retry...`);
                 yield new Promise(resolve => setTimeout(resolve, 200));
             }
         }
         if (!sessionToken) {
             throw new Error('No session token available. Please authenticate first.');
         }
-        console.log('=== AUTHENTICATED REQUEST DEBUG ===');
-        console.log('URL:', url);
-        console.log('Making authenticated request with token:', sessionToken.substring(0, 20) + '...');
         const headers = Object.assign({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` }, options.headers);
-        console.log('Request headers:', headers);
         const response = yield fetch(url, Object.assign(Object.assign({}, options), { headers }));
-        console.log('Response status:', response.status);
-        console.log('Response headers:', {
-            'content-type': response.headers.get('content-type'),
-            'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
-            'access-control-allow-methods': response.headers.get('access-control-allow-methods'),
-            'access-control-allow-headers': response.headers.get('access-control-allow-headers')
-        });
         if (!response.ok) {
             const errorData = yield response.json().catch(() => ({}));
-            console.error('Error response:', errorData);
-            console.error('Full error details:', {
-                status: response.status,
-                statusText: response.statusText,
-                url: url,
-                headers: headers,
-                errorData: errorData
-            });
             throw new Error(`API request failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
         }
         return response.json();
     });
     // Function to publish accessibility settings and customizations
     const publishSettings = (customizationData, accessibilityProfiles) => __awaiter(this, void 0, void 0, function* () {
-        var _a, _b, _c;
+        var _a;
         const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        console.log(`[PUBLISH] ${requestId} Starting publish request`);
         // IMMEDIATE AUTH CHECK
-        console.log(`[PUBLISH] ${requestId} IMMEDIATE AUTH CHECK:`, {
-            hasAuthState: !!authState,
-            hasSessionToken: !!(authState === null || authState === void 0 ? void 0 : authState.sessionToken),
-            hasUser: !!(authState === null || authState === void 0 ? void 0 : authState.user),
-            userEmail: (_a = authState === null || authState === void 0 ? void 0 : authState.user) === null || _a === void 0 ? void 0 : _a.email,
-            sessionStorageKeys: Object.keys(sessionStorage)
-        });
         try {
             // DEBUG: Check authentication state
-            console.log(`[PUBLISH] ${requestId} Auth state:`, {
-                hasAuthState: !!authState,
-                hasSessionToken: !!(authState === null || authState === void 0 ? void 0 : authState.sessionToken),
-                hasUser: !!(authState === null || authState === void 0 ? void 0 : authState.user),
-                userEmail: (_b = authState === null || authState === void 0 ? void 0 : authState.user) === null || _b === void 0 ? void 0 : _b.email,
-                sessionStorageKeys: Object.keys(sessionStorage)
-            });
             // Check if user is authenticated - use fallback to sessionStorage
             let sessionToken = authState === null || authState === void 0 ? void 0 : authState.sessionToken;
-            let userEmail = (_c = authState === null || authState === void 0 ? void 0 : authState.user) === null || _c === void 0 ? void 0 : _c.email;
+            let userEmail = (_a = authState === null || authState === void 0 ? void 0 : authState.user) === null || _a === void 0 ? void 0 : _a.email;
             if (!sessionToken || !userEmail) {
-                console.log(`[PUBLISH] ${requestId} No auth state, checking sessionStorage...`);
                 // Fallback: get from sessionStorage
                 const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
-                console.log(`[PUBLISH] ${requestId} Stored user from sessionStorage:`, storedUser);
                 if (storedUser) {
                     const userData = JSON.parse(storedUser);
                     sessionToken = userData.sessionToken;
                     userEmail = userData.email;
-                    console.log(`[PUBLISH] ${requestId} Retrieved from sessionStorage:`, {
-                        hasToken: !!sessionToken,
-                        hasEmail: !!userEmail,
-                        tokenPreview: sessionToken ? sessionToken.substring(0, 20) + '...' : 'none'
-                    });
                 }
             }
             // No OAuth popup needed - proceed with publishing using existing session token
-            console.log(`[PUBLISH] ${requestId} Publishing with user: ${userEmail} and token: ${sessionToken.substring(0, 20)}...`);
             const siteInfo = yield webflow.getSiteInfo();
             if (!(siteInfo === null || siteInfo === void 0 ? void 0 : siteInfo.siteId)) {
                 throw new Error('No site information available');
@@ -46430,37 +46148,29 @@ function useAuth() {
                 customDomain: null,
                 publishedAt: new Date().toISOString(),
             };
-            console.log(`[PUBLISH] ${requestId} Making authenticated request to publish endpoint`);
-            console.log(`[PUBLISH] ${requestId} Publish data being sent:`, JSON.stringify(publishData, null, 2));
             const result = yield makeAuthenticatedRequest(`${base_url}/api/accessibility/publish?siteId=${siteInfo.siteId}`, {
                 method: 'POST',
                 body: JSON.stringify(publishData),
             });
-            console.log(`[PUBLISH] ${requestId} Publish successful:`, result);
             return result;
         }
         catch (error) {
-            console.error(`[PUBLISH] ${requestId} Publish failed:`, error);
             throw error;
         }
     });
     // Function to attempt automatic token refresh on app load
     const attemptAutoRefresh = () => __awaiter(this, void 0, void 0, function* () {
         try {
-            console.log("[AUTO_REFRESH] Starting automatic token refresh...");
             // Check if user was explicitly logged out
             const wasExplicitlyLoggedOut = sessionStorage.getItem("explicitly_logged_out");
             if (wasExplicitlyLoggedOut) {
-                console.log("[AUTO_REFRESH] User was explicitly logged out, skipping refresh");
                 return false;
             }
             // Get current site info to check if site has changed
             const currentSiteInfo = yield webflow.getSiteInfo();
             if (!(currentSiteInfo === null || currentSiteInfo === void 0 ? void 0 : currentSiteInfo.siteId)) {
-                console.log("[AUTO_REFRESH] No current site info available");
                 return false;
             }
-            console.log("[AUTO_REFRESH] Current site ID:", currentSiteInfo.siteId);
             // Check if there's existing auth data that might be expired or invalid
             const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
             if (storedUser) {
@@ -46468,99 +46178,68 @@ function useAuth() {
                     const userData = JSON.parse(storedUser);
                     // Check if site has changed
                     if (userData.siteId && userData.siteId !== currentSiteInfo.siteId) {
-                        console.log("[AUTO_REFRESH] Site has changed, clearing old session data");
-                        console.log("[AUTO_REFRESH] Old site:", userData.siteId, "New site:", currentSiteInfo.siteId);
                         sessionStorage.removeItem('accessbit-userinfo');
                         sessionStorage.removeItem('accessbit-userinfo');
                         sessionStorage.removeItem('siteInfo');
-                        console.log("[AUTO_REFRESH] Cleared old session data, attempting silent auth for new site");
                         return false; // Force silent auth for new site
                     }
                     if (userData.sessionToken) {
                         const decodedToken = (0,jwt_decode__WEBPACK_IMPORTED_MODULE_3__.jwtDecode)(userData.sessionToken);
                         // If token is not expired, don't need to refresh
                         if (decodedToken.exp * 1000 > Date.now()) {
-                            console.log("[AUTO_REFRESH] Valid token found for current site, no refresh needed");
                             return true; // Already have valid token
                         }
                         else {
-                            console.log("[AUTO_REFRESH] Token expired, attempting refresh");
                         }
                     }
                 }
                 catch (error) {
-                    console.log("[AUTO_REFRESH] Invalid token data, attempting refresh");
                 }
             }
             else {
-                console.log("[AUTO_REFRESH] No existing auth data, attempting silent auth");
             }
             // Attempt silent auth to refresh token with timeout
-            console.log("[AUTO_REFRESH] Attempting silent authentication...");
             const silentAuthPromise = attemptSilentAuth();
             const timeoutPromise = new Promise((resolve) => {
                 setTimeout(() => {
-                    console.log("[AUTO_REFRESH] Silent auth timeout reached");
                     resolve(false);
                 }, 3000); // 3 second timeout for silent auth
             });
             const result = yield Promise.race([silentAuthPromise, timeoutPromise]);
-            console.log("[AUTO_REFRESH] Result:", result);
             return result;
         }
         catch (error) {
-            console.error("[AUTO_REFRESH] Error during auto refresh:", error);
             return false;
         }
     });
     // Function to attempt silent authorization without user interaction
     const attemptSilentAuth = () => __awaiter(this, void 0, void 0, function* () {
         try {
-            console.log("[SILENT_AUTH] Starting silent authentication...");
             // Attempt to get ID token silently (works if user is already authenticated with Webflow)
-            console.log("[SILENT_AUTH] Getting ID token from Webflow...");
-            console.log("[SILENT_AUTH] Webflow object available:", typeof webflow !== 'undefined');
-            console.log("[SILENT_AUTH] getIdToken method available:", typeof (webflow === null || webflow === void 0 ? void 0 : webflow.getIdToken));
             const idToken = yield webflow.getIdToken();
-            console.log("[SILENT_AUTH] ID token result:", idToken ? 'Token received' : 'No token');
             if (idToken) {
                 // Decode and log the ID token payload for debugging
                 try {
                     const tokenParts = idToken.split('.');
                     if (tokenParts.length === 3) {
                         const payload = JSON.parse(atob(tokenParts[1]));
-                        console.log("[SILENT_AUTH] ID token payload:", payload);
-                        console.log("[SILENT_AUTH] ID token exp:", new Date(payload.exp * 1000));
-                        console.log("[SILENT_AUTH] ID token iss:", payload.iss);
-                        console.log("[SILENT_AUTH] ID token aud:", payload.aud);
                     }
                 }
                 catch (error) {
-                    console.log("[SILENT_AUTH] Failed to decode ID token:", error);
                 }
             }
             if (!idToken) {
-                console.log("[SILENT_AUTH] No ID token available from Webflow - user needs to authorize first");
-                console.log("[SILENT_AUTH] This means the user hasn't authorized the app with Webflow yet");
                 return false;
             }
-            console.log("[SILENT_AUTH] ID token obtained successfully");
             // Get site info from Webflow
-            console.log("[SILENT_AUTH] Getting site info from Webflow...");
             const siteInfo = yield webflow.getSiteInfo();
             if (!siteInfo || !siteInfo.siteId) {
-                console.log("[SILENT_AUTH] No site info available from Webflow");
                 return false;
             }
-            console.log("[SILENT_AUTH] Site info obtained:", siteInfo.siteId);
-            console.log("[SILENT_AUTH] Making token exchange request...");
             // Check what's currently in sessionStorage
             const currentStoredData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
             const currentStoredData2 = sessionStorage.getItem('consentbit-userinfo');
-            console.log("[SILENT_AUTH] Current sessionStorage (contrastkit):", currentStoredData);
-            console.log("[SILENT_AUTH] Current sessionStorage (consentbit):", currentStoredData2);
             // Try the token endpoint first (it might work now)
-            console.log("[SILENT_AUTH] Trying token endpoint: /api/auth/token");
             const response = yield fetch(`${base_url}/api/auth/token`, {
                 method: "POST",
                 headers: {
@@ -46571,12 +46250,8 @@ function useAuth() {
                     siteId: siteInfo.siteId
                 }),
             });
-            console.log("[SILENT_AUTH] Response status:", response.status);
             if (response.ok) {
-                console.log("[SILENT_AUTH] Success with token endpoint!");
                 const data = yield response.json();
-                console.log("[SILENT_AUTH] Response data:", data);
-                console.log("[SILENT_AUTH] Full response data:", JSON.stringify(data, null, 2));
                 if (data.sessionToken) {
                     // Create user data object with all necessary information
                     // Worker now sends real email from KV, so use it directly
@@ -46593,8 +46268,6 @@ function useAuth() {
                             email: data.email || ''
                         }
                     };
-                    console.log("[SILENT_AUTH] Storing authentication data...");
-                    console.log("[SILENT_AUTH] User data to store:", JSON.stringify(userData, null, 2));
                     // Store in sessionStorage with the correct key
                     sessionStorage.setItem('accessbit-userinfo', JSON.stringify(userData));
                     sessionStorage.removeItem('explicitly_logged_out');
@@ -46614,24 +46287,16 @@ function useAuth() {
                     });
                     // Verify the data was stored
                     const storedData = sessionStorage.getItem('accessbit-userinfo');
-                    console.log("[SILENT_AUTH] Stored data in sessionStorage:", storedData);
-                    console.log("[SILENT_AUTH] Silent authentication completed successfully - token generated");
                     return true;
                 }
                 else {
-                    console.log("[SILENT_AUTH] No session token in response:", data);
                     return false;
                 }
             }
             const data = yield response.json();
-            console.log("[SILENT_AUTH] Token exchange failed:", data);
-            console.log("[SILENT_AUTH] Error details:", JSON.stringify(data, null, 2));
-            console.log("[SILENT_AUTH] This means the backend cannot verify the Webflow ID token");
-            console.log("[SILENT_AUTH] The user needs to go through OAuth flow first");
             return false;
         }
         catch (error) {
-            console.error("[SILENT_AUTH] Silent auth failed with error:", error);
             return false;
         }
     });
@@ -46654,37 +46319,29 @@ function useAuth() {
             return result;
         }
         catch (error) {
-            console.error('Domain connection failed:', error);
             throw error;
         }
     });
     // Function to check if published data exists for current user
     const checkPublishedDataExists = () => __awaiter(this, void 0, void 0, function* () {
         try {
-            console.log("[CHECK_PUBLISHED] Checking if published data exists...");
             // Get siteId from Webflow
             const siteInfo = yield webflow.getSiteInfo();
             if (!(siteInfo === null || siteInfo === void 0 ? void 0 : siteInfo.siteId)) {
-                console.log("[CHECK_PUBLISHED] No site information available");
                 return false;
             }
-            console.log("[CHECK_PUBLISHED] Checking for siteId:", siteInfo.siteId);
             const result = yield makeAuthenticatedRequest(`${base_url}/api/accessibility/settings?siteId=${siteInfo.siteId}`, {
                 method: 'GET',
             });
-            console.log("[CHECK_PUBLISHED] Published data check result:", result);
             // If we get here without error, published data exists
             if (result && (result.customization || result.accessibilityProfiles)) {
-                console.log("[CHECK_PUBLISHED] Published data exists for current user");
                 return true;
             }
             else {
-                console.log("[CHECK_PUBLISHED] No published data found");
                 return false;
             }
         }
         catch (error) {
-            console.log("[CHECK_PUBLISHED] No published data exists (404 or other error):", error.message);
             return false;
         }
     });
@@ -46699,11 +46356,9 @@ function useAuth() {
             const result = yield makeAuthenticatedRequest(`${base_url}/api/accessibility/settings?siteId=${siteInfo.siteId}`, {
                 method: 'GET',
             });
-            console.log("settings data from server", result);
             return result;
         }
         catch (error) {
-            console.error('Failed to get published settings:', error);
             throw error;
         }
     });
@@ -46721,7 +46376,6 @@ function useAuth() {
             return result;
         }
         catch (error) {
-            console.error('Failed to register accessibility script:', error);
             throw error;
         }
     });
@@ -46740,7 +46394,6 @@ function useAuth() {
             return result;
         }
         catch (error) {
-            console.error('Failed to apply accessibility script:', error);
             throw error;
         }
     });
@@ -46748,63 +46401,37 @@ function useAuth() {
     const injectScriptToWebflow = (scriptUrl) => __awaiter(this, void 0, void 0, function* () {
         var _a, _b;
         try {
-            console.log('=== SCRIPT INJECTION DEBUG ===');
-            console.log('Script URL:', scriptUrl);
-            console.log('webflow object available:', typeof webflow !== 'undefined');
             // Get site info
             const siteInfo = yield webflow.getSiteInfo();
-            console.log('Site info:', siteInfo);
             // Get access token
             const idToken = yield webflow.getIdToken();
-            console.log('ID token available:', !!idToken);
-            // Log all available methods to find the correct one
             const availableMethods = typeof webflow !== 'undefined' ? Object.keys(webflow) : [];
-            console.log('All available webflow methods:', availableMethods);
-            // Log the webflow object structure for debugging
-            console.log('Full webflow object:', webflow);
-            // Test if webflow object has the expected structure
-            console.log('webflow.getSiteInfo type:', typeof webflow.getSiteInfo);
-            console.log('webflow.getIdToken type:', typeof webflow.getIdToken);
-            console.log('webflow.setCustomCode type:', typeof webflow.setCustomCode);
-            console.log('webflow.upsertPageCustomCode type:', typeof webflow.upsertPageCustomCode);
             // Try the correct Webflow Designer Extension API method for "Code added by Apps"
             const customCode = `<script src="${scriptUrl}" async></script>`;
-            console.log('Custom code to inject:', customCode);
             // Method 1: Try setCustomCode (most likely to work for "Code added by Apps")
             if (typeof webflow !== 'undefined' && webflow.setCustomCode) {
                 try {
-                    console.log('Trying setCustomCode method...');
-                    console.log('setCustomCode function:', webflow.setCustomCode);
                     const result = yield webflow.setCustomCode({
                         location: 'head',
                         code: customCode
                     });
-                    console.log('setCustomCode result:', result);
-                    console.log('Script injected successfully using setCustomCode!');
                     return { success: true, message: 'Script injected using setCustomCode - should appear in "Code added by Apps"' };
                 }
                 catch (error) {
-                    console.log('setCustomCode failed:', error);
-                    console.log('setCustomCode error details:', error.message, error.stack);
                 }
             }
             else {
-                console.log('setCustomCode method not available on webflow object');
             }
             // Method 2: Try upsertPageCustomCode
             if (typeof webflow !== 'undefined' && webflow.upsertPageCustomCode) {
                 try {
-                    console.log('Trying upsertPageCustomCode method...');
                     const result = yield webflow.upsertPageCustomCode({
                         location: 'head',
                         code: customCode
                     });
-                    console.log('upsertPageCustomCode result:', result);
-                    console.log('Script injected successfully using upsertPageCustomCode!');
                     return { success: true, message: 'Script injected using upsertPageCustomCode - should appear in "Code added by Apps"' };
                 }
                 catch (error) {
-                    console.log('upsertPageCustomCode failed:', error);
                 }
             }
             // Method 3: Try other potential methods
@@ -46822,29 +46449,21 @@ function useAuth() {
             for (const methodName of otherMethods) {
                 if (typeof webflow !== 'undefined' && webflow[methodName]) {
                     try {
-                        console.log(`Trying ${methodName} method...`);
                         const result = yield webflow[methodName]({
                             location: 'head',
                             code: customCode
                         });
-                        console.log(`${methodName} result:`, result);
-                        console.log(`Script injected successfully using ${methodName}!`);
                         return { success: true, message: `Script injected using ${methodName} - should appear in "Code added by Apps"` };
                     }
                     catch (error) {
-                        console.log(`${methodName} failed:`, error);
                     }
                 }
             }
             // If no Designer Extension API methods work, fall back to REST API approach
-            console.log('No Designer Extension API methods found. Using REST API approach...');
             try {
                 // Step 1: Register the script
-                console.log('Step 1: Registering script...');
                 const registerResult = yield registerAccessibilityScript();
-                console.log('Script registration result:', registerResult);
                 // Step 2: Apply the script
-                console.log('Step 2: Applying script...');
                 const scriptId = (_a = registerResult.result) === null || _a === void 0 ? void 0 : _a.id;
                 const version = ((_b = registerResult.result) === null || _b === void 0 ? void 0 : _b.version) || '1.0.0';
                 if (scriptId) {
@@ -46854,7 +46473,6 @@ function useAuth() {
                         location: 'header',
                         version: version
                     });
-                    console.log('Script applied successfully:', applyResult);
                     return {
                         success: true,
                         message: 'Script applied via REST API - will appear in Custom Code section, not "Code added by Apps"',
@@ -46863,10 +46481,8 @@ function useAuth() {
                 }
             }
             catch (error) {
-                console.log('REST API approach failed:', error);
             }
             // Final fallback
-            console.log('All injection methods failed. Providing manual instructions.');
             return {
                 success: true,
                 message: 'Script registered successfully. Please manually add the script to your site\'s custom code section.',
@@ -46876,13 +46492,9 @@ function useAuth() {
             };
         }
         catch (error) {
-            console.error('Failed to inject script:', error);
             throw error;
         }
     });
-    console.log("🔐 AUTH: Returning functions from useAuth hook");
-    console.log("🔐 AUTH: attemptAutoRefresh type:", typeof attemptAutoRefresh);
-    console.log("🔐 AUTH: attemptSilentAuth type:", typeof attemptSilentAuth);
     return {
         user: (authState === null || authState === void 0 ? void 0 : authState.user) || { firstName: "", email: "" },
         sessionToken: (authState === null || authState === void 0 ? void 0 : authState.sessionToken) || "",

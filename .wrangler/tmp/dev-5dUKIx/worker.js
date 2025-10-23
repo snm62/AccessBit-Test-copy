@@ -291,6 +291,12 @@ var worker_default = {
     if (url.pathname === "/api/accessibility/update-subscription-metadata" && request.method === "POST") {
       return handleUpdateSubscriptionMetadata(request, env);
     }
+    if (url.pathname === "/api/accessibility/remove-widget" && request.method === "POST") {
+      return handleRemoveWidget(request, env);
+    }
+    if (url.pathname === "/api/accessibility/install-widget" && request.method === "POST") {
+      return handleInstallWidget(request, env);
+    }
     if (url.pathname === "/api/accessibility/create-payment-intent" && request.method === "POST") {
       return handleCreatePaymentIntent(request, env);
     }
@@ -3225,8 +3231,11 @@ async function handleWidgetScript(request, env) {
   const domain = url.searchParams.get("domain");
   const siteId = url.searchParams.get("siteId");
   try {
-    console.log("Widget script requested for domain:", domain, "siteId:", siteId);
+    console.log("\u{1F525} Widget script requested for domain:", domain, "siteId:", siteId);
+    console.log("\u{1F525} Request headers referer:", request.headers.get("referer"));
+    console.log("\u{1F525} Request URL:", request.url);
     const currentDomain = domain || request.headers.get("referer") || "unknown";
+    console.log("\u{1F525} Current domain determined as:", currentDomain);
     const isStagingDomain = currentDomain.includes(".webflow.io") || currentDomain.includes(".webflow.com") || currentDomain.includes("localhost") || currentDomain.includes("127.0.0.1") || currentDomain.includes("staging");
     if (isStagingDomain) {
       console.log("Staging domain detected, serving widget script:", currentDomain);
@@ -3248,17 +3257,21 @@ async function handleWidgetScript(request, env) {
     }
     if (!paymentData) {
       const domainKey = `domain:${currentDomain}`;
+      console.log("\u{1F525} Looking for domain mapping with key:", domainKey);
       const domainData = await env.ACCESSIBILITY_AUTH.get(domainKey);
       if (domainData) {
         const domainInfo = JSON.parse(domainData);
+        console.log("\u{1F525} Found domain mapping:", domainInfo);
         const siteIdFromDomain = domainInfo.siteId;
         if (siteIdFromDomain) {
           const paymentRecord = await env.ACCESSIBILITY_AUTH.get(`payment:${siteIdFromDomain}`);
           if (paymentRecord) {
             paymentData = JSON.parse(paymentRecord);
-            console.log("Found payment data by domain lookup:", paymentData);
+            console.log("\u{1F525} Found payment data by domain lookup:", paymentData);
           }
         }
+      } else {
+        console.log("\u{1F525} No domain mapping found for:", domainKey);
       }
     }
     if (!paymentData) {
@@ -3855,6 +3868,143 @@ async function handleUpdateSubscriptionMetadata(request, env) {
   }
 }
 __name(handleUpdateSubscriptionMetadata, "handleUpdateSubscriptionMetadata");
+async function handleRemoveWidget(request, env) {
+  const origin = request.headers.get("origin");
+  try {
+    const { siteId, domain, subscriptionId } = await request.json();
+    if (!siteId || !domain || !subscriptionId) {
+      const errorResponse = secureJsonResponse({ error: "Missing required fields" }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    console.log("\u{1F525} Backend: Removing widget from domain:", domain, "siteId:", siteId);
+    const domainKey = `domain:${domain}`;
+    await env.ACCESSIBILITY_AUTH.delete(domainKey);
+    console.log("\u{1F525} Backend: Removed domain mapping for:", domain);
+    try {
+      const allKeys = await env.ACCESSIBILITY_AUTH.list({ prefix: "domain:" });
+      for (const key of allKeys.keys) {
+        const domainData = await env.ACCESSIBILITY_AUTH.get(key.name);
+        if (domainData) {
+          const domainInfo = JSON.parse(domainData);
+          if (domainInfo.siteId === siteId && domainInfo.domain !== domain) {
+            console.log("\u{1F525} Backend: Removing conflicting domain mapping:", key.name, "for siteId:", siteId);
+            await env.ACCESSIBILITY_AUTH.delete(key.name);
+          }
+        }
+      }
+    } catch (error) {
+      console.log("\u{1F525} Backend: Could not clean up conflicting domain mappings:", error);
+    }
+    const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+    if (userDataStr) {
+      const userData = JSON.parse(userDataStr);
+      userData.previousDomain = userData.domain;
+      userData.domain = null;
+      userData.widgetRemovedAt = (/* @__PURE__ */ new Date()).toISOString();
+      await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+      console.log("\u{1F525} Backend: Updated user data - widget removed from domain");
+    }
+    const paymentSnapshotStr = await env.ACCESSIBILITY_AUTH.get(`payment:${siteId}`);
+    if (paymentSnapshotStr) {
+      const paymentSnapshot = JSON.parse(paymentSnapshotStr);
+      paymentSnapshot.previousDomain = paymentSnapshot.domain;
+      paymentSnapshot.domain = null;
+      paymentSnapshot.widgetRemovedAt = (/* @__PURE__ */ new Date()).toISOString();
+      await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(paymentSnapshot));
+      console.log("\u{1F525} Backend: Updated payment snapshot - widget removed");
+    }
+    const successResponse = secureJsonResponse({
+      success: true,
+      message: "Widget removed from domain successfully",
+      domain,
+      removedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+  } catch (error) {
+    console.error("\u{1F525} Backend: Remove widget error:", error);
+    const errorResponse = secureJsonResponse({
+      error: "Failed to remove widget from domain",
+      details: error.message
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+__name(handleRemoveWidget, "handleRemoveWidget");
+async function handleInstallWidget(request, env) {
+  const origin = request.headers.get("origin");
+  try {
+    const { siteId, domain, subscriptionId } = await request.json();
+    if (!siteId || !domain || !subscriptionId) {
+      const errorResponse = secureJsonResponse({ error: "Missing required fields" }, 400);
+      return addSecurityAndCorsHeaders(errorResponse, origin);
+    }
+    console.log("\u{1F525} Backend: Installing widget on domain:", domain, "siteId:", siteId);
+    const domainKey = `domain:${domain}`;
+    await env.ACCESSIBILITY_AUTH.put(domainKey, JSON.stringify({
+      siteId,
+      domain,
+      subscriptionId,
+      connectedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+    }), { expirationTtl: 86400 * 30 });
+    console.log("\u{1F525} Backend: Created domain mapping for:", domain);
+    const userDataStr = await env.ACCESSIBILITY_AUTH.get(`user_data_${siteId}`);
+    if (userDataStr) {
+      const userData = JSON.parse(userDataStr);
+      userData.previousDomain = userData.domain;
+      userData.domain = domain;
+      userData.widgetInstalledAt = (/* @__PURE__ */ new Date()).toISOString();
+      userData.lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
+      await env.ACCESSIBILITY_AUTH.put(`user_data_${siteId}`, JSON.stringify(userData));
+      console.log("\u{1F525} Backend: Updated user data with new domain:", domain);
+    }
+    const paymentSnapshotStr = await env.ACCESSIBILITY_AUTH.get(`payment:${siteId}`);
+    if (paymentSnapshotStr) {
+      const paymentSnapshot = JSON.parse(paymentSnapshotStr);
+      paymentSnapshot.previousDomain = paymentSnapshot.domain;
+      paymentSnapshot.domain = domain;
+      paymentSnapshot.widgetInstalledAt = (/* @__PURE__ */ new Date()).toISOString();
+      paymentSnapshot.lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
+      await env.ACCESSIBILITY_AUTH.put(`payment:${siteId}`, JSON.stringify(paymentSnapshot));
+      console.log("\u{1F525} Backend: Updated payment snapshot with new domain");
+    }
+    try {
+      const formData = new URLSearchParams();
+      formData.append("metadata[domain]", domain);
+      formData.append("metadata[domainInstalledAt]", (/* @__PURE__ */ new Date()).toISOString());
+      const updateResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${env.STRIPE_SECRET_KEY}`,
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: formData
+      });
+      if (updateResponse.ok) {
+        console.log("\u{1F525} Backend: Updated Stripe subscription metadata with new domain");
+      } else {
+        console.warn("\u{1F525} Backend: Failed to update Stripe subscription metadata");
+      }
+    } catch (stripeError) {
+      console.warn("\u{1F525} Backend: Stripe metadata update failed:", stripeError);
+    }
+    const successResponse = secureJsonResponse({
+      success: true,
+      message: "Widget installed on domain successfully",
+      domain,
+      installedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    return addSecurityAndCorsHeaders(successResponse, origin);
+  } catch (error) {
+    console.error("\u{1F525} Backend: Install widget error:", error);
+    const errorResponse = secureJsonResponse({
+      error: "Failed to install widget on domain",
+      details: error.message
+    }, 500);
+    return addSecurityAndCorsHeaders(errorResponse, origin);
+  }
+}
+__name(handleInstallWidget, "handleInstallWidget");
 async function handleFixDomainMapping(request, env) {
   const origin = request.headers.get("origin");
   try {
