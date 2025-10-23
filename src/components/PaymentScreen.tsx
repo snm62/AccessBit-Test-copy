@@ -1908,7 +1908,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             }}>
               
               <h3 style={{
-                fontSize: '24px',
+                fontSize: '16px',
                 fontWeight: '600',
                 margin: '0 0 16px 0',
                 color: '#fff'
@@ -1917,7 +1917,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               </h3>
               
               <p style={{ 
-                fontSize: '16px', 
+                fontSize: '12px', 
                 color: '#a3a3a3', 
                 margin: '0 0 24px 0',
                 lineHeight: '1.5'
@@ -1933,11 +1933,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                 <button 
                   onClick={handleCloseCancelModal}
                   style={{
-                    padding: '12px 24px',
+                    padding: '10px 20px',
                     backgroundColor: 'transparent',
-                    border: '1px solid #333',
+                    border: '1px solid rgb(217 194 194)',
                     color: '#a3a3a3',
-                    fontSize: '14px',
+                    fontSize: '12px',
                     borderRadius: '6px',
                     cursor: 'pointer'
                   }}
@@ -1948,11 +1948,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                   onClick={handleConfirmCancel}
                   disabled={isCanceling}
                   style={{
-                    padding: '12px 24px',
+                    padding: '10px 20px',
                     backgroundColor: isCanceling ? '#6b7280' : '#dc2626',
                     border: 'none',
                     color: '#fff',
-                    fontSize: '14px',
+                    fontSize: '12px',
                     borderRadius: '6px',
                     cursor: isCanceling ? 'not-allowed' : 'pointer'
                   }}
@@ -1990,7 +1990,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             }}>
               
               <h3 style={{
-                fontSize: '24px',
+                fontSize: '16px',
                 fontWeight: '600',
                 margin: '0 0 16px 0',
                 color: '#fff'
@@ -1999,7 +1999,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
               </h3>
               
               <p style={{ 
-                fontSize: '16px', 
+                fontSize: '12px', 
                 color: '#a3a3a3', 
                 margin: '0 0 16px 0',
                 lineHeight: '1.5'
@@ -2017,8 +2017,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                   style={{
                     width: '100%',
                     maxWidth: '400px',
-                    padding: '12px 16px',
-                    fontSize: '16px',
+                    padding: '10px 16px',
+                    fontSize: '12px',
                     border: '1px solid #333',
                     borderRadius: '8px',
                     backgroundColor: '#2a2a2a',
@@ -2040,11 +2040,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                 <button 
                   onClick={handleCloseDomainModal}
                   style={{
-                    padding: '12px 24px',
+                    padding: '10px 20px',
                     backgroundColor: 'transparent',
                     border: '1px solid #333',
                     color: '#a3a3a3',
-                    fontSize: '14px',
+                    fontSize: '12px',
                     borderRadius: '6px',
                     cursor: 'pointer'
                   }}
@@ -2055,11 +2055,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                   onClick={handleUpdateDomain}
                   disabled={isUpdatingDomain || !newDomain.trim()}
                   style={{
-                    padding: '12px 24px',
+                    padding: '10px 20px',
                     backgroundColor: isUpdatingDomain || !newDomain.trim() ? '#6b7280' : '#10b981',
                     border: 'none',
                     color: '#fff',
-                    fontSize: '14px',
+                    fontSize: '12px',
                     borderRadius: '6px',
                     cursor: isUpdatingDomain || !newDomain.trim() ? 'not-allowed' : 'pointer'
                   }}

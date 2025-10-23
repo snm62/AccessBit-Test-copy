@@ -42899,7 +42899,7 @@ module.exports = __webpack_require__.p + "cc718b52279699cff4c2.png";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "b74b76db66ee85d2ac89.svg";
+module.exports = __webpack_require__.p + "6249de753b98940e36f8.svg";
 
 /***/ }),
 
@@ -42909,7 +42909,7 @@ module.exports = __webpack_require__.p + "b74b76db66ee85d2ac89.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "b940c7b5ba71580122e1.svg";
+module.exports = __webpack_require__.p + "a812367946904ac86a19.svg";
 
 /***/ }),
 
@@ -42919,7 +42919,7 @@ module.exports = __webpack_require__.p + "b940c7b5ba71580122e1.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "315988554fb8c9a6ef02.svg";
+module.exports = __webpack_require__.p + "c804a3361b804dc19057.svg";
 
 /***/ }),
 
@@ -42929,7 +42929,7 @@ module.exports = __webpack_require__.p + "315988554fb8c9a6ef02.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "767243c19641dd480729.svg";
+module.exports = __webpack_require__.p + "5cf22f6bc3baa76fa20b.svg";
 
 /***/ }),
 
@@ -42939,7 +42939,7 @@ module.exports = __webpack_require__.p + "767243c19641dd480729.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "dd5c22c9e5fca44ff45d.svg";
+module.exports = __webpack_require__.p + "05250ff2135c47ca2006.svg";
 
 /***/ }),
 
@@ -42949,7 +42949,7 @@ module.exports = __webpack_require__.p + "dd5c22c9e5fca44ff45d.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "0184ba4764536183e876.svg";
+module.exports = __webpack_require__.p + "c9a436d6d323621f4f4f.svg";
 
 /***/ }),
 
@@ -42959,7 +42959,7 @@ module.exports = __webpack_require__.p + "0184ba4764536183e876.svg";
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "7b8b6654090bf3b66e38.svg";
+module.exports = __webpack_require__.p + "d538ef4589887b1cb15c.svg";
 
 /***/ }),
 
@@ -42979,7 +42979,7 @@ module.exports = __webpack_require__.p + "e6960da1d895f76d2033.svg";
   \*******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "b83cd2f7adef1fc4000c.svg";
+module.exports = __webpack_require__.p + "ad2dcefe657227b1fcce.svg";
 
 /***/ }),
 
@@ -42989,7 +42989,7 @@ module.exports = __webpack_require__.p + "b83cd2f7adef1fc4000c.svg";
   \********************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "51512d8a92f8bce807f1.svg";
+module.exports = __webpack_require__.p + "b85a2ae57f4702094a64.svg";
 
 /***/ }),
 
@@ -42999,7 +42999,7 @@ module.exports = __webpack_require__.p + "51512d8a92f8bce807f1.svg";
   \*************************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "1de78215101ebb167ee9.svg";
+module.exports = __webpack_require__.p + "b738aba375d464abfd3e.svg";
 
 /***/ }),
 
@@ -43019,7 +43019,7 @@ module.exports = __webpack_require__.p + "47ddea3bc86368fac454.svg";
   \**************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-module.exports = __webpack_require__.p + "20383c1f1067e99ebdfb.svg";
+module.exports = __webpack_require__.p + "3468745b534843156267.svg";
 
 /***/ }),
 
@@ -45267,13 +45267,13 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         textAlign: 'center'
                     } },
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
-                            fontSize: '24px',
+                            fontSize: '16px',
                             fontWeight: '600',
                             margin: '0 0 16px 0',
                             color: '#fff'
                         } }, "Cancel Subscription?"),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("p", { style: {
-                            fontSize: '16px',
+                            fontSize: '12px',
                             color: '#a3a3a3',
                             margin: '0 0 24px 0',
                             lineHeight: '1.5'
@@ -45284,20 +45284,20 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             justifyContent: 'center'
                         } },
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { onClick: handleCloseCancelModal, style: {
-                                padding: '12px 24px',
+                                padding: '10px 20px',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #333',
+                                border: '1px solid rgb(217 194 194)',
                                 color: '#a3a3a3',
-                                fontSize: '14px',
+                                fontSize: '12px',
                                 borderRadius: '6px',
                                 cursor: 'pointer'
                             } }, "No, Keep Subscription"),
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { onClick: handleConfirmCancel, disabled: isCanceling, style: {
-                                padding: '12px 24px',
+                                padding: '10px 20px',
                                 backgroundColor: isCanceling ? '#6b7280' : '#dc2626',
                                 border: 'none',
                                 color: '#fff',
-                                fontSize: '14px',
+                                fontSize: '12px',
                                 borderRadius: '6px',
                                 cursor: isCanceling ? 'not-allowed' : 'pointer'
                             } }, isCanceling ? 'Cancelling...' : 'Yes, Cancel'))))),
@@ -45324,13 +45324,13 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         textAlign: 'center'
                     } },
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h3", { style: {
-                            fontSize: '24px',
+                            fontSize: '16px',
                             fontWeight: '600',
                             margin: '0 0 16px 0',
                             color: '#fff'
                         } }, "Change Domain URL"),
                     react__WEBPACK_IMPORTED_MODULE_0___default().createElement("p", { style: {
-                            fontSize: '16px',
+                            fontSize: '12px',
                             color: '#a3a3a3',
                             margin: '0 0 16px 0',
                             lineHeight: '1.5'
@@ -45339,8 +45339,8 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("input", { type: "url", value: newDomain, onChange: (e) => handleDomainInputChange(e.target.value), placeholder: "https://your-new-domain.com", style: {
                                 width: '100%',
                                 maxWidth: '400px',
-                                padding: '12px 16px',
-                                fontSize: '16px',
+                                padding: '10px 16px',
+                                fontSize: '12px',
                                 border: '1px solid #333',
                                 borderRadius: '8px',
                                 backgroundColor: '#2a2a2a',
@@ -45354,20 +45354,20 @@ const PaymentScreen = ({ onBack, onNext, customizationData }) => {
                             justifyContent: 'center'
                         } },
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { onClick: handleCloseDomainModal, style: {
-                                padding: '12px 24px',
+                                padding: '10px 20px',
                                 backgroundColor: 'transparent',
                                 border: '1px solid #333',
                                 color: '#a3a3a3',
-                                fontSize: '14px',
+                                fontSize: '12px',
                                 borderRadius: '6px',
                                 cursor: 'pointer'
                             } }, "Cancel"),
                         react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", { onClick: handleUpdateDomain, disabled: isUpdatingDomain || !newDomain.trim(), style: {
-                                padding: '12px 24px',
+                                padding: '10px 20px',
                                 backgroundColor: isUpdatingDomain || !newDomain.trim() ? '#6b7280' : '#10b981',
                                 border: 'none',
                                 color: '#fff',
-                                fontSize: '14px',
+                                fontSize: '12px',
                                 borderRadius: '6px',
                                 cursor: isUpdatingDomain || !newDomain.trim() ? 'not-allowed' : 'pointer'
                             } }, isUpdatingDomain ? 'Updating...' : 'Update Domain')))))));
