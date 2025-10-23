@@ -30,7 +30,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
   const [showStripeForm, setShowStripeForm] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [subscriptionValidUntil, setSubscriptionValidUntil] = useState<string | null>(null);
-  const [actualPlanType, setActualPlanType] = useState<'annual' | 'monthly' | null>(null);
+  const [actualPlanType, setActualPlanType] = useState<'annual' | 'monthly' | null>('annual');
   
   // No fallbacks - only use fresh data from server
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -510,11 +510,22 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             // Get current period end from subscription details - handle both formats
             let endDate = null;
             
+            // Debug: Log the details object structure
+            console.log('🔥 PaymentScreen: Details object keys:', Object.keys(data.subscription.details || {}));
+            console.log('🔥 PaymentScreen: Details current_period_end:', data.subscription.details?.current_period_end);
+            console.log('🔥 PaymentScreen: Details billing_cycle_anchor:', data.subscription.details?.billing_cycle_anchor);
+            console.log('🔥 PaymentScreen: Details created:', data.subscription.details?.created);
+            console.log('🔥 PaymentScreen: Details start_date:', data.subscription.details?.start_date);
+            
             // Try different sources for current_period_end
             if (data.subscription.details && data.subscription.details.current_period_end) {
               // Stripe returns seconds, convert to milliseconds
               endDate = new Date(data.subscription.details.current_period_end * 1000);
               console.log('🔥 PaymentScreen: Using current_period_end from details (seconds):', data.subscription.details.current_period_end);
+            } else if (data.subscription.current_period_end) {
+              // Stripe returns seconds, convert to milliseconds
+              endDate = new Date(data.subscription.current_period_end * 1000);
+              console.log('🔥 PaymentScreen: Using current_period_end from subscription (seconds):', data.subscription.current_period_end);
             } else if (data.subscription.currentPeriodEnd) {
               // Check if it's already in milliseconds or seconds
               const periodEnd = data.subscription.currentPeriodEnd;
@@ -571,39 +582,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                 // No localStorage usage for security - data managed server-side
               }
             } else {
-              console.log('🔥 PaymentScreen: No valid end date found, using fallback');
-              // Determine fallback period based on productId and plan type from payment form
-              const productId = data.subscription.productId || data.subscription.details?.metadata?.productId;
-              
-              // First try to get plan type from payment form
-              let isAnnual = false;
-              try {
-                const paymentForm = document.getElementById('payment-form');
-                if (paymentForm) {
-                  const planTypeAttr = paymentForm.getAttribute('data-plan-type');
-                  isAnnual = planTypeAttr === 'annual';
-                  console.log('🔥 PaymentScreen: Got plan type from payment form:', planTypeAttr, 'isAnnual:', isAnnual);
-                }
-              } catch (e) {
-                console.log('🔥 PaymentScreen: Could not get plan type from payment form, using productId fallback');
-              }
-              
-              // Fallback to productId if payment form plan type not available
-              if (!isAnnual && productId) {
-                isAnnual = productId === 'prod_TEHrwLZdPcOsgq';
-                console.log('🔥 PaymentScreen: Using productId fallback - productId:', productId, 'isAnnual:', isAnnual);
-              }
-              const fallbackDays = isAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
-              const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
-              
+              console.log('🔥 PaymentScreen: No valid end date found in server data, waiting for refresh');
               setPaymentSuccess(true);
-              setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
-              
-              // Set the actual plan type for display
-              setActualPlanType(isAnnual ? 'annual' : 'monthly');
-              
-              // No localStorage storage for security - data is fetched fresh from server each time
-              console.log('🔥 PaymentScreen: Fallback subscription data processed (no localStorage for security)');
+              // Don't set subscriptionValidUntil here - wait for server refresh
             }
           } else {
             console.log('🔥 PaymentScreen: No active subscription found');
@@ -721,6 +702,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
       
       // Set subscription validity if we have details
       if (subscriptionDetails) {
+        console.log('🔥 PaymentScreen: subscriptionDetails structure:', subscriptionDetails);
         let endDate = null;
         
         // Try to get current_period_end from different sources
@@ -728,6 +710,10 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
           // Stripe returns seconds, convert to milliseconds
           endDate = new Date(subscriptionDetails.details.current_period_end * 1000);
           console.log('🔥 PaymentScreen: Using current_period_end from details (seconds):', subscriptionDetails.details.current_period_end);
+        } else if (subscriptionDetails.current_period_end) {
+          // Stripe returns seconds, convert to milliseconds
+          endDate = new Date(subscriptionDetails.current_period_end * 1000);
+          console.log('🔥 PaymentScreen: Using current_period_end from subscription (seconds):', subscriptionDetails.current_period_end);
         } else if (subscriptionDetails.currentPeriodEnd) {
           // Check if it's already in milliseconds or seconds
           const periodEnd = subscriptionDetails.currentPeriodEnd;
@@ -801,15 +787,10 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             isAnnual = productId === 'prod_TEHrwLZdPcOsgq' || planType === 'annual';
             console.log('🔥 PaymentScreen: Using fallback - productId:', productId, 'planType:', planType, 'isAnnual:', isAnnual);
           }
-          const fallbackDays = isAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
-          const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
-          setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
-          
+          // Don't set subscriptionValidUntil here - wait for server data
           const subscriptionData = {
             status: 'active',
-            validUntil: fallbackDate.getTime(),
             subscriptionId: subscriptionId || 'unknown',
-            fallback: true, // Mark as fallback
             isAnnual: isAnnual, // Store the plan type
             productId: productId, // Store the product ID for future reference
             planType: planType // Store the plan type
@@ -818,66 +799,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
           console.log('🔥 PaymentScreen: Payment success fallback data processed (no localStorage for security)');
         }
       } else {
-        console.log('🔥 PaymentScreen: No subscription details available, using fallback');
-        
-        // Try to get the plan type from the payment form that was just used
-        let paymentFormPlanType = null;
-        try {
-          const paymentForm = document.getElementById('payment-form');
-          if (paymentForm) {
-            const planTypeAttr = paymentForm.getAttribute('data-plan-type');
-            paymentFormPlanType = planTypeAttr;
-            console.log('🔥 PaymentScreen: Found plan type from payment form:', paymentFormPlanType);
-            console.log('🔥 PaymentScreen: Payment form element:', paymentForm);
-            console.log('🔥 PaymentScreen: All data attributes on payment form:', Array.from(paymentForm.attributes).map(attr => `${attr.name}="${attr.value}"`));
-          } else {
-            console.log('🔥 PaymentScreen: Payment form element not found');
-            }
-          } catch (e) {
-          console.log('🔥 PaymentScreen: Could not get plan type from payment form:', e);
-        }
-        
-        // Use the actual plan type from the event, payment form, or fall back to current state
-        // Priority: eventPlanType > paymentFormPlanType > component state
-        const currentPlanIsAnnual = eventPlanType ? eventPlanType === 'annual' : 
-                                   paymentFormPlanType ? paymentFormPlanType === 'annual' : 
-                                   isAnnual;
-        console.log('🔥 PaymentScreen: Plan type determination - eventPlanType:', eventPlanType, 'paymentFormPlanType:', paymentFormPlanType, 'component isAnnual:', isAnnual, 'final currentPlanIsAnnual:', currentPlanIsAnnual);
-        
-        // Additional validation: if we have a plan type from the event, use it as the source of truth
-        if (eventPlanType) {
-          console.log('🔥 PaymentScreen: Using event plan type as source of truth:', eventPlanType);
-        } else if (paymentFormPlanType) {
-          console.log('🔥 PaymentScreen: Using payment form plan type as source of truth:', paymentFormPlanType);
-        } else {
-          console.log('🔥 PaymentScreen: WARNING - No plan type found in event or payment form, using component state:', isAnnual);
-        }
-        
-        const fallbackDays = currentPlanIsAnnual ? 365 : 30; // 1 year for annual, 1 month for monthly
-        const fallbackDate = new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
-        setSubscriptionValidUntil(fallbackDate.toLocaleDateString());
-        
-        // Set the actual plan type for display
-        const finalPlanType = currentPlanIsAnnual ? 'annual' : 'monthly';
-        setActualPlanType(finalPlanType);
-        console.log('🔥 PaymentScreen: Setting actualPlanType to:', finalPlanType, 'based on currentPlanIsAnnual:', currentPlanIsAnnual);
-        
-        const subscriptionData = {
-          status: 'active',
-          validUntil: fallbackDate.getTime(),
-          subscriptionId: subscriptionId || 'unknown',
-          fallback: true, // Mark as fallback
-          isAnnual: currentPlanIsAnnual, // Store the plan type
-          planType: currentPlanIsAnnual ? 'annual' : 'monthly', // Store the plan type
-          source: eventPlanType ? 'event' : 
-                  paymentFormPlanType ? 'payment-form' : 
-                  'component-state', // Track the source
-          eventPlanType: eventPlanType, // Store the original event plan type for debugging
-          paymentFormPlanType: paymentFormPlanType, // Store the payment form plan type for debugging
-          componentIsAnnual: isAnnual // Store the component state for debugging
-        };
-        // No localStorage storage for security - data is fetched fresh from server each time
-        console.log('🔥 PaymentScreen: Payment success final fallback data processed (no localStorage for security)');
+        console.log('🔥 PaymentScreen: No subscription details available, waiting for server refresh');
+        setPaymentSuccess(true);
+        // Don't set subscriptionValidUntil here - wait for server refresh
       }
       
       // Force a refresh of the subscription status to ensure UI is updated with correct data
@@ -897,11 +821,18 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
             console.log('🔥 PaymentScreen: Immediate refresh response:', data);
             
             if (data.success && data.subscription && data.subscription.status === 'active') {
+              console.log('🔥 PaymentScreen: Immediate refresh - subscription structure:', data.subscription);
+              console.log('🔥 PaymentScreen: Immediate refresh - details object:', data.subscription.details);
+              console.log('🔥 PaymentScreen: Immediate refresh - details keys:', Object.keys(data.subscription.details || {}));
+              console.log('🔥 PaymentScreen: Immediate refresh - current_period_end in details:', data.subscription.details?.current_period_end);
               let endDate = null;
               
               if (data.subscription.details && data.subscription.details.current_period_end) {
                 endDate = new Date(data.subscription.details.current_period_end * 1000);
                 console.log('🔥 PaymentScreen: Immediate refresh - Using current_period_end from details:', data.subscription.details.current_period_end);
+              } else if (data.subscription.current_period_end) {
+                endDate = new Date(data.subscription.current_period_end * 1000);
+                console.log('🔥 PaymentScreen: Immediate refresh - Using current_period_end from subscription:', data.subscription.current_period_end);
               } else if (data.subscription.currentPeriodEnd) {
                 const periodEnd = data.subscription.currentPeriodEnd;
                 if (periodEnd > 1000000000000) {
@@ -921,10 +852,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
                 
                 // Determine plan type from server response metadata
                 let serverPlanType = 'monthly'; // default
+                console.log('🔥 PaymentScreen: Immediate refresh - Checking metadata:', data.subscription.details?.metadata);
                 if (data.subscription.details && data.subscription.details.metadata && data.subscription.details.metadata.productId) {
                   const productId = data.subscription.details.metadata.productId;
                   serverPlanType = productId === 'prod_TEHrwLZdPcOsgq' ? 'annual' : 'monthly';
                   console.log('🔥 PaymentScreen: Immediate refresh - Determined plan type from server metadata:', serverPlanType, 'productId:', productId);
+                } else {
+                  console.log('🔥 PaymentScreen: Immediate refresh - No productId found in metadata, using default monthly');
                 }
                 
                 // Set the actual plan type for display

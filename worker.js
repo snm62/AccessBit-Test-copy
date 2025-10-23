@@ -257,10 +257,6 @@ export default {
       return handleOAuthCallback(request, env);
     }
     
-    // OAuth Success Page - for popup communication
-    if (url.pathname === '/api/auth/success') {
-      return handleOAuthSuccess(request, env);
-    }
     
     // Token Authentication
     if (url.pathname === '/api/auth/token' && request.method === 'POST') {
@@ -934,20 +930,11 @@ async function handleOAuthCallback(request, env) {
       }
     }
     
-    // For popup OAuth, redirect to a success page that can communicate with parent window
-    const successUrl = new URL('https://accessibility-widget.web-8fb.workers.dev/api/auth/success');
-    successUrl.searchParams.set('sessionToken', sessionToken.token);
-    successUrl.searchParams.set('firstName', userData.firstName || 'User');
-    successUrl.searchParams.set('email', realEmail);
-    successUrl.searchParams.set('siteId', currentSite.id);
-    successUrl.searchParams.set('siteName', currentSite.name || currentSite.shortName);
-    successUrl.searchParams.set('shortName', currentSite.shortName);
-    successUrl.searchParams.set('auth_success', 'true');
-    
+    // Direct redirect to the Webflow site
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': successUrl.toString()
+        'Location': `https://${currentSite.shortName}.design.webflow.com`
       }
     });
     
@@ -965,117 +952,6 @@ async function handleOAuthCallback(request, env) {
 }
 
 // Handle OAuth Success Page
-async function handleOAuthSuccess(request, env) {
-  const url = new URL(request.url);
-  const sessionToken = url.searchParams.get('sessionToken');
-  const firstName = url.searchParams.get('firstName');
-  const email = url.searchParams.get('email');
-  const siteId = url.searchParams.get('siteId');
-  const siteName = url.searchParams.get('siteName');
-  const shortName = url.searchParams.get('shortName');
-  
-  // Create a success page that communicates with the parent window
-  const successPage = `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Authorization Successful</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .container {
-            text-align: center;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            backdrop-filter: blur(10px);
-        }
-        .success-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-        h1 {
-            margin: 0 0 1rem 0;
-            font-size: 2rem;
-        }
-        p {
-            margin: 0;
-            opacity: 0.9;
-        }
-        .loading {
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="success-icon">✅</div>
-        <h1>Authorization Successful!</h1>
-        <p>You can now close this window and return to the app.</p>
-        <div class="loading">Closing window...</div>
-    </div>
-    
-    <script>
-        // Store auth data in sessionStorage for the parent window to access
-        const authData = {
-            sessionToken: '${sessionToken}',
-            firstName: '${firstName}',
-            email: '${email}',
-            siteId: '${siteId}',
-            siteName: '${siteName}',
-            shortName: '${shortName}',
-            timestamp: Date.now()
-        };
-        
-        // Store in sessionStorage
-        sessionStorage.setItem('accessbit-userinfo', JSON.stringify(authData));
-        
-        // Notify parent window
-        if (window.opener) {
-            try {
-                // Send message to parent window
-                window.opener.postMessage({
-                    type: 'oauth-success',
-                    data: authData
-                }, '*');
-                
-                // Also try to trigger a storage event
-                window.opener.dispatchEvent(new StorageEvent('storage', {
-                    key: 'accessbit-userinfo',
-                    newValue: JSON.stringify(authData),
-                    url: window.location.href
-                }));
-            } catch (error) {
-                console.error('Failed to communicate with parent window:', error);
-            }
-        }
-        
-        // Close the popup after a short delay
-        setTimeout(() => {
-            window.close();
-        }, 2000);
-    </script>
-</body>
-</html>`;
-
-  return new Response(successPage, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/html',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
-    }
-  });
-}
 
 // Handle publish accessibility settings
 async function handlePublishSettings(request, env) {
@@ -4640,10 +4516,16 @@ async function handleGetSubscriptionStatus(request, env) {
     }
     
     const userData = JSON.parse(userDataStr);
+    console.log('🔥 Backend: User data from KV:', {
+      subscriptionId: userData.subscriptionId,
+      paymentStatus: userData.paymentStatus,
+      currentPeriodEnd: userData.currentPeriodEnd
+    });
     
     // If we have a subscription ID, get current status from Stripe
     let subscriptionDetails = null;
     if (userData.subscriptionId) {
+      console.log('🔥 Backend: Fetching Stripe subscription:', userData.subscriptionId);
       try {
         const subscriptionResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${userData.subscriptionId}`, {
           headers: {
@@ -4651,12 +4533,42 @@ async function handleGetSubscriptionStatus(request, env) {
           }
         });
         
+        console.log('🔥 Backend: Stripe API response status:', subscriptionResponse.status);
+        
         if (subscriptionResponse.ok) {
           subscriptionDetails = await subscriptionResponse.json();
+          // console.log('🔥 Backend: Full Stripe response:', JSON.stringify(subscriptionDetails, null, 2));
+          // Extract current_period_end from items.data[0] (subscription items)
+          const currentPeriodEnd = subscriptionDetails.items && 
+                                  subscriptionDetails.items.data && 
+                                  subscriptionDetails.items.data.length > 0 ? 
+                                  subscriptionDetails.items.data[0].current_period_end : null;
+          
+          console.log('🔥 Backend: Stripe subscription details:', {
+            id: subscriptionDetails.id,
+            current_period_end: currentPeriodEnd,
+            current_period_start: subscriptionDetails.items?.data?.[0]?.current_period_start,
+            status: subscriptionDetails.status,
+            created: subscriptionDetails.created,
+            billing_cycle_anchor: subscriptionDetails.billing_cycle_anchor
+          });
+          
+          // Add the extracted current_period_end to the subscriptionDetails object
+          if (currentPeriodEnd) {
+            subscriptionDetails.current_period_end = currentPeriodEnd;
+            console.log('🔥 Backend: Added current_period_end to subscriptionDetails:', currentPeriodEnd);
+          } else {
+            console.error('🔥 Backend: Could not extract current_period_end from items!');
+          }
+        } else {
+          const errorText = await subscriptionResponse.text();
+          console.error('🔥 Backend: Stripe API error:', subscriptionResponse.status, errorText);
         }
       } catch (error) {
-        console.warn('Failed to fetch subscription details from Stripe:', error);
+        console.error('🔥 Backend: Failed to fetch subscription details from Stripe:', error);
       }
+    } else {
+      console.log('🔥 Backend: No subscription ID found in user data');
     }
     
     const successResponse = secureJsonResponse({ 
@@ -4667,6 +4579,7 @@ async function handleGetSubscriptionStatus(request, env) {
         cancelAtPeriodEnd: userData.cancelAtPeriodEnd || false,
         currentPeriodEnd: userData.currentPeriodEnd,
         lastPaymentDate: userData.lastPaymentDate,
+        current_period_end: subscriptionDetails ? subscriptionDetails.current_period_end : userData.currentPeriodEnd,
         details: subscriptionDetails
       }
     });
@@ -4675,6 +4588,7 @@ async function handleGetSubscriptionStatus(request, env) {
       id: userData.subscriptionId,
       status: userData.paymentStatus,
       currentPeriodEnd: userData.currentPeriodEnd,
+      current_period_end: subscriptionDetails ? subscriptionDetails.current_period_end : userData.currentPeriodEnd,
       details: subscriptionDetails ? {
         current_period_end: subscriptionDetails.current_period_end,
         status: subscriptionDetails.status
