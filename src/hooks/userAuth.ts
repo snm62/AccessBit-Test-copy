@@ -2,7 +2,7 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { jwtDecode } from "jwt-decode";
 import { User, DecodedToken } from "../types/types";
 import { WebflowAPI } from "../types/webflowtypes";
-import { getAuthData,setAuthData,removeAuthStorageItem,setSiteInfo,clearAuthData,setContrastKitAuthData } from "../util/authStorage";
+import { getAuthData,setAuthData,removeAuthStorageItem,setSiteInfo,clearAuthData,setAccessBitAuthData } from "../util/authStorage";
 import { getAuthStorageItem } from "../util/authStorage";
 const base_url = "https://accessibility-widget.web-8fb.workers.dev";
 
@@ -48,8 +48,8 @@ export function useAuth() {
   const { data: authState, isLoading: isAuthLoading } = useQuery<AuthState>({
     queryKey: ["auth"],
     queryFn: async () => {
-      const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
-      const wasExplicitlyLoggedOut = sessionStorage.getItem(
+      const storedUser = localStorage.getItem("accessbit-userinfo") || localStorage.getItem("accessbit-userinfo");
+      const wasExplicitlyLoggedOut = localStorage.getItem(
         "explicitly_logged_out"
       );
 
@@ -70,8 +70,8 @@ export function useAuth() {
         
         if (decodedToken.exp * 1000 <= Date.now()) {
           // Token expired - clear storage
-          sessionStorage.removeItem("accessbit-userinfo");
-          sessionStorage.removeItem("accessbit-userinfo");
+          localStorage.removeItem("accessbit-userinfo");
+          localStorage.removeItem("accessbit-userinfo");
           return { user: { firstName: "", email: "" }, sessionToken: "" };
         }
 
@@ -87,8 +87,8 @@ export function useAuth() {
         return authState;
       } catch (error) {
         // Clear invalid data
-        sessionStorage.removeItem("accessbit-userinfo");
-        sessionStorage.removeItem("accessbit-userinfo");
+        localStorage.removeItem("accessbit-userinfo");
+        localStorage.removeItem("accessbit-userinfo");
         return { user: { firstName: "", email: "" }, sessionToken: "" };
       }
     },
@@ -142,13 +142,13 @@ export function useAuth() {
         };
 
                  // Update sessionStorage
-        sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
-        sessionStorage.removeItem("explicitly_logged_out");
+        localStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
+        localStorage.removeItem("explicitly_logged_out");
 
         // Store site information after authentication (include normalized email)
         if (data.siteInfo) {
           const siteInfoWithEmail = { ...data.siteInfo, email: realEmail };
-          sessionStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
+          localStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
         }
 
         // Directly update the query data instead of invalidating
@@ -212,13 +212,13 @@ export function useAuth() {
         exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
       };
 
-            sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
-      sessionStorage.removeItem("explicitly_logged_out");
+            localStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
+      localStorage.removeItem("explicitly_logged_out");
 
       // Store site information after authentication (include normalized email)
       if (siteInfo) {
         const siteInfoWithEmail = { ...siteInfo, email: realEmail };
-        sessionStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
+        localStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
       }
 
       // Update React Query cache
@@ -234,8 +234,8 @@ export function useAuth() {
       return data;
 
     } catch (error) {
-      sessionStorage.removeItem("accessbit-userinfo");
-      sessionStorage.removeItem("accessbit-userinfo");
+      localStorage.removeItem("accessbit-userinfo");
+      localStorage.removeItem("accessbit-userinfo");
       throw error;
     }
   };
@@ -243,8 +243,8 @@ export function useAuth() {
   // Function to handle user logout
   const logout = () => {
     // Set logout flag and clear storage
-    sessionStorage.setItem("explicitly_logged_out", "true");
-    sessionStorage.removeItem("accessbit-userinfo");
+    localStorage.setItem("explicitly_logged_out", "true");
+    localStorage.removeItem("accessbit-userinfo");
     queryClient.setQueryData(["auth"], {
       user: { firstName: "", email: "" },
       sessionToken: "",
@@ -353,10 +353,10 @@ export function useAuth() {
       try {
         // IMPORTANT: Clear all old session data first to prevent cross-site contamination
         
-        sessionStorage.removeItem("accessbit-userinfo");
-        sessionStorage.removeItem("contrastkit-userinfo");
-        sessionStorage.removeItem("explicitly_logged_out");
-        sessionStorage.removeItem("siteInfo");
+        localStorage.removeItem("accessbit-userinfo");
+        localStorage.removeItem("accessbit-userinfo");
+        localStorage.removeItem("explicitly_logged_out");
+        localStorage.removeItem("siteInfo");
         
         // Get auth data from URL parameters
         const sessionToken = url.searchParams.get('sessionToken');
@@ -384,8 +384,8 @@ export function useAuth() {
         
         
         // Store in sessionStorage for persistence
-        sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
-        sessionStorage.removeItem("explicitly_logged_out");
+        localStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
+        localStorage.removeItem("explicitly_logged_out");
         
         // Clear React Query cache and update with new data
         queryClient.clear();
@@ -419,10 +419,10 @@ export function useAuth() {
         
         // IMPORTANT: Clear all old session data first to prevent cross-site contamination
         
-        sessionStorage.removeItem("accessbit-userinfo");
-        sessionStorage.removeItem("contrastkit-userinfo");
-        sessionStorage.removeItem("explicitly_logged_out");
-        sessionStorage.removeItem("siteInfo");
+        localStorage.removeItem("accessbit-userinfo");
+        localStorage.removeItem("accessbit-userinfo");
+        localStorage.removeItem("explicitly_logged_out");
+        localStorage.removeItem("siteInfo");
         
         // Store the session data from the OAuth popup
         const userData = {
@@ -442,8 +442,8 @@ export function useAuth() {
         
         
         // Store in sessionStorage for persistence
-        sessionStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
-        sessionStorage.removeItem("explicitly_logged_out");
+        localStorage.setItem("accessbit-userinfo", JSON.stringify(userData));
+        localStorage.removeItem("explicitly_logged_out");
         
         // Clear React Query cache and update with new data
         queryClient.clear();
@@ -517,7 +517,7 @@ export function useAuth() {
       
       if (!sessionToken) {
         // Fallback: get from sessionStorage
-        const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
+        const storedUser = localStorage.getItem("accessbit-userinfo") || localStorage.getItem("accessbit-userinfo");
         if (storedUser) {
           const userData = JSON.parse(storedUser);
           sessionToken = userData.sessionToken;
@@ -580,7 +580,7 @@ export function useAuth() {
       if (!sessionToken || !userEmail) {
         
         // Fallback: get from sessionStorage
-        const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
+        const storedUser = localStorage.getItem("accessbit-userinfo") || localStorage.getItem("accessbit-userinfo");
         
         
         if (storedUser) {
@@ -657,7 +657,7 @@ export function useAuth() {
     try {
       
       // Check if user was explicitly logged out
-      const wasExplicitlyLoggedOut = sessionStorage.getItem("explicitly_logged_out");
+      const wasExplicitlyLoggedOut = localStorage.getItem("explicitly_logged_out");
       if (wasExplicitlyLoggedOut) {
         
         return false;
@@ -673,7 +673,7 @@ export function useAuth() {
       
       
       // Check if there's existing auth data that might be expired or invalid
-      const storedUser = sessionStorage.getItem("accessbit-userinfo") || sessionStorage.getItem("accessbit-userinfo");
+      const storedUser = localStorage.getItem("accessbit-userinfo") || localStorage.getItem("accessbit-userinfo");
       if (storedUser) {
         try {
           const userData = JSON.parse(storedUser);
@@ -682,9 +682,9 @@ export function useAuth() {
           if (userData.siteId && userData.siteId !== currentSiteInfo.siteId) {
             
             
-            sessionStorage.removeItem('accessbit-userinfo');
-            sessionStorage.removeItem('accessbit-userinfo');
-            sessionStorage.removeItem('siteInfo');
+            localStorage.removeItem('accessbit-userinfo');
+            localStorage.removeItem('accessbit-userinfo');
+            localStorage.removeItem('siteInfo');
             
             return false; // Force silent auth for new site
           }
@@ -773,8 +773,8 @@ export function useAuth() {
       
       
       // Check what's currently in sessionStorage
-      const currentStoredData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
-      const currentStoredData2 = sessionStorage.getItem('consentbit-userinfo');
+      const currentStoredData = localStorage.getItem('accessbit-userinfo') || localStorage.getItem('accessbit-userinfo');
+      const currentStoredData2 = localStorage.getItem('consentbit-userinfo');
       
       
       
@@ -818,13 +818,13 @@ export function useAuth() {
           
           
           // Store in sessionStorage with the correct key
-          sessionStorage.setItem('accessbit-userinfo', JSON.stringify(userData));
-          sessionStorage.removeItem('explicitly_logged_out');
+          localStorage.setItem('accessbit-userinfo', JSON.stringify(userData));
+          localStorage.removeItem('explicitly_logged_out');
           
           // Also store site info separately for easy access (include email)
           if (siteInfo) {
             const siteInfoWithEmail = { ...siteInfo, email: data.email || '' };
-            sessionStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
+            localStorage.setItem('siteInfo', JSON.stringify(siteInfoWithEmail));
           }
           
           // Update React Query cache
@@ -838,7 +838,7 @@ export function useAuth() {
           });
           
           // Verify the data was stored
-          const storedData = sessionStorage.getItem('accessbit-userinfo');
+          const storedData = localStorage.getItem('accessbit-userinfo');
           
           
           return true;

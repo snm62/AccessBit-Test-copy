@@ -30,7 +30,7 @@ const App: React.FC = () => {
     const detectAppInstallation = async () => {
       try {
         // Prefer new key, fallback to legacy
-        const userData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
+        const userData = localStorage.getItem('accessbit-userinfo') || localStorage.getItem('accessbit-userinfo');
         if (userData) {
           const parsed = JSON.parse(userData);
           const { siteId, email, siteInfo } = parsed;
@@ -134,7 +134,7 @@ const App: React.FC = () => {
           setIsAuthenticated(true);
           
           // Check what's stored in sessionStorage (prefer new key)
-          const storedData = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
+          const storedData = localStorage.getItem('accessbit-userinfo') || localStorage.getItem('accessbit-userinfo');
 
           if (storedData) {
             const parsedData = JSON.parse(storedData);

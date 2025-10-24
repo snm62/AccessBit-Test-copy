@@ -14,7 +14,7 @@ export interface SiteInfo {
   email?: string;
   // Add other site info properties as needed
 }
-// ALL keys now use sessionStorage (commented out localStorage usage)
+// ALL keys now use localStorage (commented out localStorage usage)
 const ALL_KEYS = [
   'accessbit-userinfo',  // Primary key (no legacy duplicate)
   'siteInfo',
@@ -27,16 +27,16 @@ const ALL_KEYS = [
   'wf_hybrid_user'
 ];
 /**
-* Check if a key should use sessionStorage (now all keys do)
+* Check if a key should use localStorage (now all keys do)
 */
 function isSessionStorageKey(key: string): boolean {
-  return true; // All keys now use sessionStorage
+  return true; // All keys now use localStorage
 }
 /**
-* Get storage instance - now always sessionStorage
+* Get storage instance - now always localStorage
 */
 function getStorage(key: string): Storage {
-  return sessionStorage; // Always use sessionStorage now
+  return localStorage; // Always use localStorage now
 }
 /**
 * Set item in appropriate storage
@@ -63,16 +63,16 @@ export function removeAuthStorageItem(key: string): void {
   storage.removeItem(key);
 }
 /**
-* Clear all data (sessionStorage only now)
+* Clear all data (localStorage only now)
 */
 export function clearAuthData(): void {
   if (typeof window === 'undefined') return;
   const keysToRemove: string[] = [];
-  // Clear from sessionStorage
-  for (let i = 0; i < sessionStorage.length; i++) {
-    const key = sessionStorage.key(i);
+  // Clear from localStorage
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
     if (key) {
-      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
       keysToRemove.push(key);
     }
   }
@@ -86,7 +86,7 @@ export function clearAuthData(): void {
 }
 /**
 * COMMENTED OUT: Clear all app data (localStorage) but preserve auth data
-* Now everything is in sessionStorage
+* Now everything is in localStorage
 */
 export function clearAppData(): void {
   if (typeof window === 'undefined') return;
@@ -102,18 +102,18 @@ export function clearAppData(): void {
   // }
 }
 /**
-* Clear all data (sessionStorage only now)
+* Clear all data (localStorage only now)
 */
 export function clearAllData(): void {
   if (typeof window === 'undefined') return;
   // COMMENTED OUT: localStorage.clear();
-  sessionStorage.clear();
+  localStorage.clear();
 }
 /**
-* Get authentication data from sessionStorage
+* Get authentication data from localStorage
 */
 export function getAuthData(): AuthData | null {
-  // Only use the ContrastKit key
+  // Only use the AccessBit key
   const authData = getAuthStorageItem('accessbit-userinfo');
   if (!authData) return null;
   try {
@@ -123,16 +123,16 @@ export function getAuthData(): AuthData | null {
   }
 }
 /**
-* Set authentication data in sessionStorage
+* Set authentication data in localStorage
 */
 export function setAuthData(authData: AuthData): void {
-  // Store only under ContrastKit key
+  // Store only under AccessBit key
   setAuthStorageItem('accessbit-userinfo', JSON.stringify(authData));
   // Proactively remove any legacy key so it doesn't linger
   try { removeAuthStorageItem('consentbit-userinfo'); } catch {}
 }
 /**
-* Get site info from sessionStorage for a specific site
+* Get site info from localStorage for a specific site
 */
 export function getSiteInfo(siteId?: string): SiteInfo | null {
   // If no siteId provided, try to get current site ID
@@ -161,7 +161,7 @@ export function getSiteInfo(siteId?: string): SiteInfo | null {
   }
 }
 /**
-* Set site info in sessionStorage with site-specific key
+* Set site info in localStorage with site-specific key
 */
 export function setSiteInfo(siteInfo: SiteInfo): void {
   const siteSpecificKey = `siteInfo_${siteInfo.siteId}`;
@@ -186,13 +186,13 @@ export function isAuthenticated(): boolean {
   return authData.exp > now;
 }
 /**
-* Migration function to move existing data from localStorage to sessionStorage
+* Migration function to move existing data from localStorage to localStorage
 */
 export function migrateAuthDataToSessionStorage(): void {
   if (typeof window === 'undefined') return;
   const migrationStartTime = performance.now();
   // Check if migration has already been completed in this session
-  const migrationCompleted = sessionStorage.getItem('migration_completed');
+  const migrationCompleted = localStorage.getItem('migration_completed');
   if (migrationCompleted) {
     return; // Migration already done, skip expensive operations
   }
@@ -202,13 +202,13 @@ export function migrateAuthDataToSessionStorage(): void {
   essentialKeys.forEach(key => {
     const value = localStorage.getItem(key);
     if (value) {
-      sessionStorage.setItem(key, value);
+      localStorage.setItem(key, value);
       localStorage.removeItem(key);
       migratedCount++;
     }
   });
   // Mark migration as completed for this session
-  sessionStorage.setItem('migration_completed', 'true');
+  localStorage.setItem('migration_completed', 'true');
 }
 /**
 * Debug function to show current storage state
@@ -220,9 +220,9 @@ export function debugStorageState(): void {
 }
 
 /**
-* Get ContrastKit authentication data from sessionStorage
+* Get AccessBit authentication data from localStorage
 */
-export function getContrastKitAuthData(): AuthData | null {
+export function getAccessBitAuthData(): AuthData | null {
   const authData = getAuthStorageItem('accessbit-userinfo');
   if (!authData) return null;
   try {
@@ -233,17 +233,17 @@ export function getContrastKitAuthData(): AuthData | null {
 }
 
 /**
-* Set ContrastKit authentication data in sessionStorage
+* Set AccessBit authentication data in localStorage
 */
-export function setContrastKitAuthData(authData: AuthData): void {
+export function setAccessBitAuthData(authData: AuthData): void {
   setAuthStorageItem('accessbit-userinfo', JSON.stringify(authData));
 }
 
 /**
-* Check if ContrastKit user is authenticated
+* Check if AccessBit user is authenticated
 */
-export function isContrastKitAuthenticated(): boolean {
-  const authData = getContrastKitAuthData();
+export function isAccessBitAuthenticated(): boolean {
+  const authData = getAccessBitAuthData();
   if (!authData) return false;
   // Check if token is expired
   const now = Math.floor(Date.now() / 1000);

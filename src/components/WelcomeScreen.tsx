@@ -19,7 +19,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAuthorize, onNeedHelp ,
   useEffect(() => {
     // Check for user authentication data in sessionStorage and authenticated prop
     const checkUserAuth = () => {
-      const userinfo = sessionStorage.getItem("accessbit-userinfo");
+      const userinfo = localStorage.getItem("accessbit-userinfo");
       const hasData = userinfo && userinfo !== "null" && userinfo !== "undefined";
       // User has data if either authenticated prop is true OR sessionStorage has data
       setHasUserData(authenticated || !!hasData);
@@ -45,7 +45,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAuthorize, onNeedHelp ,
   // Monitor sessionStorage changes for OAuth completion
   useEffect(() => {
     const checkSessionStorage = () => {
-      const userinfo = sessionStorage.getItem("accessbit-userinfo");
+      const userinfo = localStorage.getItem("accessbit-userinfo");
       const hasData = userinfo && userinfo !== "null" && userinfo !== "undefined";
       
       if (hasData && isAuthorizing) {

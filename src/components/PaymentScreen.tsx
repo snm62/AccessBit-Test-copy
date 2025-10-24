@@ -288,7 +288,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     let siteId = null;
     
     // First try the main auth key
-    const userData = sessionStorage.getItem('accessbit-userinfo');
+    const userData = localStorage.getItem('accessbit-userinfo');
     
     if (userData) {
       try {
@@ -302,15 +302,14 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     
     // Fallback to currentSiteId
     if (!siteId) {
-      siteId = sessionStorage.getItem('currentSiteId');
+      siteId = localStorage.getItem('currentSiteId');
      
     }
     
     // Legacy fallbacks
     if (!siteId) {
-      siteId = sessionStorage.getItem('contrastkit') || 
-               sessionStorage.getItem('webflow_site_id') || 
-               sessionStorage.getItem('siteId');
+      siteId = localStorage.getItem('webflow_site_id') || 
+               localStorage.getItem('siteId');
     
     }
     
@@ -380,34 +379,14 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ onBack, onNext, customiza
     // Populate domain field after a short delay to ensure DOM is ready
     setTimeout(populateDomainField, 500);
     
-    // Add event listeners for domain field to handle paste and input events
+    // Setup domain field listeners - only for the specific domain input field
     const setupDomainFieldListeners = () => {
       const domainInput = document.getElementById('domain-url') as HTMLInputElement;
       if (domainInput) {
-        // Handle paste events
-        domainInput.addEventListener('paste', (e) => {
-          setTimeout(() => {
-            const value = domainInput.value;
-     
-            if (value && !value.includes('example.com')) {
-             
-            }
-          }, 100);
-        });
-        
-        // Handle input events
+        // Only handle events for the specific domain input field
         domainInput.addEventListener('input', (e) => {
           const value = (e.target as HTMLInputElement).value;
-        
-          if (value && !value.includes('example.com')) {
-         
-          }
-        });
-        
-        // Handle change events
-        domainInput.addEventListener('change', (e) => {
-          const value = (e.target as HTMLInputElement).value;
-          
+          // Only process the value from this specific input
         });
       }
     };

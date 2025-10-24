@@ -1,6 +1,6 @@
 {
-  "name": "ContrastKit - Accessibility Widget",
-  "short_name": "ContrastKit",
+  "name": "AccessBit - Accessibility Widget",
+  "short_name": "AccessBit",
   "description": "Accessibility customization widget for Webflow sites",
   "start_url": "/",
   "display": "standalone",

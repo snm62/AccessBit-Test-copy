@@ -299,11 +299,11 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     const urlSiteId = urlParams.get('siteId');
     
     // Check the correct sessionStorage key used by the auth system (new key with legacy fallback)
-    const contrastkitUserInfo = sessionStorage.getItem('accessbit-userinfo') || sessionStorage.getItem('accessbit-userinfo');
+    const accessbitUserInfo = localStorage.getItem('accessbit-userinfo');
     let sessionSiteId = null;
-    if (contrastkitUserInfo) {
+    if (accessbitUserInfo) {
       try {
-        const userData = JSON.parse(contrastkitUserInfo);
+        const userData = JSON.parse(accessbitUserInfo);
         sessionSiteId = userData.siteId;
         
       } catch (error) {
@@ -312,7 +312,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     }
     
     // Also check the old keys for backward compatibility
-    const oldSessionSiteId = sessionStorage.getItem('accessibility_site_id');
+    const oldSessionSiteId = localStorage.getItem('accessibility_site_id');
     const localSiteId = localStorage.getItem('accessibility_site_id');
     
 

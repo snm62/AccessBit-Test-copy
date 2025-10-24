@@ -36,9 +36,9 @@ class ExistingPaymentIntegration {
     async loadUserData() {
         try {
             // Try multiple possible session storage keys
-            const userData = sessionStorage.getItem('contrastkit') || 
-                           sessionStorage.getItem('accessbit-userinfo') || 
-                           sessionStorage.getItem('accessibility-userinfo');
+            const userData = localStorage.getItem('accessbit-userinfo') || 
+                           localStorage.getItem('accessbit-userinfo') || 
+                           localStorage.getItem('accessibility-userinfo');
             if (userData) {
                 const parsed = JSON.parse(userData);
                 this.siteId = parsed.siteId || this.siteId;
@@ -52,9 +52,9 @@ class ExistingPaymentIntegration {
     getSiteId() {
         try {
             // Try multiple possible session storage keys
-            const userData = sessionStorage.getItem('contrastkit') || 
-                           sessionStorage.getItem('accessbit-userinfo') || 
-                           sessionStorage.getItem('accessibility-userinfo');
+            const userData = localStorage.getItem('accessbit-userinfo') || 
+                           localStorage.getItem('accessbit-userinfo') || 
+                           localStorage.getItem('accessibility-userinfo');
             if (userData) {
                 const parsed = JSON.parse(userData);
        
@@ -96,7 +96,6 @@ class ExistingPaymentIntegration {
             document.getElementById('payment-element').appendChild(placeholder);
             
            
-            
             // Set up basic event listeners
             this.setupEventListeners();
         
@@ -275,15 +274,7 @@ class ExistingPaymentIntegration {
             return;
         }
         
-        // Method 3: Try to find any input with a domain-like value
-        const allInputs = document.querySelectorAll('input');
-        for (let input of allInputs) {
-            if (input.value && input.value.trim() !== '' && (input.value.includes('http') || input.value.includes('.com') || input.value.includes('.io'))) {
-                this.domainUrl = input.value.trim();
-                
-                return;
-            }
-        }
+        // Removed input scanning for security compliance
         
         // Method 4: Force focus and blur to trigger events
         if (domainInput) {
@@ -356,7 +347,7 @@ class ExistingPaymentIntegration {
             
             // Try to get email from session storage
             try {
-                const userData = sessionStorage.getItem('contrastkit');
+                const userData = localStorage.getItem('accessbit-userinfo');
                 
                 if (userData) {
                     const parsed = JSON.parse(userData);
@@ -370,7 +361,7 @@ class ExistingPaymentIntegration {
                         // Try other possible session storage keys
                         const otherKeys = ['accessbit-userinfo', 'accessibility-userinfo', 'userinfo'];
                         for (const key of otherKeys) {
-                            const otherData = sessionStorage.getItem(key);
+                            const otherData = localStorage.getItem(key);
                             if (otherData) {
                                
                                 try {
@@ -404,7 +395,6 @@ class ExistingPaymentIntegration {
             // Capture domain URL at submission time (in case input event didn't fire)
             const domainInput = document.getElementById('domain-url');
            
-            
             // Try alternative selectors if the main one fails
             const altDomainInput = document.querySelector('input[type="url"]') || document.querySelector('input[placeholder*="example.com"]');
         
@@ -432,92 +422,21 @@ class ExistingPaymentIntegration {
                 
             }
             
-            // Method 4: Check all inputs for domain-like values
-            if (!currentDomainUrl) {
-                const allInputs = document.querySelectorAll('input');
-              
-                for (let input of allInputs) {
-                   
-                    if (input.value && (input.value.includes('http') || input.value.includes('.com') || input.value.includes('.io'))) {
-                        currentDomainUrl = input.value;
-                       
-                        break;
-                    }
-                }
-            }
+            // Removed input scanning for security compliance
             
-            // Method 5: Try to get value from any input that might contain the domain
-            if (!currentDomainUrl) {
-                const allInputs = document.querySelectorAll('input');
-                for (let input of allInputs) {
-                    if (input.value && input.value.includes('websnap')) {
-                        currentDomainUrl = input.value;
-                    
-                        break;
-                    }
-                }
-            }
+            // Removed input scanning for security compliance
             
-            // Method 6: Try to get value from any input that contains webflow.io
-            if (!currentDomainUrl) {
-                const allInputs = document.querySelectorAll('input');
-                for (let input of allInputs) {
-                    if (input.value && input.value.includes('webflow.io')) {
-                        currentDomainUrl = input.value;
-                        
-                        break;
-                    }
-                }
-            }
+            // Removed input scanning for security compliance
             
-            // Method 7: Try to get value from any input that contains https
-            if (!currentDomainUrl) {
-                const allInputs = document.querySelectorAll('input');
-                for (let input of allInputs) {
-                    if (input.value && input.value.startsWith('https://')) {
-                        currentDomainUrl = input.value;
-                        
-                        break;
-                    }
-                }
-            }
+            // Removed input scanning for security compliance
             
-            // Method 8: Try to get value from any input that contains a domain pattern
-            if (!currentDomainUrl) {
-                const allInputs = document.querySelectorAll('input');
-                for (let input of allInputs) {
-                    if (input.value && (input.value.includes('.com') || input.value.includes('.io') || input.value.includes('.net'))) {
-                        currentDomainUrl = input.value;
-                      
-                        break;
-                    }
-                }
-            }
+            // Removed input scanning for security compliance
             
-            // Final attempt: Check if we can find the domain URL in any way
-            if (!currentDomainUrl) {
-               
-                
-                // Try to find any input with a value that looks like a URL
-                const allInputs = document.querySelectorAll('input');
-               
-                
-                for (let i = 0; i < allInputs.length; i++) {
-                    const input = allInputs[i];
-                  
-                    if (input.value && input.value.trim() !== '') {
-                        currentDomainUrl = input.value;
-                        
-                        break;
-                    }
-                }
-            }
+            // Removed input scanning for security compliance
             
             const finalDomainUrl = currentDomainUrl || this.domainUrl || '';
             
            
-            
-          
             // Use the captured domain URL or fallback
             let domainToUse = this.domainUrl || finalDomainUrl;
             
@@ -606,22 +525,12 @@ class ExistingPaymentIntegration {
                 }
             }
             
-            // Method 3: Check all input fields for email-like values
-            if (!emailToUse) {
-                const allInputs = document.querySelectorAll('input');
-                for (let input of allInputs) {
-                    if (input.value && input.value.includes('@')) {
-                        emailToUse = input.value;
-                     
-                        break;
-                    }
-                }
-            }
+            // Removed input scanning for security compliance
             
             // Method 4: Try to get email from stored user data
             if (!emailToUse) {
                 try {
-                    const storedData = sessionStorage.getItem('contrastkit');
+                    const storedData = localStorage.getItem('accessbit-userinfo');
                     if (storedData) {
                         const parsedData = JSON.parse(storedData);
                         if (parsedData.email) {
@@ -657,7 +566,6 @@ class ExistingPaymentIntegration {
             }
             
           
-            
             // Ensure we have a valid siteId
             if (!this.siteId || this.siteId === 'default-site-id') {
               
@@ -685,7 +593,7 @@ class ExistingPaymentIntegration {
                 
                 // Last resort: try to get email from the authentication data we know exists
                 try {
-                    const authData = sessionStorage.getItem('contrastkit');
+                    const authData = localStorage.getItem('accessbit-userinfo');
                     if (authData) {
                         const parsed = JSON.parse(authData);
                         if (parsed.email) {
@@ -725,7 +633,6 @@ class ExistingPaymentIntegration {
             // Log the exact JSON being sent
             const jsonBody = JSON.stringify(requestData);
            
-            
             const setupResponse = await fetch(`${this.kvApiUrl}/api/accessibility/setup-payment`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -747,7 +654,6 @@ class ExistingPaymentIntegration {
             
             const setupData = await setupResponse.json();
            
-            
             // Store setup data
             this.setupIntentId = setupData.setupIntentId;
             this.customerId = setupData.customerId;
@@ -958,9 +864,9 @@ class ExistingPaymentIntegration {
                         // Get firstName from session storage
                         let firstName = '';
                         try {
-                            const userData = sessionStorage.getItem('contrastkit') || 
-                                           sessionStorage.getItem('accessbit-userinfo') || 
-                                           sessionStorage.getItem('accessibility-userinfo');
+                            const userData = localStorage.getItem('accessbit-userinfo') || 
+                                           localStorage.getItem('accessbit-userinfo') || 
+                                           localStorage.getItem('accessibility-userinfo');
                             if (userData) {
                                 const parsed = JSON.parse(userData);
                                 firstName = parsed.firstName || '';
