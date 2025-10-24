@@ -1,70 +1,87 @@
-const base_url = "https://accessibility-widget.web-8fb.workers.dev";
+const base_url = "https://accessbit-test-worker.web-8fb.workers.dev";
 import { ScriptCategory, SaveCategoriesResponse, AppData } from '../types/types';
 import { ScriptRegistrationRequest, CodeApplication } from "../types/types";
 
 
 export const customCodeApi = {
-  // Register a new script
-  registerScript: async (params: ScriptRegistrationRequest, token: string) => {
-    const response = await fetch(`${base_url}/api/custom-code/register`, {
+  // Health check
+  healthCheck: async () => {
+    const response = await fetch(`${base_url}/api/health`);
+    return response.json();
+  },
+
+  // Store data in KV
+  storeData: async (key: string, value: any) => {
+    const response = await fetch(`${base_url}/api/data`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify({ key, value }),
     });
     return response.json();
   },
 
+  // Get data from KV
+  getData: async (key: string) => {
+    const response = await fetch(`${base_url}/api/data/${key}`);
+    return response.json();
+  },
 
-  //blocking script registration
+  // Get all data from KV
+  getAllData: async () => {
+    const response = await fetch(`${base_url}/api/data`);
+    return response.json();
+  },
+
+  // Update data in KV
+  updateData: async (key: string, value: any) => {
+    const response = await fetch(`${base_url}/api/data/${key}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ value }),
+    });
+    return response.json();
+  },
+
+  // Delete data from KV
+  deleteData: async (key: string) => {
+    const response = await fetch(`${base_url}/api/data/${key}`, {
+      method: "DELETE",
+    });
+    return response.json();
+  },
+
+  // Legacy methods for compatibility (mapped to new worker)
+  registerScript: async (params: ScriptRegistrationRequest, token: string) => {
+    const key = `script_${params.siteId || 'default'}`;
+    const value = { ...params, token, timestamp: new Date().toISOString() };
+    return await customCodeApi.storeData(key, value);
+  },
+
   registerAnalyticsBlockingScript: async (token: string) => {
-    try {
-      const response = await fetch(`${base_url}/api/custom-code/apply-custom-code`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          
-          'Content-Type': 'application/json'
-        },
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status}, text: ${errorText}`);
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      throw error;
-    }
+    const key = `analytics_blocking_${Date.now()}`;
+    const value = { token, type: 'analytics_blocking', timestamp: new Date().toISOString() };
+    return await customCodeApi.storeData(key, value);
   },
 
   getScripts: async (siteId: string, token: string) => {
-    const response = await fetch(
-      `${base_url}/api/custom-code/register?siteId=${siteId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    return response.json();
+    try {
+      const allData = await customCodeApi.getAllData();
+      const scripts = Object.values(allData.data || {}).filter((item: any) => 
+        item.siteId === siteId || item.token === token
+      );
+      return { success: true, scripts };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   },
 
-  // Apply script to site or page
   applyScript: async (params: CodeApplication, token: string) => {
-    const response = await fetch(`${base_url}/api/custom-code/apply`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(params),
-    });
-    return response.json();
+    const key = `applied_script_${params.targetId || 'default'}`;
+    const value = { ...params, token, timestamp: new Date().toISOString() };
+    return await customCodeApi.storeData(key, value);
   },
-
 };

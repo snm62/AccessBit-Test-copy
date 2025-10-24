@@ -7,7 +7,13 @@
     "build": "npm run build-webpack && webflow extension bundle",
     "watch-webpack": "webpack --config webpack.config.mjs --mode development --watch",
     "build-webpack": "webpack --config webpack.prod.config.mjs",
-    "lint": "eslint . --ext .ts,.tsx"
+    "lint": "eslint . --ext .ts,.tsx",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "worker:deploy:staging": "wrangler deploy --env staging",
+    "worker:deploy:prod": "wrangler deploy --env production",
+    "kv:create": "wrangler kv namespace create accessbit-test-kv",
+    "kv:list": "wrangler kv namespace list"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.23.2",

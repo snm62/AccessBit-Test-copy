@@ -42678,17 +42678,20 @@ const App = () => {
                     const hasBeenNotified = localStorage.getItem(installationKey);
                     if (!hasBeenNotified && siteId && email) {
                         // Send webhook to your worker
-                        yield fetch('https://accessibility-widget.web-8fb.workers.dev/api/webflow/app-installed', {
+                        yield fetch('https://accessbit-test-worker.web-8fb.workers.dev/api/data', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                siteId: siteId,
-                                userId: parsed.userId || 'unknown',
-                                userEmail: email,
-                                siteName: (siteInfo === null || siteInfo === void 0 ? void 0 : siteInfo.siteName) || 'Unknown Site',
-                                installationData: {
-                                    timestamp: new Date().toISOString(),
-                                    source: 'webflow_app'
+                                key: `app_install_${siteId}`,
+                                value: {
+                                    siteId: siteId,
+                                    userId: parsed.userId || 'unknown',
+                                    userEmail: email,
+                                    siteName: (siteInfo === null || siteInfo === void 0 ? void 0 : siteInfo.siteName) || 'Unknown Site',
+                                    installationData: {
+                                        timestamp: new Date().toISOString(),
+                                        source: 'webflow_app'
+                                    }
                                 }
                             })
                         });
@@ -43235,10 +43238,42 @@ const CustomizationScreen = ({ onBack, onNext, existingCustomizationData, isLoad
                 accessibilityStatementLink: accessibilityStatementLink,
                 interfaceFooterContent: interfaceFooterContent
             };
+            // Save customization data to your new worker
+            yield saveCustomizationToWorker(customizationData);
             onNext(customizationData);
         }
         catch (error) {
             alert('An error occurred while preparing data. Please try again.');
+        }
+    });
+    // Save customization data to your new worker
+    const saveCustomizationToWorker = (customizationData) => __awaiter(void 0, void 0, void 0, function* () {
+        try {
+            const siteId = yield getCurrentSiteId();
+            if (!siteId) {
+                console.warn('No site ID available for saving customization data');
+                return;
+            }
+            const response = yield fetch('https://accessbit-test-worker.web-8fb.workers.dev/api/data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    key: `config_${siteId}`,
+                    value: Object.assign(Object.assign({}, customizationData), { siteId: siteId, timestamp: new Date().toISOString(), version: '1.0.0' })
+                })
+            });
+            if (response.ok) {
+                const result = yield response.json();
+                console.log('Customization data saved to worker:', result);
+            }
+            else {
+                console.error('Failed to save customization data to worker');
+            }
+        }
+        catch (error) {
+            console.error('Error saving customization data to worker:', error);
         }
     });
     // Helper function for site ID
@@ -43266,7 +43301,7 @@ const CustomizationScreen = ({ onBack, onNext, existingCustomizationData, isLoad
         // If no URL siteId, try to get it from domain lookup
         if (sessionSiteId) {
             try {
-                const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/domain-lookup?domain=${window.location.hostname}`);
+                const response = yield fetch(`https://accessbit-test-worker.web-8fb.workers.dev/api/data/domain_${window.location.hostname}`);
                 if (response.ok) {
                     const domainData = yield response.json();
                     if (domainData.siteId) {
@@ -43284,7 +43319,7 @@ const CustomizationScreen = ({ onBack, onNext, existingCustomizationData, isLoad
     // Load customization data function
     const loadCustomizationData = (siteId) => __awaiter(void 0, void 0, void 0, function* () {
         try {
-            const response = yield fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/config?siteId=${siteId}`);
+            const response = yield fetch(`https://accessbit-test-worker.web-8fb.workers.dev/api/data/config_${siteId}`);
             if (response.ok) {
                 const data = yield response.json();
                 return data.customization;

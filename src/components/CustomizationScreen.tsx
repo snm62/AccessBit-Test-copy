@@ -284,11 +284,49 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
         interfaceFooterContent: interfaceFooterContent
       };
       
+      // Save customization data to your new worker
+      await saveCustomizationToWorker(customizationData);
       
       onNext(customizationData);
     } catch (error) {
 
       alert('An error occurred while preparing data. Please try again.');
+    }
+  };
+
+  // Save customization data to your new worker
+  const saveCustomizationToWorker = async (customizationData: any) => {
+    try {
+      const siteId = await getCurrentSiteId();
+      if (!siteId) {
+        console.warn('No site ID available for saving customization data');
+        return;
+      }
+
+      const response = await fetch('https://accessbit-test-worker.web-8fb.workers.dev/api/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key: `config_${siteId}`,
+          value: {
+            ...customizationData,
+            siteId: siteId,
+            timestamp: new Date().toISOString(),
+            version: '1.0.0'
+          }
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Customization data saved to worker:', result);
+      } else {
+        console.error('Failed to save customization data to worker');
+      }
+    } catch (error) {
+      console.error('Error saving customization data to worker:', error);
     }
   };
 
@@ -327,7 +365,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
     if (sessionSiteId) {
       try {
        
-        const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/domain-lookup?domain=${window.location.hostname}`);
+        const response = await fetch(`https://accessbit-test-worker.web-8fb.workers.dev/api/data/domain_${window.location.hostname}`);
         if (response.ok) {
           const domainData = await response.json();
           if (domainData.siteId) {
@@ -351,7 +389,7 @@ const CustomizationScreen: React.FC<CustomizationScreenProps> = ({ onBack, onNex
   const loadCustomizationData = async (siteId: string) => {
     try {
       
-      const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/config?siteId=${siteId}`);
+      const response = await fetch(`https://accessbit-test-worker.web-8fb.workers.dev/api/data/config_${siteId}`);
       
 
       

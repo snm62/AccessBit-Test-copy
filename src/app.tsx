@@ -43,17 +43,20 @@ const App: React.FC = () => {
          
             
             // Send webhook to your worker
-            await fetch('https://accessibility-widget.web-8fb.workers.dev/api/webflow/app-installed', {
+            await fetch('https://accessbit-test-worker.web-8fb.workers.dev/api/data', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                siteId: siteId,
-                userId: parsed.userId || 'unknown',
-                userEmail: email,
-                siteName: siteInfo?.siteName || 'Unknown Site',
-                installationData: {
-                  timestamp: new Date().toISOString(),
-                  source: 'webflow_app'
+                key: `app_install_${siteId}`,
+                value: {
+                  siteId: siteId,
+                  userId: parsed.userId || 'unknown',
+                  userEmail: email,
+                  siteName: siteInfo?.siteName || 'Unknown Site',
+                  installationData: {
+                    timestamp: new Date().toISOString(),
+                    source: 'webflow_app'
+                  }
                 }
               })
             });

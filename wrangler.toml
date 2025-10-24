@@ -1,0 +1,23 @@
+name = "accessbit-test-worker"
+main = "src/worker.js"
+compatibility_date = "2024-01-15"
+
+# KV Namespace binding
+[[kv_namespaces]]
+binding = "accessbit_test_kv"
+id = "054544cf9b4943cd80dfd7e057ac62ee"
+preview_id = ""
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
+
+# Production environment
+[env.production]
+name = "accessbit-prod-worker"
+vars = { ENVIRONMENT = "production" }
+
+# Staging environment  
+[env.staging]
+name = "accessbit-staging-worker"
+vars = { ENVIRONMENT = "staging" }
