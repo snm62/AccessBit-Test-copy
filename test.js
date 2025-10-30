@@ -1308,7 +1308,7 @@ class AccessibilityWidget {
                     return true;
                 }
                 const base1 = (this && this.kvApiUrl ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev').replace(/\/+$/,'');
-                const response = await fetch(`${base1}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(host)}`);
+                const response = await fetch(`${base1}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(host)}&_t=${Date.now()}`);
                 
                 // Handle rate limit errors with retry
                 if (response.status === 429) {
@@ -1316,7 +1316,7 @@ class AccessibilityWidget {
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     
                     const base2 = (this && this.kvApiUrl ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev').replace(/\/+$/,'');
-                    const retryResponse = await fetch(`${base2}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(host)}`);
+                    const retryResponse = await fetch(`${base2}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(host)}&_t=${Date.now()}`);
                     if (!retryResponse.ok) {
                         
                         return false;
