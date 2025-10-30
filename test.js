@@ -1,7 +1,6 @@
 // CRITICAL: Immediate seizure-safe check - runs before any animations can start
 (function() {
     try {
-        
         // Skip accessibility widget if in reader mode or if page is being processed for reader mode
         const isReaderMode = document.documentElement.classList.contains('reader-mode') || 
             document.body.classList.contains('reader-mode') ||
@@ -28813,7 +28812,8 @@ class AccessibilityWidget {
 
             
             try {
-                const response = await fetch(`${this.kvApiUrl}/api/accessibility/domain-lookup?domain=${hostname}`);
+                const base = (this && this.kvApiUrl) ? this.kvApiUrl.replace(/\/+$/, '') : 'https://accessbit-test-worker.web-8fb.workers.dev';
+                const response = await fetch(`${base}/api/accessibility/domain-lookup?domain=${hostname}`);
           
             
             // Handle rate limit errors with retry
@@ -28821,7 +28821,7 @@ class AccessibilityWidget {
          
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                const retryResponse = await fetch(`${this.kvApiUrl}/api/accessibility/domain-lookup?domain=${hostname}`);
+                const retryResponse = await fetch(`${base}/api/accessibility/domain-lookup?domain=${hostname}`);
                 if (retryResponse.ok) {
                     const data = await retryResponse.json();
              
@@ -28854,14 +28854,15 @@ class AccessibilityWidget {
 
             
             try {
-                const response = await fetch(`${this.kvApiUrl}/api/accessibility/domain-lookup?domain=${domainWithoutWww}`);
+                const base = (this && this.kvApiUrl) ? this.kvApiUrl.replace(/\/+$/, '') : 'https://accessbit-test-worker.web-8fb.workers.dev';
+                const response = await fetch(`${base}/api/accessibility/domain-lookup?domain=${domainWithoutWww}`);
              
                 // Handle rate limit errors with retry
                 if (response.status === 429) {
 
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     
-                    const retryResponse = await fetch(`${this.kvApiUrl}/api/accessibility/domain-lookup?domain=${domainWithoutWww}`);
+                    const retryResponse = await fetch(`${base}/api/accessibility/domain-lookup?domain=${domainWithoutWww}`);
                     if (retryResponse.ok) {
                         const data = await retryResponse.json();
 
@@ -31487,14 +31488,7 @@ class AccessibilityWidget {
                     return { hasAccess: true, isStaging: true };
                 }
                 
-                // For custom domains, check payment status
-                const siteId = sessionStorage.getItem('contrastkit') || 
-                              sessionStorage.getItem('webflow_site_id') || 
-                              sessionStorage.getItem('siteId');
-                
-                if (!siteId) {
-
-                }
+                // For custom domains, check payment status (no session/local storage reads)
                 
                 // Check payment status via API (staging free)
                 if (currentDomain.endsWith('.webflow.io')) {
