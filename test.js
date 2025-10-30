@@ -31,9 +31,6 @@
         // Check localStorage immediately for seizure-safe mode
         const seizureSafeFromStorage = localStorage.getItem('accessibility-widget-seizure-safe');
         if (seizureSafeFromStorage === 'true') {
-
-
-            
             
             document.body.classList.add('seizure-safe');
             
@@ -31363,11 +31360,24 @@ class AccessibilityWidget {
                 } catch {}
                 const visitorId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
                 const base = (this && this.kvApiUrl) ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev';
-                const resp = await fetch(`${base}/api/accessibility/validate-domain`, {
+                let resp = await fetch(`${base}/api/accessibility/validate-domain`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ domain: currentDomain, siteId: siteIdParam, token: tokenParam, ts: tsParam, visitorId })
                 });
+                if (!resp.ok) {
+                    try {
+                        const err = await resp.json();
+                        if (resp.status === 401 && err && err.error === 'token not found') {
+                            await new Promise(r => setTimeout(r, 500));
+                            resp = await fetch(`${base}/api/accessibility/validate-domain`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ domain: currentDomain, siteId: siteIdParam, token: tokenParam, ts: tsParam, visitorId })
+                            });
+                        }
+                    } catch {}
+                }
                 if (!resp.ok) {
                     return { hasAccess: false };
                 }
