@@ -31,6 +31,9 @@
         // Check localStorage immediately for seizure-safe mode
         const seizureSafeFromStorage = localStorage.getItem('accessibility-widget-seizure-safe');
         if (seizureSafeFromStorage === 'true') {
+
+
+            
             
             document.body.classList.add('seizure-safe');
             
