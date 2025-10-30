@@ -3,9 +3,7 @@
     try {
         // Skip accessibility widget if in reader mode or if page is being processed for reader mode
         const isReaderMode = document.documentElement.classList.contains('reader-mode') || 
-            
             document.body.classList.contains('reader-mode') ||
-            
             window.location.search.includes('reader-mode') ||
             document.querySelector('[data-reader-mode]') ||
             document.querySelector('.reader-mode') ||
@@ -31343,35 +31341,38 @@ class AccessibilityWidget {
                 const currentDomain = window.location.hostname;
               
                 
-                // Check if this is a staging domain (always allow)
-                const isStagingDomain = currentDomain.includes('.webflow.io') || 
-                                       currentDomain.includes('.webflow.com') || 
-                                       currentDomain.includes('localhost') ||
-                                       currentDomain.includes('127.0.0.1') ||
-                                       currentDomain.includes('staging');
-                
-                if (isStagingDomain) {
-                    
-                    return { hasAccess: true, isStaging: true };
+                // Only allow local development without validation
+                const isLocalDev = currentDomain.includes('localhost') || currentDomain.includes('127.0.0.1');
+                if (isLocalDev) {
+                    return { hasAccess: true, isStaging: false };
                 }
                 
-                // For custom domains, check payment status (no session/local storage reads)
-                
-                // Check payment status via API (staging free)
-                if (currentDomain.endsWith('.webflow.io')) {
+                // For custom domains, validate with signed token from script tag
+                let siteIdParam = null; let tsParam = null; let tokenParam = null;
+                try {
+                    const scriptEl = document.currentScript || document.querySelector('script[src*="test.js"]');
+                    if (scriptEl && scriptEl.src) {
+                        const u = new URL(scriptEl.src);
+                        siteIdParam = u.searchParams.get('siteId');
+                        tsParam = u.searchParams.get('ts');
+                        tokenParam = u.searchParams.get('token');
+                    }
+                } catch {}
+                const visitorId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+                const base = (this && this.kvApiUrl) ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev';
+                const resp = await fetch(`${base}/api/accessibility/validate-domain`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain: currentDomain, siteId: siteIdParam, token: tokenParam, ts: tsParam, visitorId })
+                });
+                if (!resp.ok) {
+                    return { hasAccess: false };
+                }
+                const v = await resp.json();
+                if (v && v.isValid) {
                     return { hasAccess: true };
                 }
-                const base = (this && this.kvApiUrl) ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev';
-                const response = await fetch(`${base}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(currentDomain)}`);
-                
-                if (!response.ok) {
-                    throw new Error(`Payment check failed: ${response.status}`);
-                }
-                
-                const paymentData = await response.json();
-                const cancelled = paymentData && (paymentData.subscriptionStatus === 'cancelled' || paymentData.paymentStatus === 'cancelled' || paymentData.isSubscribed === false);
-                const active = paymentData && (paymentData.paymentStatus === 'paid' || paymentData.subscriptionStatus === 'complete' || paymentData.subscriptionStatus === 'active' || paymentData.isSubscribed === true);
-                return { ...paymentData, hasAccess: cancelled ? false : !!active };
+                return { hasAccess: false };
                 
             } catch (error) {
                 
