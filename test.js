@@ -1307,14 +1307,16 @@ class AccessibilityWidget {
                 if (host.endsWith('.webflow.io')) {
                     return true;
                 }
-                const response = await fetch(`${this.kvApiUrl}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(host)}`);
+                const base1 = (this && this.kvApiUrl ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev').replace(/\/+$/,'');
+                const response = await fetch(`${base1}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(host)}`);
                 
                 // Handle rate limit errors with retry
                 if (response.status === 429) {
                     
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     
-                    const retryResponse = await fetch(`${this.kvApiUrl}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(host)}`);
+                    const base2 = (this && this.kvApiUrl ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev').replace(/\/+$/,'');
+                    const retryResponse = await fetch(`${base2}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(host)}`);
                     if (!retryResponse.ok) {
                         
                         return false;
@@ -1369,7 +1371,8 @@ class AccessibilityWidget {
                     }
                 } catch {}
                 const visitorId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
-                const response = await fetch(`${this.kvApiUrl}/api/accessibility/validate-domain`, {
+                const base3 = (this && this.kvApiUrl ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev').replace(/\/+$/,'');
+                const response = await fetch(`${base3}/api/accessibility/validate-domain`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ domain, siteId, siteToken: siteTokenParam, visitorId })
@@ -28666,7 +28669,8 @@ class AccessibilityWidget {
                 
                 // Add cache busting to ensure fresh data
                 const cacheBuster = `_t=${Date.now()}`;
-                const apiUrl = `${this.kvApiUrl}/api/accessibility/config?siteId=${this.siteId}&${cacheBuster}`;
+                const baseCfg = (this && this.kvApiUrl ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev').replace(/\/+$/,'');
+                const apiUrl = `${baseCfg}/api/accessibility/config?siteId=${this.siteId}&${cacheBuster}`;
                 
                 
                 const response = await fetch(apiUrl, {
@@ -31366,7 +31370,7 @@ class AccessibilityWidget {
                     }
                 } catch {}
                 const visitorId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
-                const base = (this && this.kvApiUrl) ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev';
+                const base = ((this && this.kvApiUrl) ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev').replace(/\/+$/,'');
                 let resp = await fetch(`${base}/api/accessibility/validate-domain`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
