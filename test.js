@@ -1,4 +1,4 @@
-﻿// CRITICAL: Immediate seizure-safe check - runs before any animations can start
+// CRITICAL: Immediate seizure-safe check - runs before any animations can start
 (function() {
     try {
         // Skip accessibility widget if in reader mode or if page is being processed for reader mode
@@ -1181,7 +1181,7 @@ class AccessibilityWidget {
             this.isOpeningDropdown = false; // Flag to prevent immediate close
     
             // Set the KV API URL for your worker
-            this.kvApiUrl = 'https://accessibility-widget.web-8fb.workers.dev';
+            this.kvApiUrl = 'https://accessbit-test-worker.web-8fb.workers.dev/';
             
 
             // CRITICAL: Check for seizure-safe mode immediately and apply it before any animations start
@@ -1298,40 +1298,30 @@ class AccessibilityWidget {
             }
         }
         
-        // Check payment status
+        // Check payment status (staging free, custom domains require active paid)
         async checkPaymentStatus() {
             
             
             try {
-                const siteId = await this.getSiteId();
-                if (!siteId) {
-                    
-                    return false;
+                // Staging sites are free
+                const host = window.location.hostname || '';
+                if (host.endsWith('.webflow.io')) {
+                    return true;
                 }
-                
-                const response = await fetch(`${this.kvApiUrl}/api/accessibility/check-payment-status?siteId=${siteId}&domain=${encodeURIComponent(window.location.hostname)}`);
+                const response = await fetch(`${this.kvApiUrl}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(host)}`);
                 
                 // Handle rate limit errors with retry
                 if (response.status === 429) {
                     
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     
-                    const retryResponse = await fetch(`${this.kvApiUrl}/api/accessibility/check-payment-status?siteId=${siteId}&domain=${encodeURIComponent(window.location.hostname)}`);
+                    const retryResponse = await fetch(`${this.kvApiUrl}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(host)}`);
                     if (!retryResponse.ok) {
                         
                         return false;
                     }
                     
                     const paymentData = await retryResponse.json();
-                    
-                    
-                    
-                    
-                    
-                    
-                    for (const [key, value] of Object.entries(paymentData)) {
-                        
-                    }
                     return this.processPaymentResponse(paymentData);
                 }
                 
@@ -1342,13 +1332,6 @@ class AccessibilityWidget {
                 
                 const paymentData = await response.json();
                 
-                
-                
-                
-                
-                for (const [key, value] of Object.entries(paymentData)) {
-                    
-                }
                 return this.processPaymentResponse(paymentData);
                 
             } catch (error) {
@@ -1362,14 +1345,12 @@ class AccessibilityWidget {
             
             
             
-            // Check if payment is active
-            if (paymentData.hasAccess === false) {
-                
-                return false;
-            }
-            
-            
-            return paymentData.hasAccess === true;
+            // Determine active/cancelled from Stripe-derived fields
+            if (!paymentData || typeof paymentData !== 'object') return false;
+            const cancelled = paymentData.subscriptionStatus === 'cancelled' || paymentData.paymentStatus === 'cancelled' || paymentData.isSubscribed === false;
+            if (cancelled) return false;
+            const active = paymentData.paymentStatus === 'paid' || paymentData.subscriptionStatus === 'complete' || paymentData.subscriptionStatus === 'active' || paymentData.isSubscribed === true;
+            return !!active;
         }
         
         // Validate domain access
@@ -31514,17 +31495,20 @@ class AccessibilityWidget {
 
                 }
                 
-                // Check payment status via API
-                const response = await fetch(`https://accessibility-widget.web-8fb.workers.dev/api/accessibility/check-payment-status?domain=${encodeURIComponent(currentDomain)}${siteId ? `&siteId=${siteId}` : ''}`);
+                // Check payment status via API (staging free)
+                if (currentDomain.endsWith('.webflow.io')) {
+                    return { hasAccess: true };
+                }
+                const response = await fetch(`${kvApiUrl || this.kvApiUrl}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(currentDomain)}`);
                 
                 if (!response.ok) {
                     throw new Error(`Payment check failed: ${response.status}`);
                 }
                 
                 const paymentData = await response.json();
-               
-                
-                return paymentData;
+                const cancelled = paymentData && (paymentData.subscriptionStatus === 'cancelled' || paymentData.paymentStatus === 'cancelled' || paymentData.isSubscribed === false);
+                const active = paymentData && (paymentData.paymentStatus === 'paid' || paymentData.subscriptionStatus === 'complete' || paymentData.subscriptionStatus === 'active' || paymentData.isSubscribed === true);
+                return { ...paymentData, hasAccess: cancelled ? false : !!active };
                 
             } catch (error) {
                 
