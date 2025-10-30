@@ -1359,11 +1359,20 @@ class AccessibilityWidget {
             try {
                 const siteId = await this.getSiteId();
                 const domain = window.location.hostname;
-                
+                // Read siteToken from this script tag
+                let siteTokenParam = null;
+                try {
+                    const scriptEl = document.currentScript || document.querySelector('script[src*="test.js"]');
+                    if (scriptEl && scriptEl.src) {
+                        const u = new URL(scriptEl.src);
+                        siteTokenParam = u.searchParams.get('siteToken');
+                    }
+                } catch {}
+                const visitorId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
                 const response = await fetch(`${this.kvApiUrl}/api/accessibility/validate-domain`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ domain, siteId })
+                    body: JSON.stringify({ domain, siteId, siteToken: siteTokenParam, visitorId })
                 });
                 
                 if (!response.ok) return false;
