@@ -31499,7 +31499,8 @@ class AccessibilityWidget {
                 if (currentDomain.endsWith('.webflow.io')) {
                     return { hasAccess: true };
                 }
-                const response = await fetch(`${kvApiUrl || this.kvApiUrl}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(currentDomain)}`);
+                const base = (this && this.kvApiUrl) ? this.kvApiUrl : 'https://accessbit-test-worker.web-8fb.workers.dev';
+                const response = await fetch(`${base}/api/stripe/customer-data-by-domain?domain=${encodeURIComponent(currentDomain)}`);
                 
                 if (!response.ok) {
                     throw new Error(`Payment check failed: ${response.status}`);
