@@ -1258,9 +1258,8 @@ class AccessibilityWidget {
             try {
                 const siteId = await this.getSiteId();
                 if (!siteId) return false;
-                
-                const response = await fetch(`${this.kvApiUrl}/api/accessibility/user-data?siteId=${siteId}`);
-                return response.ok;
+                // Endpoint deprecated; consider presence of siteId sufficient
+                return true;
             } catch (error) {
                 return false;
             }
@@ -31348,14 +31347,13 @@ class AccessibilityWidget {
                 }
                 
                 // For custom domains, validate with signed token from script tag
-                let siteIdParam = null; let tsParam = null; let tokenParam = null;
+                let siteIdParam = null; let siteTokenParam = null;
                 try {
                     const scriptEl = document.currentScript || document.querySelector('script[src*="test.js"]');
                     if (scriptEl && scriptEl.src) {
                         const u = new URL(scriptEl.src);
                         siteIdParam = u.searchParams.get('siteId');
-                        tsParam = u.searchParams.get('ts');
-                        tokenParam = u.searchParams.get('token');
+                        siteTokenParam = u.searchParams.get('siteToken');
                     }
                 } catch {}
                 const visitorId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
@@ -31363,17 +31361,17 @@ class AccessibilityWidget {
                 let resp = await fetch(`${base}/api/accessibility/validate-domain`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ domain: currentDomain, siteId: siteIdParam, token: tokenParam, ts: tsParam, visitorId })
+                    body: JSON.stringify({ domain: currentDomain, siteId: siteIdParam, siteToken: siteTokenParam, visitorId })
                 });
                 if (!resp.ok) {
                     try {
                         const err = await resp.json();
-                        if (resp.status === 401 && err && err.error === 'token not found') {
+                        if (resp.status === 401 && err && err.error) {
                             await new Promise(r => setTimeout(r, 500));
                             resp = await fetch(`${base}/api/accessibility/validate-domain`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ domain: currentDomain, siteId: siteIdParam, token: tokenParam, ts: tsParam, visitorId })
+                                body: JSON.stringify({ domain: currentDomain, siteId: siteIdParam, siteToken: siteTokenParam, visitorId })
                             });
                         }
                     } catch {}
