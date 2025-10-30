@@ -1,6 +1,7 @@
 // CRITICAL: Immediate seizure-safe check - runs before any animations can start
 (function() {
     try {
+        
         // Skip accessibility widget if in reader mode or if page is being processed for reader mode
         const isReaderMode = document.documentElement.classList.contains('reader-mode') || 
             document.body.classList.contains('reader-mode') ||
