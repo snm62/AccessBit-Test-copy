@@ -5,6 +5,7 @@
         const isReaderMode = document.documentElement.classList.contains('reader-mode') || 
             
             document.body.classList.contains('reader-mode') ||
+            
             window.location.search.includes('reader-mode') ||
             document.querySelector('[data-reader-mode]') ||
             document.querySelector('.reader-mode') ||
