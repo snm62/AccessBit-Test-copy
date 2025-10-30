@@ -28738,153 +28738,18 @@ class AccessibilityWidget {
             });
         }
     
-        // Get site ID for API calls
+        // Get site ID for API calls via script tag (no storage, no mapping)
         async getSiteId() {
-          
-        
-        // Method 1: Check sessionStorage first (set during authorization)
-        let siteId = sessionStorage.getItem('accessibility_site_id');
-        if (siteId) {
-     
-            return siteId;
-        }
-        
-        // Method 2: Check if siteId was embedded by the script injection
-        if (window.ACCESSIBILITY_SITE_ID) {
-          
-            return window.ACCESSIBILITY_SITE_ID;
-        }
-        
-        // Method 3: Check if siteId is in the URL
-        const urlParams = new URLSearchParams(window.location.search);
-        siteId = urlParams.get('siteId');
-        if (siteId) {
-        
-            return siteId;
-        }
-        
-        // Method 4: Check localStorage
-        siteId = localStorage.getItem('accessibility_site_id');
-        if (siteId) {
-      
-            return siteId;
-        }
-        
-        // Method 4.5: Check sessionStorage for Apps & Integrations flow
-        const sessionData = sessionStorage.getItem('wf_hybrid_user');
-        if (sessionData) {
-            try {
-                const parsed = JSON.parse(sessionData);
-                if (parsed.siteInfo && parsed.siteInfo.siteId) {
-
-                    return parsed.siteInfo.siteId;
-                }
-            } catch (error) {
-    
+          try {
+            const scriptEl = document.currentScript || document.querySelector('script[src*="test.js"]');
+            if (scriptEl && scriptEl.src) {
+              const u = new URL(scriptEl.src);
+              const sid = u.searchParams.get('siteId');
+              if (sid) return sid;
             }
+          } catch {}
+          return null;
         }
-        
-        // Method 5: Check meta tags
-        const metaSiteId = document.querySelector('meta[name="site-id"]');
-        if (metaSiteId) {
-            siteId = metaSiteId.getAttribute('content');
-          
-            return siteId;
-        }
-        
-        // Method 6: Check body data attribute
-        const bodySiteId = document.body.getAttribute('data-site-id');
-        if (bodySiteId) {
-            siteId = bodySiteId;
-            
-            return siteId;
-        }
-        
-            // Method 7: Domain-based lookup (NEW - This is the key!)
-            const hostname = window.location.hostname;
-
-            
-            if (!this.kvApiUrl) {
-            
-                return null;
-            }
-            
-
-            
-            try {
-                const base = (this && this.kvApiUrl) ? this.kvApiUrl.replace(/\/+$/, '') : 'https://accessbit-test-worker.web-8fb.workers.dev';
-                const response = await fetch(`${base}/api/accessibility/domain-lookup?domain=${hostname}`);
-          
-            
-            // Handle rate limit errors with retry
-            if (response.status === 429) {
-         
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                const retryResponse = await fetch(`${base}/api/accessibility/domain-lookup?domain=${hostname}`);
-                if (retryResponse.ok) {
-                    const data = await retryResponse.json();
-             
-                    return data.siteId;
-                } else {
-                   
-                }
-            } else if (response.ok) {
-                const data = await response.json();
-             
-                return data.siteId;
-            } else {
-                const errorText = await response.text();
-                
-            }
-        } catch (error) {
-       
-        }
-        
-        // Method 8: Try without www prefix
-        if (hostname.startsWith('www.')) {
-            const domainWithoutWww = hostname.substring(4);
-        
-            
-            if (!this.kvApiUrl) {
-
-                return null;
-            }
-            
-
-            
-            try {
-                const base = (this && this.kvApiUrl) ? this.kvApiUrl.replace(/\/+$/, '') : 'https://accessbit-test-worker.web-8fb.workers.dev';
-                const response = await fetch(`${base}/api/accessibility/domain-lookup?domain=${domainWithoutWww}`);
-             
-                // Handle rate limit errors with retry
-                if (response.status === 429) {
-
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    
-                    const retryResponse = await fetch(`${base}/api/accessibility/domain-lookup?domain=${domainWithoutWww}`);
-                    if (retryResponse.ok) {
-                        const data = await retryResponse.json();
-
-                        return data.siteId;
-                    } else {
-
-                    }
-                } else if (response.ok) {
-                    const data = await response.json();
-                    
-                    return data.siteId;
-                } else {
-                    const errorText = await response.text();
-                    
-                }
-            } catch (error) {
-               
-            }
-        }
-        
-        return null;
-    }
     
     applyCustomizations(customizationData) {
         
