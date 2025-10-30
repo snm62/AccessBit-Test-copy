@@ -31549,8 +31549,8 @@ class AccessibilityWidget {
         
         // Final reader mode check - prevent any widget initialization in reader mode
         const checkReaderMode = () => {
-            if (document.documentElement.classList.contains('reader-mode') || 
-                document.body.classList.contains('reader-mode') ||
+            if ((document.documentElement && document.documentElement.classList && document.documentElement.classList.contains('reader-mode')) || 
+                (document.body && document.body.classList && document.body.classList.contains('reader-mode')) ||
                 window.location.search.includes('reader-mode') ||
                 document.querySelector('[data-reader-mode]') ||
                 document.querySelector('.reader-mode') ||
